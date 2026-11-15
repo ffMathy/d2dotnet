@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>D2Dotnet.Map.Drlg</RootNamespace>
+    <Description>Pure C# Diablo II level generator (DRLG), ported from libd2.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../D2Dotnet.Map.GameData/D2Dotnet.Map.GameData.csproj" />
+  </ItemGroup>
+</Project>
