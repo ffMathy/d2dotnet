@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>D2Dotnet.Diablo2.Mpq</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../D2Dotnet.Diablo2.Binary/D2Dotnet.Diablo2.Binary.csproj" />
+  </ItemGroup>
+</Project>

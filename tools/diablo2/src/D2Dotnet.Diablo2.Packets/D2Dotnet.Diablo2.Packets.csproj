@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>D2Dotnet.Diablo2.Packets</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../D2Dotnet.Diablo2.Data/D2Dotnet.Diablo2.Data.csproj" />
+    <ProjectReference Include="../D2Dotnet.Diablo2.Binary/D2Dotnet.Diablo2.Binary.csproj" />
+  </ItemGroup>
+</Project>

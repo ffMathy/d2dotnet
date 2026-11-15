@@ -1,0 +1,35 @@
+<Solution>
+  <Folder Name="/tools/" />
+  <Folder Name="/tools/diablo2/" />
+  <Folder Name="/tools/diablo2/src/">
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.Binary/D2Dotnet.Diablo2.Binary.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.BinTools.Cli/D2Dotnet.Diablo2.BinTools.Cli.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.BinTools/D2Dotnet.Diablo2.BinTools.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.Core/D2Dotnet.Diablo2.Core.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.Data/D2Dotnet.Diablo2.Data.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.Huffman/D2Dotnet.Diablo2.Huffman.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.Map/D2Dotnet.Diablo2.Map.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.Memory.Cli/D2Dotnet.Diablo2.Memory.Cli.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.Memory/D2Dotnet.Diablo2.Memory.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.Mpq/D2Dotnet.Diablo2.Mpq.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.Packets/D2Dotnet.Diablo2.Packets.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.Sniffer.Cli/D2Dotnet.Diablo2.Sniffer.Cli.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.Sniffer/D2Dotnet.Diablo2.Sniffer.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.State/D2Dotnet.Diablo2.State.csproj" />
+    <Project Path="tools/diablo2/src/D2Dotnet.Diablo2.Viewer/D2Dotnet.Diablo2.Viewer.csproj" />
+  </Folder>
+  <Folder Name="/tools/diablo2/tests/">
+    <Project Path="tools/diablo2/tests/D2Dotnet.Diablo2.Binary.Tests/D2Dotnet.Diablo2.Binary.Tests.csproj" />
+    <Project Path="tools/diablo2/tests/D2Dotnet.Diablo2.BinTools.Tests/D2Dotnet.Diablo2.BinTools.Tests.csproj" />
+    <Project Path="tools/diablo2/tests/D2Dotnet.Diablo2.Core.Tests/D2Dotnet.Diablo2.Core.Tests.csproj" />
+    <Project Path="tools/diablo2/tests/D2Dotnet.Diablo2.Data.Tests/D2Dotnet.Diablo2.Data.Tests.csproj" />
+    <Project Path="tools/diablo2/tests/D2Dotnet.Diablo2.Huffman.Tests/D2Dotnet.Diablo2.Huffman.Tests.csproj" />
+    <Project Path="tools/diablo2/tests/D2Dotnet.Diablo2.Map.Tests/D2Dotnet.Diablo2.Map.Tests.csproj" />
+    <Project Path="tools/diablo2/tests/D2Dotnet.Diablo2.Memory.Tests/D2Dotnet.Diablo2.Memory.Tests.csproj" />
+    <Project Path="tools/diablo2/tests/D2Dotnet.Diablo2.Mpq.Tests/D2Dotnet.Diablo2.Mpq.Tests.csproj" />
+    <Project Path="tools/diablo2/tests/D2Dotnet.Diablo2.Packets.Tests/D2Dotnet.Diablo2.Packets.Tests.csproj" />
+    <Project Path="tools/diablo2/tests/D2Dotnet.Diablo2.Sniffer.Tests/D2Dotnet.Diablo2.Sniffer.Tests.csproj" />
+    <Project Path="tools/diablo2/tests/D2Dotnet.Diablo2.State.Tests/D2Dotnet.Diablo2.State.Tests.csproj" />
+    <Project Path="tools/diablo2/tests/D2Dotnet.Diablo2.Viewer.Tests/D2Dotnet.Diablo2.Viewer.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>D2Dotnet.Diablo2.Sniffer</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../D2Dotnet.Diablo2.BinTools/D2Dotnet.Diablo2.BinTools.csproj" />
+    <ProjectReference Include="../D2Dotnet.Diablo2.Core/D2Dotnet.Diablo2.Core.csproj" />
+    <ProjectReference Include="../D2Dotnet.Diablo2.Data/D2Dotnet.Diablo2.Data.csproj" />
+    <ProjectReference Include="../D2Dotnet.Diablo2.Packets/D2Dotnet.Diablo2.Packets.csproj" />
+    <ProjectReference Include="../D2Dotnet.Diablo2.Huffman/D2Dotnet.Diablo2.Huffman.csproj" />
+  </ItemGroup>
+</Project>
