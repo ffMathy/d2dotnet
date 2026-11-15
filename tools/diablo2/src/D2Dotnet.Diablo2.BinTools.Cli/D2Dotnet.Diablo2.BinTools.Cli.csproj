@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <RootNamespace>D2Dotnet.Diablo2.BinTools.Cli</RootNamespace>
-    <OutputType>Exe</OutputType>
-  </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="../D2Dotnet.Diablo2.BinTools/D2Dotnet.Diablo2.BinTools.csproj" />
-  </ItemGroup>
-</Project>

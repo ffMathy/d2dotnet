@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace D2Dotnet.Diablo2.Binary;
+namespace D2Dotnet.Map.Binary;
 
 /// <summary>Hex helpers (binparse <c>toHex</c>).</summary>
 public static class Hex

@@ -1,5 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <ProjectReference Include="../../src/D2Dotnet.Diablo2.Viewer/D2Dotnet.Diablo2.Viewer.csproj" />
-  </ItemGroup>
-</Project>

@@ -1,5 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <RootNamespace>D2Dotnet.Diablo2.Huffman</RootNamespace>
-  </PropertyGroup>
-</Project>

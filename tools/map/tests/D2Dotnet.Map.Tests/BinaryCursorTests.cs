@@ -1,6 +1,6 @@
-using D2Dotnet.Diablo2.Binary;
+using D2Dotnet.Map.Binary;
 
-namespace D2Dotnet.Diablo2.Binary.Tests;
+namespace D2Dotnet.Map.Tests;
 
 public class BinaryCursorTests
 {

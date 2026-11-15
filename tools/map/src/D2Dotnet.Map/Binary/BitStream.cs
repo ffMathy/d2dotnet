@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace D2Dotnet.Diablo2.Binary;
+namespace D2Dotnet.Map.Binary;
 
 /// <summary>
 /// Little-endian (LSB first) bit reader. Port of binparse's <c>BitStream</c>.

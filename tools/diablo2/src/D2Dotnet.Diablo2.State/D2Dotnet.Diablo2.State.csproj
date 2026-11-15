@@ -1,8 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <RootNamespace>D2Dotnet.Diablo2.State</RootNamespace>
-  </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="../D2Dotnet.Diablo2.Data/D2Dotnet.Diablo2.Data.csproj" />
-  </ItemGroup>
-</Project>

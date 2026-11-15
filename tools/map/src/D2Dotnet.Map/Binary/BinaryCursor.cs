@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 
-namespace D2Dotnet.Diablo2.Binary;
+namespace D2Dotnet.Map.Binary;
 
 /// <summary>
 /// Sequential little-endian reader over a byte buffer.
