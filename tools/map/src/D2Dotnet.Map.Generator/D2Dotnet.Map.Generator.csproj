@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    d2-map: C# port of the native C map generator of blacha/diablo2 (packages/map/map).
+    It loads the 32-bit Diablo 2 DLLs into its own process, so it must run as a 32-bit Windows
+    process (win-x86), typically under wine with WINEARCH=win32. See README.md.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>d2-map</AssemblyName>
+    <RootNamespace>D2Dotnet.Map.Generator</RootNamespace>
+    <RuntimeIdentifier>win-x86</RuntimeIdentifier>
+    <PlatformTarget>x86</PlatformTarget>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- Wine 9 cannot map System.Private.CoreLib from inside the bundle (ERROR_MAPPED_ALIGNMENT);
+         extracting all content to disk on first start avoids that. -->
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../D2Dotnet.Map.Generator.Core/D2Dotnet.Map.Generator.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    GIT_VERSION / GIT_HASH: upstream passes these as -D defines from build.mapgen.sh
+    (env var if set, otherwise `git describe` / `git rev-parse`). Same here, baked into
+    AssemblyMetadata attributes. Override with -p:GitVersion=... -p:GitHash=...
+  -->
+  <PropertyGroup>
+    <GitVersion Condition="'$(GitVersion)' == ''">$(GIT_VERSION)</GitVersion>
+    <GitHash Condition="'$(GitHash)' == ''">$(GIT_HASH)</GitHash>
+  </PropertyGroup>
+  <Target Name="D2MapGitInfo" BeforeTargets="GetAssemblyAttributes">
+    <Exec Condition="'$(GitVersion)' == ''" Command="git describe --abbrev=4 --dirty --always --tags" WorkingDirectory="$(MSBuildProjectDirectory)" ConsoleToMSBuild="true" IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_D2MapGitVersion" />
+      <Output TaskParameter="ExitCode" PropertyName="_D2MapGitVersionExit" />
+    </Exec>
+    <Exec Condition="'$(GitHash)' == ''" Command="git rev-parse HEAD" WorkingDirectory="$(MSBuildProjectDirectory)" ConsoleToMSBuild="true" IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_D2MapGitHash" />
+      <Output TaskParameter="ExitCode" PropertyName="_D2MapGitHashExit" />
+    </Exec>
+    <PropertyGroup>
+      <GitVersion Condition="'$(GitVersion)' == '' and '$(_D2MapGitVersionExit)' == '0'">$(_D2MapGitVersion)</GitVersion>
+      <GitHash Condition="'$(GitHash)' == '' and '$(_D2MapGitHashExit)' == '0'">$(_D2MapGitHash)</GitHash>
+      <GitVersion Condition="'$(GitVersion)' == ''">unknown</GitVersion>
+      <GitHash Condition="'$(GitHash)' == ''">unknown</GitHash>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyMetadata Include="GitVersion" Value="$(GitVersion)" />
+      <AssemblyMetadata Include="GitHash" Value="$(GitHash)" />
+    </ItemGroup>
+  </Target>
+</Project>

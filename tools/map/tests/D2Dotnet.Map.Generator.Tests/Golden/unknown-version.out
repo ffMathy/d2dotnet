@@ -1,0 +1,4 @@
+{"level":30,"time":1000,"source":"map/main.c:91","msg":"Cli:Start","version":"v-test","hash":"abc123"}
+{"level":20,"time":1000,"source":"map/main.c:124","msg":"Cli:Arg","game":"C:/nothing"}
+{"level":20,"time":1000,"source":"map/d2_client.c:147","msg":"Init:Dll","path":"C:/nothing"}
+{"level":50,"time":1000,"source":"map/d2_client.c:151","msg":"Init:Failed:UnknownGameVersion","path":"C:/nothing"}
