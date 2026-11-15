@@ -77,4 +77,33 @@ public class CParseTests
         Assert.Equal("$exit", r.Fgets());
         Assert.Null(r.Fgets());
     }
+
+    [Fact]
+    public void FgetsTextModeTranslatesCrLfAndKeepsLoneCr()
+    {
+        var r = new CLineReader(new MemoryStream(Encoding.Latin1.GetBytes("$seed 1\r\n$map\rx\r\n$exit\r")), 1024, textMode: true);
+        Assert.Equal("$seed 1\n", r.Fgets());
+        Assert.Equal("$map\rx\n", r.Fgets());
+        Assert.Equal("$exit\r", r.Fgets());
+        Assert.Null(r.Fgets());
+    }
+
+    [Fact]
+    public void FgetsTextModeStopsAtCtrlZ()
+    {
+        var r = new CLineReader(new MemoryStream(Encoding.Latin1.GetBytes("$seed 1\n$m\u001aap\n$exit\n")), 1024, textMode: true);
+        Assert.Equal("$seed 1\n", r.Fgets());
+        Assert.Equal("$m", r.Fgets());
+        Assert.Null(r.Fgets());
+        Assert.Null(r.Fgets());
+    }
+
+    [Fact]
+    public void FgetsBinaryModeKeepsCrAndCtrlZ()
+    {
+        var r = new CLineReader(new MemoryStream(Encoding.Latin1.GetBytes("a\r\n\u001ab\n")), 1024);
+        Assert.Equal("a\r\n", r.Fgets());
+        Assert.Equal("\u001ab\n", r.Fgets());
+        Assert.Null(r.Fgets());
+    }
 }

@@ -15,10 +15,12 @@ public sealed class GeneratorContext
         IModuleLoader modules,
         IFileProbe files,
         string gitVersion,
-        string gitHash)
+        string gitHash,
+        bool textMode = false)
     {
-        Stdout = new CStream(stdout);
-        Stderr = new CStream(stderr, unbuffered: true);
+        TextMode = textMode;
+        Stdout = new CStream(stdout, textMode: textMode);
+        Stderr = new CStream(stderr, unbuffered: true, textMode: textMode);
         Json = new JsonWriter(Stdout);
         Log = new Logger(Stdout, clock);
         Platform = platform;
@@ -28,6 +30,12 @@ public sealed class GeneratorContext
         GitVersion = gitVersion;
         GitHash = gitHash;
     }
+
+    /// <summary>
+    /// msvcrt text mode for stdin/stdout/stderr ("\n" written as "\r\n", "\r\n" read as "\n",
+    /// Ctrl-Z ends stdin), as in the upstream Windows build. On in the exe, off in the golden tests.
+    /// </summary>
+    public bool TextMode { get; }
 
     /// <summary>C stdout (fully buffered, flushed by json_end / log_process / exit).</summary>
     public CStream Stdout { get; }

@@ -351,6 +351,35 @@ public class ProgramTests
     }
 
     [Fact]
+    public void TextModeUsageIsCrLf()
+    {
+        var bin = new Harness();
+        Run(bin, "");
+        var text = new Harness(true);
+        Assert.Equal(1, Run(text, ""));
+        Assert.Contains('\n', bin.Out);
+        Assert.Equal(bin.Out.Replace("\n", "\r\n", StringComparison.Ordinal), text.Out);
+    }
+
+    [Fact]
+    public void TextModeStdinProtocolMatchesBinaryWithCrLf()
+    {
+        // The session as the upstream Windows exe sees it: CRLF commands in, CRLF lines out, and a
+        // Ctrl-Z byte ends the command loop (the commands after it are never read).
+        var bin = new Harness(TestWorld.Folder + "\\Game.exe");
+        _ = new TestWorld(bin.Game);
+        var binCode = Run(bin, "$seed 10\n$difficulty 2\n$act 0\n$map\n", TestWorld.Folder);
+
+        var text = new Harness(true, TestWorld.Folder + "\\Game.exe");
+        _ = new TestWorld(text.Game);
+        var textCode = Run(text, "$seed 10\r\n$difficulty 2\r\n$act 0\r\n$map\r\n\u001a$seed 99\r\n$map\r\n", TestWorld.Folder);
+
+        Assert.Equal(binCode, textCode);
+        Assert.Equal(bin.Out.Replace("\n", "\r\n", StringComparison.Ordinal), text.Out);
+        Assert.DoesNotContain("\"seed\":99", text.Out, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void StdinProtocol()
     {
         var h = new Harness(TestWorld.Folder + "\\Game.exe");

@@ -57,6 +57,15 @@ wine d2-map.exe /path/to/game                                         # stdin pr
   against `offsetof`/`sizeof` from mingw; output is compared with golden files produced by the
   upstream C code itself (`tests/.../CReference/generate_golden.py`).
 
+## Text-mode stdio
+
+The upstream exe is built with mingw without `binmode.o` or `_setmode`, so msvcrt keeps stdin,
+stdout and stderr in text mode. The port copies that: every `\n` it writes (JSON lines, log lines,
+usage text, the exception message on stderr) goes out as `\r\n`; on stdin `\r\n` is read as `\n`
+(a lone `\r` is kept) and a `0x1A` (Ctrl-Z) byte ends input like EOF. The golden tests compare
+against a Linux build of the C code, so they run with text mode off; separate tests pin the
+CRLF bytes and the stdin translation.
+
 ## Deviations
 
 * Magic jump targets are the upstream constants (0x6faf559b / 0x6faf454b) when D2Client.dll is at its

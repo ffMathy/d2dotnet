@@ -6,7 +6,8 @@ namespace D2Dotnet.Map.Generator.Interop;
 /// <summary>Functions whose addresses are handed to the game (d2_client.c).</summary>
 internal static unsafe class Callbacks
 {
-    private static readonly byte[] ErrorMessage = "\n] We got a big Error here! [\n"u8.ToArray();
+    // fprintf(stderr, "\n] We got a big Error here! [\n") on a text-mode stderr: each '\n' is "\r\n".
+    private static readonly byte[] ErrorMessage = "\r\n] We got a big Error here! [\r\n"u8.ToArray();
 
     /// <summary>Address of the static d2client_struct (<c>D2Client</c> global in C).</summary>
     internal static uint D2ClientStruct;

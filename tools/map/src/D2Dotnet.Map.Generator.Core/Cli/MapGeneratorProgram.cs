@@ -214,7 +214,7 @@ public sealed class MapGeneratorProgram
         Json.KeyValue("type", "init");
         Json.End();
 
-        var reader = new CLineReader(stdin, INPUT_BUFFER);
+        var reader = new CLineReader(stdin, INPUT_BUFFER, _ctx.TextMode);
         /* Read in seed/Difficulty then generate all the maps */
         while (reader.Fgets() is { } buffer)
         {

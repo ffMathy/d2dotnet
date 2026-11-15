@@ -164,6 +164,28 @@ public class CStreamTests
     }
 
     [Fact]
+    public void TextModeWritesCrLfLikeMsvcrt()
+    {
+        // mingw printf("\n{"); fprintf(stdout, "}\n"); on a text-mode stdout: \r \n { } \r \n
+        var ms = new MemoryStream();
+        var s = new CStream(ms, textMode: true);
+        s.Write("\n{");
+        s.Write("}\n");
+        s.Flush();
+        Assert.Equal("\r\n{}\r\n"u8.ToArray(), ms.ToArray());
+    }
+
+    [Fact]
+    public void BinaryModeKeepsLf()
+    {
+        var ms = new MemoryStream();
+        var s = new CStream(ms);
+        s.Write("\n{}\n");
+        s.Flush();
+        Assert.Equal("\n{}\n"u8.ToArray(), ms.ToArray());
+    }
+
+    [Fact]
     public void UnbufferedWritesImmediately()
     {
         var ms = new MemoryStream();

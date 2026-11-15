@@ -149,18 +149,59 @@ public static class CParse
     }
 }
 
-/// <summary><c>fgets(buffer, size, stdin)</c> over a byte stream (Latin-1 decoded).</summary>
+/// <summary>
+/// <c>fgets(buffer, size, stdin)</c> over a byte stream (Latin-1 decoded). With <c>textMode</c>
+/// on it reads like msvcrt text-mode stdin of the upstream mingw build: "\r\n" becomes "\n" (a
+/// lone '\r' is kept) and a 0x1A (Ctrl-Z) byte is end of file from then on.
+/// </summary>
 public sealed class CLineReader
 {
+    private const int CtrlZ = 0x1A;
+
     private readonly Stream _stream;
     private readonly int _size;
+    private readonly bool _textMode;
+    private int _pending = -2;
+    private bool _eof;
 
     /// <param name="stream">stdin.</param>
     /// <param name="size">Buffer size; at most <c>size - 1</c> bytes are returned per call.</param>
-    public CLineReader(Stream stream, int size)
+    /// <param name="textMode">Translate like msvcrt text mode (see the class summary).</param>
+    public CLineReader(Stream stream, int size, bool textMode = false)
     {
         _stream = stream;
         _size = size;
+        _textMode = textMode;
+    }
+
+    private int RawByte()
+    {
+        if (_pending != -2)
+        {
+            var p = _pending;
+            _pending = -2;
+            return p;
+        }
+        return _stream.ReadByte();
+    }
+
+    private int ReadByte()
+    {
+        if (!_textMode) return _stream.ReadByte();
+        if (_eof) return -1;
+        var b = RawByte();
+        if (b == CtrlZ)
+        {
+            _eof = true;
+            return -1;
+        }
+        if (b == '\r')
+        {
+            var next = RawByte();
+            if (next == '\n') return '\n';
+            _pending = next;
+        }
+        return b;
     }
 
     /// <summary>
@@ -172,7 +213,7 @@ public sealed class CLineReader
         var bytes = new List<byte>();
         while (bytes.Count < _size - 1)
         {
-            var b = _stream.ReadByte();
+            var b = ReadByte();
             if (b < 0) break;
             bytes.Add((byte)b);
             if (b == '\n') break;

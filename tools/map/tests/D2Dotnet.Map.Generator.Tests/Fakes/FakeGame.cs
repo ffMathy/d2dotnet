@@ -288,9 +288,16 @@ public sealed class Harness
     public GeneratorContext Context { get; }
 
     public Harness(params string[] existingFiles)
+        : this(false, existingFiles)
+    {
+    }
+
+    /// <param name="textMode">msvcrt text-mode stdio, as the Windows exe uses.</param>
+    /// <param name="existingFiles">Files the fake file probe reports as present.</param>
+    public Harness(bool textMode, params string[] existingFiles)
     {
         Files = new FakeFiles(existingFiles);
-        Context = new GeneratorContext(Stdout, Stderr, Clock, Game, Game.Memory, Game, Files, "v-test", "abc123");
+        Context = new GeneratorContext(Stdout, Stderr, Clock, Game, Game.Memory, Game, Files, "v-test", "abc123", textMode);
     }
 
     public string Out => System.Text.Encoding.Latin1.GetString(Stdout.ToArray());

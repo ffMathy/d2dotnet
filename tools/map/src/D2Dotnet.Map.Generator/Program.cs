@@ -25,7 +25,8 @@ internal static class Program
             platform,
             new FileProbe(),
             metadata.GetValueOrDefault("GitVersion") ?? "unknown",
-            metadata.GetValueOrDefault("GitHash") ?? "unknown");
+            metadata.GetValueOrDefault("GitHash") ?? "unknown",
+            textMode: true); // msvcrt text-mode stdio, like the upstream mingw build
 
         try
         {
