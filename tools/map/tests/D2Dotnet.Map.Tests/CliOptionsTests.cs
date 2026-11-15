@@ -24,6 +24,9 @@ public class CliOptionsTests
 
         var ignored = CliOptions.Parse([], Env(("DIABLO2_CLUSTER_SIZE", "lots")));
         Assert.False(ignored.Configuration.ContainsKey("Map:ProcessCount"));
+        // non-ASCII digits are NaN in JavaScript, so ignored too
+        var arabic = CliOptions.Parse([], Env(("DIABLO2_CLUSTER_SIZE", "\u0663")));
+        Assert.False(arabic.Configuration.ContainsKey("Map:ProcessCount"));
         Assert.Equal("1", CliOptions.Parse([], Env(("DIABLO2_CLUSTER_SIZE", "0"))).Configuration["Map:ProcessCount"]);
     }
 
@@ -49,6 +52,7 @@ public class CliOptionsTests
     [InlineData("--port")]
     [InlineData("--port", "x")]
     [InlineData("--cluster-size", "many")]
+    [InlineData("--cluster-size", "\u0663")]
     public void InvalidSwitches(params string[] args) =>
         Assert.Throws<ArgumentException>(() => CliOptions.Parse(args, Env()));
 }

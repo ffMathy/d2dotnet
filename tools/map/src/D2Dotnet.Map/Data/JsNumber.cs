@@ -9,7 +9,7 @@ namespace D2Dotnet.Map.Data;
 /// </summary>
 public static partial class JsNumber
 {
-    [GeneratedRegex(@"^[+-]?(?:\d+\.?\d*(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^[+-]?(?:[0-9]+\.?[0-9]*(?:[eE][+-]?[0-9]+)?|\.[0-9]+(?:[eE][+-]?[0-9]+)?)$", RegexOptions.CultureInvariant)]
     private static partial Regex DecimalLiteral();
 
     [GeneratedRegex(@"^0[xX][0-9a-fA-F]+$|^0[oO][0-7]+$|^0[bB][01]+$", RegexOptions.CultureInvariant)]
@@ -38,8 +38,9 @@ public static partial class JsNumber
                 return double.NegativeInfinity;
         }
 
+        // ASCII digits only: JavaScript's Number() rejects other Unicode decimal digits (e.g. U+0661)
         if (!DecimalLiteral().IsMatch(str)) return double.NaN;
-        return double.Parse(str, NumberStyles.Float, CultureInfo.InvariantCulture);
+        return double.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out var result) ? result : double.NaN;
     }
 
     /// <summary>

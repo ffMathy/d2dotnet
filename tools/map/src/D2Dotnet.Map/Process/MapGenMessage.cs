@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using D2Dotnet.Map.Data;
@@ -24,9 +25,14 @@ public static class MapGenMessage
     public const string Close = "close";
 
     /// <summary>Serializer settings for generator output and HTTP responses (camelCase, like upstream).</summary>
+    /// <remarks>
+    /// The relaxed encoder writes <c>'</c>, <c>&lt;</c>, <c>&gt;</c>, <c>&amp;</c>, <c>+</c> and non-ASCII text as-is,
+    /// like express's <c>res.json</c> (<c>JSON.stringify</c>), instead of <c>\uXXXX</c> escapes.
+    /// </remarks>
     public static JsonSerializerOptions JsonOptions { get; } = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
     /// <summary>Upstream <c>isLogMessage</c>: any JSON object that has a <c>time</c> field.</summary>

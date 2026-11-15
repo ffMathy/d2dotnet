@@ -11,8 +11,30 @@ public static class MapImage
     /// <summary>Height of the caption strip below the level.</summary>
     public const int CaptionHeight = 32;
 
-    private static readonly Lazy<SKTypeface> Typeface = new(() =>
-        SKTypeface.FromFamilyName("Sans") ?? SKTypeface.Default);
+    /// <summary>
+    /// Sans-serif families tried in order for upstream's <c>'24px Sans'</c>. node-canvas resolves the generic
+    /// <c>Sans</c> alias through fontconfig; the SkiaSharp native assets used here have no fontconfig and would
+    /// fall back to an arbitrary (possibly serif) family, so the family is resolved explicitly.
+    /// </summary>
+    internal static readonly string[] SansFamilies =
+        ["DejaVu Sans", "Liberation Sans", "FreeSans", "Noto Sans", "Arial", "Helvetica", "Verdana", "Bitstream Vera Sans"];
+
+    private static readonly Lazy<SKTypeface> Typeface = new(ResolveSansTypeface);
+
+    /// <summary>The typeface used for the caption.</summary>
+    internal static SKTypeface CaptionTypeface => Typeface.Value;
+
+    private static SKTypeface ResolveSansTypeface()
+    {
+        var manager = SKFontManager.Default;
+        foreach (var family in SansFamilies)
+        {
+            var typeface = manager.MatchFamily(family, SKFontStyle.Normal);
+            if (typeface != null && string.Equals(typeface.FamilyName, family, StringComparison.OrdinalIgnoreCase)) return typeface;
+            typeface?.Dispose();
+        }
+        return SKTypeface.FromFamilyName("Sans") ?? SKTypeface.Default;
+    }
 
     /// <summary>
     /// Draw the level on a black background with its name and offset/size in the caption strip below it.

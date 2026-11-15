@@ -29,6 +29,8 @@ public class RouteValidationTests
     [InlineData("abc", "Normal", "Invalid seed")]
     [InlineData("10", "Easy", "Invalid difficulty")]
     [InlineData("10", "3", "Invalid difficulty")]
+    [InlineData("\u0663", "Normal", "Invalid seed")]
+    [InlineData("10", "\u0661", "Invalid difficulty")]
     public void InvalidSeedOrDifficulty(string seed, string difficulty, string message)
     {
         var err = Assert.Throws<HttpError>(() => MapRoute.ValidateParams(Req(("seed", seed), ("difficulty", difficulty))));

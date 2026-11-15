@@ -72,6 +72,44 @@ public sealed class MapServerTests(MapServerFactory factory) : IClassFixture<Map
         Assert.Equal("*", res.Headers.GetValues("Access-Control-Allow-Origin").Single());
     }
 
+    [Theory]
+    [InlineData("/health")]
+    [InlineData("/v1/map/0/Normal.json")]
+    [InlineData("/does-not-exist")]
+    public async Task CorsHeaderIsSentWithoutOrigin(string url)
+    {
+        // cors() always sets the header, even without an Origin request header
+        var res = await _client.GetAsync(url);
+        Assert.Equal("*", res.Headers.GetValues("Access-Control-Allow-Origin").Single());
+    }
+
+    [Fact]
+    public async Task BareOptionsIsAnsweredLikeCors()
+    {
+        var res = await _client.SendAsync(new HttpRequestMessage(HttpMethod.Options, "/health"));
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+        Assert.Equal("*", res.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        Assert.Equal("GET,HEAD,PUT,PATCH,POST,DELETE", res.Headers.GetValues("Access-Control-Allow-Methods").Single());
+        Assert.False(res.Headers.Contains("Access-Control-Allow-Headers"));
+        Assert.Equal("Access-Control-Request-Headers", res.Headers.GetValues("Vary").Single());
+        Assert.Empty(await res.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task PreflightEchoesRequestedHeaders()
+    {
+        var req = new HttpRequestMessage(HttpMethod.Options, "/v1/map/10/Normal.json");
+        req.Headers.Add("Origin", "https://example.com");
+        req.Headers.Add("Access-Control-Request-Method", "GET");
+        req.Headers.Add("Access-Control-Request-Headers", "x-custom, content-type");
+        var res = await _client.SendAsync(req);
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+        Assert.Equal("*", res.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        Assert.Equal("GET,HEAD,PUT,PATCH,POST,DELETE", res.Headers.GetValues("Access-Control-Allow-Methods").Single());
+        Assert.Equal("x-custom, content-type", res.Headers.GetValues("Access-Control-Allow-Headers").Single());
+        Assert.Equal("Access-Control-Request-Headers", res.Headers.GetValues("Vary").Single());
+    }
+
     [Fact]
     public async Task WholeWorld()
     {
@@ -102,6 +140,17 @@ public sealed class MapServerTests(MapServerFactory factory) : IClassFixture<Map
         Assert.Equal("{\"id\":5,\"type\":\"npc\",\"x\":4,\"y\":4,\"name\":\"Coldcrow\",\"isSuperUnique\":true,\"superId\":2}", objects[3].GetRawText());
         Assert.Equal("{\"id\":999,\"type\":\"npc\",\"x\":5,\"y\":5}", objects[4].GetRawText());
         Assert.Equal("{\"id\":580,\"type\":\"object\",\"x\":6,\"y\":6,\"class\":\"chest-super\"}", objects[5].GetRawText());
+    }
+
+    [Fact]
+    public async Task JsonIsNotHtmlEscaped()
+    {
+        // express res.json (JSON.stringify) writes ', <, >, &, + and non-ASCII text as-is
+        var res = await _client.GetAsync("/v1/map/12/Hell/ActII.json");
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var body = await res.Content.ReadAsStringAsync();
+        Assert.Contains("\"name\":\"Tal Rasha's Tömb <&+>\"", body);
+        Assert.DoesNotContain("\\u", body);
     }
 
     [Theory]
@@ -141,6 +190,11 @@ public sealed class MapServerTests(MapServerFactory factory) : IClassFixture<Map
     [InlineData("/v1/map/10/Normal/x.png", "Invalid level")]
     [InlineData("/v1/map/10/Normal/3.png", "Invalid level")]
     [InlineData("/v1/map/10/Normal/1.5.png", "Invalid level")]
+    // Arabic-Indic digit one (U+0661): NaN for JavaScript's Number()
+    [InlineData("/v1/map/%D9%A1/0.json", "Invalid seed")]
+    [InlineData("/v1/map/1/%D9%A1.json", "Invalid difficulty")]
+    [InlineData("/v1/map/1/0/%D9%A1.json", "Invalid act")]
+    [InlineData("/v1/map/1/0/%D9%A1.png", "Invalid level")]
     public async Task InvalidRequests(string url, string message)
     {
         var res = await _client.GetAsync(url);

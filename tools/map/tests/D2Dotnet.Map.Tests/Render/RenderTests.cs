@@ -62,6 +62,35 @@ public class RenderTests
     }
 
     [Fact]
+    public void CaptionUsesASansSerifFace()
+    {
+        var installed = SKFontManager.Default.FontFamilies.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var expected = MapImage.SansFamilies.FirstOrDefault(installed.Contains);
+        if (expected == null) return; // no known sans-serif family installed: nothing to resolve
+        Assert.Equal(expected, MapImage.CaptionTypeface.FamilyName, ignoreCase: true);
+        Assert.DoesNotContain("Serif", MapImage.CaptionTypeface.FamilyName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CaptionTextIsDrawn()
+    {
+        var level = SyntheticLevel();
+        level.Size = new LevelSize(400, 30);
+        using var bmp = SKBitmap.Decode(MapImage.RenderPng(level));
+        int Drawn(int x0, int x1)
+        {
+            var count = 0;
+            for (var y = 30; y < bmp.Height; y++)
+                for (var x = x0; x < x1; x++)
+                    if (bmp.GetPixel(x, y).Alpha > 0) count++;
+            return count;
+        }
+        // the level name on the left, offset/size on the right
+        Assert.True(Drawn(0, 150) > 100, "level name is not drawn");
+        Assert.True(Drawn(250, 400) > 100, "offset/size is not drawn");
+    }
+
+    [Fact]
     public void RenderHonoursBoundsScaleAndFillColor()
     {
         var level = SyntheticLevel();

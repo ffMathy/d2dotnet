@@ -38,15 +38,14 @@ public static class MapServer
         services.AddSingleton<IRoute, MapActLevelRoute>();
         services.AddSingleton<IRoute, MapImageRoute>();
 
-        services.AddCors();
         return services;
     }
 
     /// <summary>Add CORS, the static viewer page and every <see cref="IRoute"/>.</summary>
     public static WebApplication UseMapServer(this WebApplication app)
     {
-        // upstream: app.use(cors()) - any origin
-        app.UseCors(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+        // upstream: app.use(cors())
+        app.Use(CorsDefaults);
 
         MapStatic(app);
 
@@ -56,6 +55,27 @@ public static class MapServer
         // Stop the generators when the server stops
         app.Lifetime.ApplicationStopping.Register(() => app.Services.GetRequiredService<MapCluster>().StopAll());
         return app;
+    }
+
+    /// <summary>The <c>cors</c> npm package with its default options.</summary>
+    /// <remarks>
+    /// Every response gets <c>Access-Control-Allow-Origin: *</c> (with or without an <c>Origin</c> header);
+    /// every <c>OPTIONS</c> request is answered with 204, the default method list and the requested headers echoed back.
+    /// </remarks>
+    internal static Task CorsDefaults(HttpContext ctx, Func<Task> next)
+    {
+        var req = ctx.Request;
+        var headers = ctx.Response.Headers;
+        headers.AccessControlAllowOrigin = "*";
+        if (!HttpMethods.IsOptions(req.Method)) return next();
+
+        headers.AccessControlAllowMethods = "GET,HEAD,PUT,PATCH,POST,DELETE";
+        var requestHeaders = req.Headers.AccessControlRequestHeaders;
+        headers.Append("Vary", "Access-Control-Request-Headers");
+        if (requestHeaders.Count > 0) headers.AccessControlAllowHeaders = requestHeaders.ToString();
+        ctx.Response.StatusCode = StatusCodes.Status204NoContent;
+        headers.ContentLength = 0;
+        return Task.CompletedTask;
     }
 
     private static void Bind(WebApplication app, IRoute route, ILogger log)

@@ -29,6 +29,11 @@ public class JsNumberTests
     [InlineData("1,000")]
     [InlineData("undefined")]
     [InlineData("1e")]
+    [InlineData("\u0661")]
+    [InlineData("\u0663")]
+    [InlineData("1\u0663")]
+    [InlineData("\uFF11")]
+    [InlineData("1e\u0661")]
     public void InvalidNumbersAreNaN(string input) => Assert.True(double.IsNaN(JsNumber.Parse(input)));
 
     [Fact]
@@ -66,6 +71,7 @@ public class ActDifficultyTests
     [InlineData("-1")]
     [InlineData("easy")]
     [InlineData("Infinity")]
+    [InlineData("\u0661")]
     public void InvalidDifficulty(string? input) => Assert.Null(DifficultyUtil.FromString(input));
 
     [Theory]

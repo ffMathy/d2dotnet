@@ -26,6 +26,13 @@ public class MapGenMessageTests
     public void ClassifiesGeneratorLines(string line, string? expected) => Assert.Equal(expected, MapGenMessage.Classify(line, out _));
 
     [Fact]
+    public void SerializesLikeJsonStringify()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(new { name = "Tal Rasha's Tomb", other = "<a&b+c> Ćorrupted" }, MapGenMessage.JsonOptions);
+        Assert.Equal("{\"name\":\"Tal Rasha's Tomb\",\"other\":\"<a&b+c> Ćorrupted\"}", json);
+    }
+
+    [Fact]
     public void ParsesMapMessages()
     {
         const string line = "{\"type\":\"map\",\"id\":74,\"name\":\"Arcane Sanctuary\",\"offset\":{\"x\":25000,\"y\":5000},\"size\":{\"width\":1000,\"height\":1000},"

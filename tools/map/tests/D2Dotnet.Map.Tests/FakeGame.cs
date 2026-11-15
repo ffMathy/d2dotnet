@@ -54,7 +54,7 @@ public sealed class FakeGame : IDisposable
         var data = new Diablo2MpqData();
         data.Levels[1] = new Diablo2MpqLevel(1, Act.ActI, "Rogue Encampment  ", false, false);
         data.Levels[2] = new Diablo2MpqLevel(2, Act.ActI, "Blood Moor", true, true);
-        data.Levels[40] = new Diablo2MpqLevel(40, Act.ActII, "Lut Gholein", false, false);
+        data.Levels[40] = new Diablo2MpqLevel(40, Act.ActII, "Tal Rasha's Tömb <&+>", false, false);
         data.Objects[119] = new Diablo2MpqObject(" Waypoint ");
         data.Lang.Classic.Add("Zombie", 10, "Zombie ");
         data.Lang.Classic.Add("Fallen", 11, "Fallen");
