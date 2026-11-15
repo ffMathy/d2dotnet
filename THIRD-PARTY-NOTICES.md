@@ -8,8 +8,8 @@ own license, reproduced here.
 <https://github.com/blacha/diablo2>, MIT, Copyright (c) 2021 Blayne Chard.
 
 `tools/map` is a port of the `packages/map` package and of the parts of `packages/data`, `packages/bintools`,
-`packages/mpq` and `packages/viewer` it uses. `tools/map/native` (the C sources of `d2-map.exe`),
-`tools/map/d2.install.reg`, `tools/map/src/D2Dotnet.Map/wwwroot/index.html` and the test fixtures
+`packages/mpq` and `packages/viewer` it uses, including a C# port of the native C map generator (`d2-map.exe`,
+`packages/map/map`) in `tools/map/src/D2Dotnet.Map.Generator*`. `tools/map/d2.install.reg`, `tools/map/src/D2Dotnet.Map/wwwroot/index.html` and the test fixtures
 `test-implode.mpq`, `test-pkware.mpq` and `patchstring.tbl` are copied unchanged. A copy of this license is also
 kept in `tools/map/LICENSE`.
 

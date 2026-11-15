@@ -32,7 +32,7 @@ The same commands run in CI (`.github/workflows/build.yml`) for every push and p
 
 | Tool | Description |
 | --- | --- |
-| [`tools/map`](tools/map/README.md) | Diablo 2 map server: port of the [`map` package](https://github.com/blacha/diablo2/tree/master/packages/map) of [github.com/blacha/diablo2](https://github.com/blacha/diablo2). Drives the native map generator under wine and serves level data as JSON and PNG. |
+| [`tools/map`](tools/map/README.md) | Diablo 2 map server: port of the [`map` package](https://github.com/blacha/diablo2/tree/master/packages/map) of [github.com/blacha/diablo2](https://github.com/blacha/diablo2). Includes a C# port of the native map generator, run under wine, and serves level data as JSON and PNG. |
 
 ## License
 

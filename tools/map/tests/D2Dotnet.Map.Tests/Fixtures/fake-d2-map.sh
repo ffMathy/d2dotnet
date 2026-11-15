@@ -1,5 +1,5 @@
 #!/bin/sh
-# Fake d2-map.exe speaking the same stdin/stdout JSON-lines protocol as native/main.c.
+# Fake d2-map.exe speaking the same stdin/stdout JSON-lines protocol as upstream map/main.c and the C# generator.
 # Run as: /bin/sh fake-d2-map.sh <game path>
 # Only shell builtins are used because the generator is started with an empty environment (no PATH).
 # Behaviour switches are marker files inside the game path directory:

@@ -3,12 +3,12 @@
 Diablo 2 map server: a .NET port of [`@diablo2/map`](https://github.com/blacha/diablo2/tree/master/packages/map)
 (MIT, (c) 2021 Blayne Chard).
 
-The server drives the native Diablo 2 map generator `d2-map.exe` (built from `native/`, run under wine) and
+The server drives the Diablo 2 map generator `d2-map.exe` (a C# port of upstream's native C generator, run under wine) and
 serves the generated levels of a game seed as JSON, or a single level as a PNG image. Generated maps are cached,
 several generator processes can run in parallel, and a generator that crashes, hangs or has served too many
 seeds is restarted.
 
-Only the map package is ported. The parts of `@diablo2/data`, `@diablo2/bintools`, `@diablo2/mpq` and
+The map package, including its native C generator, is ported. The parts of `@diablo2/data`, `@diablo2/bintools`, `@diablo2/mpq` and
 `@diablo2/viewer` that it uses are folded into this one project:
 
 | Folder | Namespace | Upstream |
@@ -22,32 +22,34 @@ Only the map package is ported. The parts of `@diablo2/data`, `@diablo2/bintools
 | `src/D2Dotnet.Map/Server` | `D2Dotnet.Map.Server` | `src/server.ts`, `route.ts`, `routes/*` |
 | `src/D2Dotnet.Map/Program.cs`, `CliOptions.cs` | `D2Dotnet.Map` | `src/cli.ts`, `logger.ts` |
 | `src/D2Dotnet.Map/wwwroot/index.html` | | `static/index.html` (unchanged) |
-| `native/` | | `map/`: C sources of `d2-map.exe` (unchanged) |
-| `Dockerfile`, `build.docker.sh`, `build.mapgen.sh`, `run.sh`, `d2.install.reg` | | same files upstream, adapted to this layout |
+| `src/D2Dotnet.Map.Generator.Core` | `D2Dotnet.Map.Generator` | `map/*.c`, `map/*.h`, `map/d2data/*.h`: generator logic, tables, struct layouts, JSON/log output |
+| `src/D2Dotnet.Map.Generator` | `D2Dotnet.Map.Generator` | the win-x86 `d2-map.exe`: Win32 interop with the game DLLs, see [its README](src/D2Dotnet.Map.Generator/README.md) |
+| `Dockerfile`, `build.docker.sh`, `build.mapgen.sh`, `run.sh`, `d2.install.reg` | | same files upstream, adapted to this layout (`build.mapgen.sh` now runs `dotnet publish` instead of mingw) |
 
 ## Requirements
 
 - Diablo 2 Lord of Destruction **1.13c**, or **1.14d** (incl. ProjectD2). The game files are not part of this
   repository; mount or point the server at your own installation.
-- wine (32 bit prefix, `WINEARCH=win32`) to run `d2-map.exe`.
-- mingw-w64 (`i686-w64-mingw32-g++`) to build `d2-map.exe`, or Docker which does it for you.
-- .NET 10 SDK to build the server.
+- wine 9 or newer (32 bit prefix, `WINEARCH=win32`) to run `d2-map.exe`; older wine cannot start .NET 10.
+- .NET 10 SDK to build the server and the generator, or Docker which does it for you.
 
-## The native map generator
+## The map generator
 
-`native/` is the upstream generator, copied unchanged. It loads the game DLLs, initialises the game client and
+`d2-map.exe` is a C# port of the upstream C generator (`src/D2Dotnet.Map.Generator`). Like the original it loads the game DLLs, initialises the game client and
 prints every level as one JSON line on stdout.
 
 ### Building
 
 ```bash
 cd tools/map
-sudo apt-get install mingw-w64   # or any distribution's mingw-w64 package
-./build.mapgen.sh                # writes bin/d2-map.exe
+./build.mapgen.sh                # dotnet publish -r win-x86, writes bin/d2-map.exe
 ```
 
-`build.mapgen.sh` compiles `native/*.c` (or `map/*.c` inside the Docker build stage, override with `MAP_SRC`) with
-`GIT_VERSION`/`GIT_HASH` baked in.
+`GIT_VERSION`/`GIT_HASH` are baked in as assembly metadata, as upstream baked them in as defines.
+
+> The C# generator has not yet been run against real game DLLs: its output, struct layouts and machine-code
+> stubs are verified against the upstream C program in tests, but the first run on a real install is the real
+> test. See the [generator README](src/D2Dotnet.Map.Generator/README.md) for details.
 
 ### Command line
 
@@ -87,7 +89,7 @@ The last command should print the JSON of one level, which is a good check that 
 
 ### Fixing offsets
 
-When the game client updates, the offsets in `native/d2_ptrs.h` need to change. The easiest way to trace the
+When the game client updates, the offsets in `src/D2Dotnet.Map.Generator.Core/Native/D2Pointers.cs` (upstream `map/d2_ptrs.h`) need to change. The easiest way to trace the
 initialisation is to run Diablo under wine with `WINEDEBUG=+snoop`, which logs every external call:
 
 ```bash
@@ -95,8 +97,8 @@ export WINEDEBUG=+snoop
 wine Game.exe 2> snoop.log
 ```
 
-For example the call `Fog.10021` relates to `FUNCPTR(FOG, 10021, VOID __fastcall, (CHAR * szProg), -10021)` in
-`d2_ptrs.h`. The initialisation always starts with a few `Fog.dll` calls (`FOG_10021`, `FOG_10019`, `FOG_10101`,
+For example the call `Fog.10021` relates to upstream's `FUNCPTR(FOG, 10021, VOID __fastcall, (CHAR * szProg), -10021)` in
+`d2_ptrs.h`, which is the `FOG_10021` entry in `D2Pointers.cs`. The initialisation always starts with a few `Fog.dll` calls (`FOG_10021`, `FOG_10019`, `FOG_10101`,
 `FOG_10089`, `FOG_10218`) followed by two `D2Win.dll` calls; the line after the final `RET Fog.10218` shows the
 first `D2Win` call (`D2Win_10086` and `D2Win_10005` for 1.13c). See the upstream README for the full walkthrough.
 
@@ -116,8 +118,8 @@ use `--map-exe` for another location.
 
 ### Docker
 
-`build.docker.sh` builds `d2-map.exe` with mingw (`build.mapgen.sh`), publishes the server self contained and
-packages both in a wine image. The build context is the repository root.
+`build.docker.sh` publishes `d2-map.exe` (win-x86) and the server (linux-x64), both self contained, and packages
+them in an Ubuntu 24.04 image with wine 9. The build context is the repository root.
 
 ```bash
 ./tools/map/build.docker.sh
