@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>D2Dotnet.Map.GameData</RootNamespace>
+    <Description>Access to Diablo II: Resurrected game files: CASC storage of an installed game, or an extracted folder.</Description>
+  </PropertyGroup>
+</Project>

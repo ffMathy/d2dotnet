@@ -1,0 +1,18 @@
+{"level":30,"time":1000,"source":"map/main.c:91","msg":"Cli:Start","version":"v-test","hash":"abc123"}
+{"level":20,"time":1000,"source":"map/main.c:124","msg":"Cli:Arg","game":"C:/games/d2"}
+{"level":20,"time":1000,"source":"map/main.c:105","msg":"Cli:Arg","seed": "0x000001"}
+{"level":20,"time":1000,"source":"map/main.c:113","msg":"Cli:Arg","mapId":1}
+{"level":20,"time":1000,"source":"map/d2_client.c:147","msg":"Init:Dll","path":"C:/games/d2"}
+{"level":30,"time":1000,"source":"map/d2_client.c:176","msg":"Registry:InstallPath","value":"C:/games/d2"}
+{"level":30,"time":1000,"source":"map/d2_client.c:180","msg":"Init:Game","version":"","path":"C:/games/d2/"}
+{"level":20,"time":1000,"source":"map/d2_client.c:185","msg":"Init:Offsets:Defined"}
+{"level":20,"time":1000,"source":"map/d2_client.c:127","msg":"Init:Dll:Done","dll":"Fog.dll"}
+{"level":20,"time":1000,"source":"map/d2_client.c:134","msg":"Init:Dll:Done","dll":"D2Win.dll"}
+{"level":20,"time":1000,"source":"map/d2_client.c:138","msg":"Init:Dll:Done","dll":"D2Lang.dll"}
+{"level":20,"time":1000,"source":"map/d2_client.c:143","msg":"Init:Dll:Done","dll":"D2Client.dll"}
+{"level":30,"time":1000,"source":"map/main.c:143","msg":"Map:Init:Done","version":"v-test","hash":"abc123","duration":0}
+
+{"type":"map", "id":1, "name":"Rogue Encampment", "offset":{"x":50, "y":100}, "size":{"width":10, "height":5}, "objects":[{"id":19, "type":"npc", "x":3, "y":4}, {"id":2, "type":"object", "x":1, "y":1, "name":"Shrine", "op":2, "class":"shrine"}, {"id":580, "type":"object", "x":2, "y":2, "class":"chest-super"}, {"id":2, "type":"exit", "x":4, "y":0}, {"id":3, "type":"object", "x":6, "y":2, "name":"casket6"}], "map":[[0, 2, 2], [], [1, 8], [0]]}
+{"level":20,"time":1000,"source":"map/main.c:63","msg":"Map:Generation","seed": "0x000001","difficulty":0,"mapId":1,"duration":0}
+{"level":30,"time":1000,"source":"map/main.c:81","msg":"Map:Generation:Done","seed": "0x000001","difficulty":0,"count":1,"duration":0}
+

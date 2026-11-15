@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Platform-neutral (AnyCPU) logic of the d2-map generator: everything from the upstream C
+    sources that does not need the Diablo 2 DLLs (JSON/log output, CLI and stdin protocol,
+    d2data tables, struct layouts, DLL offset table, x86 thunk encoder, map dumping over an
+    abstract game memory). The win-x86 executable D2Dotnet.Map.Generator supplies the native
+    implementations; the tests run this library on linux-x64.
+  -->
+  <PropertyGroup>
+    <RootNamespace>D2Dotnet.Map.Generator</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="D2Dotnet.Map.Generator.Tests" />
+  </ItemGroup>
+</Project>

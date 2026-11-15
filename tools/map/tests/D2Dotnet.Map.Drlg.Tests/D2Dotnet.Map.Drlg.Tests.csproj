@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../src/D2Dotnet.Map.Drlg/D2Dotnet.Map.Drlg.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,13 @@
+bin/
+obj/
+*.user
+.vs/
+.idea/
+TestResults/
+*.swp
+
+# Claude Code agent worktrees
+.claude/worktrees/
+
+# Third-party game data downloaded for tests (never commit)
+.cache/

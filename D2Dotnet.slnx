@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/tools/" />
+  <Folder Name="/tools/map/" />
+  <Folder Name="/tools/map/src/">
+    <Project Path="tools/map/src/D2Dotnet.Map.Drlg/D2Dotnet.Map.Drlg.csproj" />
+    <Project Path="tools/map/src/D2Dotnet.Map.GameData/D2Dotnet.Map.GameData.csproj" />
+    <Project Path="tools/map/src/D2Dotnet.Map.Generator.Core/D2Dotnet.Map.Generator.Core.csproj" />
+    <Project Path="tools/map/src/D2Dotnet.Map.Generator/D2Dotnet.Map.Generator.csproj" />
+    <Project Path="tools/map/src/D2Dotnet.Map/D2Dotnet.Map.csproj" />
+  </Folder>
+  <Folder Name="/tools/map/tests/">
+    <Project Path="tools/map/tests/D2Dotnet.Map.Drlg.Tests/D2Dotnet.Map.Drlg.Tests.csproj" />
+    <Project Path="tools/map/tests/D2Dotnet.Map.GameData.Tests/D2Dotnet.Map.GameData.Tests.csproj" />
+    <Project Path="tools/map/tests/D2Dotnet.Map.Generator.Tests/D2Dotnet.Map.Generator.Tests.csproj" />
+    <Project Path="tools/map/tests/D2Dotnet.Map.Tests/D2Dotnet.Map.Tests.csproj" />
+  </Folder>
+</Solution>
