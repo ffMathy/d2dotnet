@@ -29,12 +29,14 @@ dotnet test D2Dotnet.slnx
 The same commands run in CI (`.github/workflows/build.yml`) for every push and pull request.
 
 The map tests download the pinned [libd2](https://github.com/jaenster/libd2) source (its test fixtures include
-game data) into the gitignored `.cache/` folder on their first build; nothing derived from the game is committed.
+game data), and the d2go tests the pinned [d2go](https://github.com/Farmith/d2go) source (its excel tables), into the
+gitignored `.cache/` folder on their first build; nothing derived from the game is committed.
 
 ## Tools
 
 | Tool | Description |
 | --- | --- |
+| [`tools/d2go`](tools/d2go/README.md) | Port of the game state model (`pkg/data`) of [d2go](https://github.com/hectorgimenez/d2go) (as forked at [Farmith/d2go](https://github.com/Farmith/d2go)): ids of areas, NPCs, objects, skills, stats, states and quests, items, monsters, inventory, belt and key bindings, with the excel tables d2go compiles in loaded from a D2R install at run time instead. |
 | [`tools/map`](tools/map/README.md) | Diablo II: Resurrected map server: port of the [`map` package](https://github.com/blacha/diablo2/tree/master/packages/map) of [github.com/blacha/diablo2](https://github.com/blacha/diablo2) that generates maps in-process with a pure C# port of the map generator (DRLG) of [libd2](https://github.com/jaenster/libd2), reading a D2R install directly (no wine, no game DLLs), and serves level data as JSON and PNG. D2R only. |
 
 ## License

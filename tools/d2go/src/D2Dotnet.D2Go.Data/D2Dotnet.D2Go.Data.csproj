@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>D2Dotnet.D2Go.Data</RootNamespace>
+    <Description>Port of d2go's pkg/data: the game state model of Diablo II: Resurrected, with the excel tables loaded at run time.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../map/src/D2Dotnet.Map.GameData/D2Dotnet.Map.GameData.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="D2Dotnet.D2Go.Data.Tests" />
+  </ItemGroup>
+</Project>
