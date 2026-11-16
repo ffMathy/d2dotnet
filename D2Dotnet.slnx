@@ -1,10 +1,8 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/D2Dotnet/D2Dotnet.csproj" />
-    <Project Path="src/D2Dotnet.MapServer/D2Dotnet.MapServer.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/D2Dotnet.Tests/D2Dotnet.Tests.csproj" />
-    <Project Path="tests/D2Dotnet.MapServer.Tests/D2Dotnet.MapServer.Tests.csproj" />
   </Folder>
 </Solution>

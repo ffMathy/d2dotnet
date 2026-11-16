@@ -1,15 +1,14 @@
 # D2Dotnet design
 
 D2Dotnet is one .NET library for Diablo II: Resurrected. It reads the game's files and generates its maps, and it
-reads a running game. It started as three ports (blacha/diablo2's map server, libd2's map generator, d2go's data and
-memory packages). This document records where it draws its lines, and why. It does not follow the shape of any of
-the projects it came from.
+reads a running game. It started as ports of libd2's map generator and of d2go's data and memory packages. This
+document records where it draws its lines, and why. It does not follow the shape of any of the projects it came from.
 
 ## Decisions
 
-1. **One library, plus apps that use it.** All reusable code is in a single assembly, `D2Dotnet`, with no
-   third-party dependencies. Programs are separate projects that reference it: the map server is the first. The old
-   split (map, map generator, game files, d2go data, d2go memory) mirrored where the code came from, not how it is
+1. **One library.** All code is in a single assembly, `D2Dotnet`, with no third-party dependencies; programs
+   reference it. The repository ships no apps. The old split (map server, map generator, game files, d2go data, d2go
+   memory) mirrored where the code came from, not how it is
    used: every part needed the same IDs, the same excel tables and the same file access.
 
 2. **One vocabulary.** Each game concept has exactly one type, in the root namespace `D2Dotnet`:
@@ -65,10 +64,6 @@ the projects it came from.
    GameSnapshot snapshot = reader.ReadSnapshot();
    ```
 
-8. **The map server is an app.** It references the library and keeps what is specific to it:
-   - HTTP routes, blacha/diablo2-compatible JSON, SkiaSharp PNG rendering, its cache and its Dockerfile.
-   - SkiaSharp stays out of the library.
-
 ## Layout
 
 ```
@@ -79,9 +74,7 @@ src/D2Dotnet/                 the library (no third-party dependencies)
     Maps/                     MapGenerator and model (public); Maps/Engine/ (internal DRLG); Maps/Formats/ (DS1, DT1)
     Game/                     snapshot model of a running game
     Memory/                   IProcessMemory, WindowsProcessMemory, GameProcess, GameReader
-src/D2Dotnet.MapServer/       the map server app
 tests/D2Dotnet.Tests/         library tests (files, data, maps, game, memory), oracles included
-tests/D2Dotnet.MapServer.Tests/
 tests/Fixtures.targets        downloads the pinned libd2 and d2go sources into .cache/ for the oracle tests
 docs/design.md                this file
 ```

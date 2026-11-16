@@ -162,5 +162,3 @@ fail, never skip.
 dotnet test tests/D2Dotnet.Tests --filter "FullyQualifiedName~D2Dotnet.Tests.Maps"
 D2_ORACLE_SEEDS=200 dotnet test tests/D2Dotnet.Tests --filter OracleTests
 ```
-
-The map server built on this API is [`src/D2Dotnet.MapServer`](../src/D2Dotnet.MapServer/README.md).

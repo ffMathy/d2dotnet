@@ -1,10 +1,10 @@
 # d2dotnet
 
-A monorepo of Diablo II: Resurrected tools ported to .NET.
+One .NET library for Diablo II: Resurrected.
 
 ## Layout
 
-The repository is moving to one library plus the apps that use it; see [docs/design.md](docs/design.md).
+See [docs/design.md](docs/design.md) for the design.
 
 ```
 src/D2Dotnet/                the library (no third-party dependencies)
@@ -13,7 +13,6 @@ src/D2Dotnet/                the library (no third-party dependencies)
     Data/                    ExcelTable (the excel reader), GameDatabase (typed tables), Localization (D2R strings)
 tests/D2Dotnet.Tests/        xUnit tests of the library, oracles included
 tests/Fixtures.targets       downloads the pinned libd2 and d2go sources into .cache/ for the oracle tests
-tools/<tool>/                the tools not yet moved onto the library: src/<Project>/, tests/<Project>.Tests/, README.md
 ```
 
 Shared build settings are in the repository root: `Directory.Build.props` (net10.0, nullable reference types,
@@ -31,15 +30,9 @@ dotnet test D2Dotnet.slnx
 
 The same commands run in CI (`.github/workflows/build.yml`) for every push and pull request.
 
-The library and map tests download the pinned [libd2](https://github.com/jaenster/libd2) source (its test fixtures
-include game data), and the library and d2go tests the pinned [d2go](https://github.com/Farmith/d2go) source (its excel
+The library tests download the pinned [libd2](https://github.com/jaenster/libd2) source (its test fixtures
+include game data), and the pinned [d2go](https://github.com/Farmith/d2go) source (its excel
 tables), into the gitignored `.cache/` folder on their first build; nothing derived from the game is committed.
-
-## Tools
-
-| Tool | Description |
-| --- | --- |
-| [`src/D2Dotnet.MapServer`](src/D2Dotnet.MapServer/README.md) | Diablo II: Resurrected map server: port of the [`map` package](https://github.com/blacha/diablo2/tree/master/packages/map) of [github.com/blacha/diablo2](https://github.com/blacha/diablo2) that generates maps in-process with a pure C# port of the map generator (DRLG) of [libd2](https://github.com/jaenster/libd2), reading a D2R install directly (no wine, no game DLLs), and serves level data as JSON and PNG. D2R only. |
 
 ## License
 

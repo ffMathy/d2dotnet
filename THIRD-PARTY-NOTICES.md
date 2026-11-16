@@ -3,46 +3,6 @@
 d2dotnet contains code ported from the projects below. Each is used under its
 own license, reproduced here.
 
-## blacha/diablo2
-
-<https://github.com/blacha/diablo2>, MIT, Copyright (c) 2021 Blayne Chard.
-
-`src/D2Dotnet.MapServer` is a port of the `packages/map` package and of the parts of `packages/data` and `packages/viewer` it
-uses. The never-exported object and npc lists of `src/D2Dotnet.MapServer/Generation/UselessPresets.cs` and the
-object classes and quest exits of `LevelConverter.cs` come from its native generator (`packages/map/map`).
-`src/D2Dotnet.MapServer/wwwroot/index.html` is copied unchanged. A copy of this license is also kept in
-`src/D2Dotnet.MapServer/LICENSE`.
-
-```
-MIT License
-
-Copyright (c) 2021 Blayne Chard
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-## binparse
-
-<https://github.com/blacha/binparse>, MIT, Copyright (c) 2021 Blayne Chard.
-
-`src/D2Dotnet.MapServer/Binary/Hex.cs` replaces binparse's `toHex` (same license text as above).
-
 ## libd2
 
 <https://github.com/jaenster/libd2>, MIT, Copyright (c) 2026 jaenster.
@@ -124,8 +84,7 @@ These are not redistributed in this repository; they are restored from NuGet at 
 
 | Package | License |
 | --- | --- |
-| [SkiaSharp](https://github.com/mono/SkiaSharp), SkiaSharp.NativeAssets.Linux.NoDependencies | MIT, Copyright (c) Microsoft Corporation (includes Skia, BSD-3-Clause, Copyright Google Inc.) |
-| Microsoft.AspNetCore (shared framework), Microsoft.NET.Test.Sdk | MIT, Copyright (c) .NET Foundation and Contributors |
+| Microsoft.NET.Test.Sdk | MIT, Copyright (c) .NET Foundation and Contributors |
 | xunit, xunit.runner.visualstudio | Apache-2.0, Copyright (c) .NET Foundation and Contributors |
 | coverlet.collector | MIT, Copyright (c) Toni Solarin-Sodara |
 | [LibD2](https://www.nuget.org/packages/LibD2) (test-only oracle in `D2Dotnet.Tests`) | MIT, Copyright (c) 2026 jaenster |
@@ -133,4 +92,4 @@ These are not redistributed in this repository; they are restored from NuGet at 
 ## Diablo II
 
 Diablo II and Diablo II: Resurrected are trademarks of Blizzard Entertainment, Inc. This project contains no game
-files; the map server requires a legitimate Diablo II: Resurrected installation supplied by the user.
+files; reading game data requires a legitimate Diablo II: Resurrected installation supplied by the user.

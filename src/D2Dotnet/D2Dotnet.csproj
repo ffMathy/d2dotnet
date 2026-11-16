@@ -12,8 +12,6 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="D2Dotnet.Tests" />
-    <!-- The map server's end-to-end tests run the generator over libd2's baked data (an internal data source). -->
-    <InternalsVisibleTo Include="D2Dotnet.MapServer.Tests" />
   </ItemGroup>
 
   <ItemGroup>

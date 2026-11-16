@@ -161,7 +161,7 @@ public class LocalizationTests
         Assert.Throws<InvalidOperationException>(() => Localization.Empty.GetMonsterName(MonsterId.Zombie));
     }
 
-    // ---- id lookups (the map server's level, npc and object names) ----
+    // ---- id lookups (level, npc and object names) ----
 
     [Fact]
     public void LevelNamesAreTranslatedTrimmedOrTheRawKey()

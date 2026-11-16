@@ -252,7 +252,7 @@ public sealed class Localization
     private GameDatabase Database => _database ?? throw new InvalidOperationException(
         "Id lookups need the excel tables: use GameDatabase.Localization instead of a Localization loaded on its own.");
 
-    /// <summary>JavaScript's <c>String.prototype.trim</c> (the map server's original rule): Unicode spaces and line terminators, and U+FEFF.</summary>
+    /// <summary>JavaScript's <c>String.prototype.trim</c>: Unicode spaces and line terminators, and U+FEFF.</summary>
     private static string TrimWhiteSpace(string s)
     {
         var start = 0;
