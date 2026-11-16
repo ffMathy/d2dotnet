@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/D2Dotnet.MapServer/D2Dotnet.MapServer.csproj" />
+  </ItemGroup>
+
+  <!-- The in-memory game files of the library tests, and, for the end-to-end tests, the real generator over libd2's
+       baked game data (the gitignored .cache/libd2/, never committed), read with the library tests' data source. -->
+  <ItemGroup>
+    <Compile Include="../D2Dotnet.Tests/Fixtures.cs" Link="Shared/Fixtures.cs" />
+    <Compile Include="../D2Dotnet.Tests/Maps/LibD2Fixtures.cs" Link="Shared/LibD2Fixtures.cs" />
+    <Compile Include="../D2Dotnet.Tests/Maps/LibD2BakedDataSource.cs" Link="Shared/LibD2BakedDataSource.cs" />
+  </ItemGroup>
+
+  <Import Project="../Fixtures.targets" />
+</Project>

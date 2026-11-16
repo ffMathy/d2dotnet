@@ -1,6 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- The map oracle tests read the generator's engine state (unsafe structs in native memory). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/D2Dotnet/D2Dotnet.csproj" />
+    <!-- The libd2 native generator (the map oracle). Test-only; pinned. -->
+    <PackageReference Include="LibD2" Version="0.1.1" />
   </ItemGroup>
 
   <Import Project="../Fixtures.targets" />

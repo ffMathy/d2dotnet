@@ -1,18 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/D2Dotnet/D2Dotnet.csproj" />
+    <Project Path="src/D2Dotnet.MapServer/D2Dotnet.MapServer.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/D2Dotnet.Tests/D2Dotnet.Tests.csproj" />
-  </Folder>
-  <Folder Name="/tools/" />
-  <Folder Name="/tools/map/" />
-  <Folder Name="/tools/map/src/">
-    <Project Path="tools/map/src/D2Dotnet.Map.Drlg/D2Dotnet.Map.Drlg.csproj" />
-    <Project Path="tools/map/src/D2Dotnet.Map/D2Dotnet.Map.csproj" />
-  </Folder>
-  <Folder Name="/tools/map/tests/">
-    <Project Path="tools/map/tests/D2Dotnet.Map.Drlg.Tests/D2Dotnet.Map.Drlg.Tests.csproj" />
-    <Project Path="tools/map/tests/D2Dotnet.Map.Tests/D2Dotnet.Map.Tests.csproj" />
+    <Project Path="tests/D2Dotnet.MapServer.Tests/D2Dotnet.MapServer.Tests.csproj" />
   </Folder>
 </Solution>

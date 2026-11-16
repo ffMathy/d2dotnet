@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>D2Dotnet.MapServer</RootNamespace>
+    <AssemblyName>D2Dotnet.MapServer</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SkiaSharp renders the PNG route; it stays in the app, never in the library. -->
+    <PackageReference Include="SkiaSharp" Version="4.156.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.156.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../D2Dotnet/D2Dotnet.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="D2Dotnet.MapServer.Tests" />
+  </ItemGroup>
+</Project>
