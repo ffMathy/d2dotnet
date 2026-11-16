@@ -63,7 +63,7 @@ public sealed partial class GameReader
 
                         var owner = ReadStringFromMemory(unitDataPtr + 0x34, 32);
 
-                        var id = new UnitId(GoInt.Narrow(unitId));
+                        var id = new UnitId(GoInt.ToInt(unitId));
                         objects.Add(new GameObject
                         {
                             Id = id,

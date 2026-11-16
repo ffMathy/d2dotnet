@@ -4,9 +4,17 @@ using D2Dotnet.D2Go.Data.Skill;
 
 namespace D2Dotnet.D2Go.Data;
 
-/// <summary>The game's key bindings (Go <c>data.KeyBindings</c>).</summary>
+/// <summary>
+/// The game's key bindings (Go <c>data.KeyBindings</c>). Like the Go struct, which holds only arrays and structs, two
+/// key bindings are equal when every binding is, including each entry of <see cref="Skills"/> and
+/// <see cref="UseBelt"/>.
+/// </summary>
 public sealed record KeyBindings
 {
+    // Go arrays are values: copied on assignment and compared element by element.
+    private readonly ValueArray<SkillBinding> skills = new(new SkillBinding[16]);
+    private readonly ValueArray<KeyBinding> useBelt = new(new KeyBinding[4]);
+
     public KeyBinding CharacterScreen { get; init; }
 
     public KeyBinding Inventory { get; init; }
@@ -27,8 +35,11 @@ public sealed record KeyBindings
 
     public KeyBinding SkillSpeedBar { get; init; }
 
-    /// <summary>The 16 skill hotkeys (Go <c>[16]SkillBinding</c>); unset entries are zero, that is skill <see cref="SkillId.AttackSkill"/>.</summary>
-    public IReadOnlyList<SkillBinding> Skills { get; init; } = new SkillBinding[16];
+    /// <summary>
+    /// The 16 skill hotkeys (Go <c>[16]SkillBinding</c>); unset entries are zero, that is skill
+    /// <see cref="SkillId.AttackSkill"/>. The list given is copied, and compares by value.
+    /// </summary>
+    public IReadOnlyList<SkillBinding> Skills { get => skills; init => skills = new(value); }
 
     public KeyBinding SelectPreviousSkill { get; init; }
 
@@ -36,8 +47,8 @@ public sealed record KeyBindings
 
     public KeyBinding ShowBelt { get; init; }
 
-    /// <summary>The 4 belt column keys (Go <c>[4]KeyBinding</c>).</summary>
-    public IReadOnlyList<KeyBinding> UseBelt { get; init; } = new KeyBinding[4];
+    /// <summary>The 4 belt column keys (Go <c>[4]KeyBinding</c>). The list given is copied, and compares by value.</summary>
+    public IReadOnlyList<KeyBinding> UseBelt { get => useBelt; init => useBelt = new(value); }
 
     public KeyBinding SwapWeapons { get; init; }
 

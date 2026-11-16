@@ -58,7 +58,7 @@ public sealed partial class GameReader
                     var posX = ReadUInt(pathPtr + 0x02, IntType.Uint16);
                     var posY = ReadUInt(pathPtr + 0x06, IntType.Uint16);
 
-                    var id = new UnitId(GoInt.Narrow(unitId));
+                    var id = new UnitId(GoInt.ToInt(unitId));
                     var hovered = hover.IsHovered && hover.UnitType == 1 && hover.UnitId == id;
 
                     var statsListExPtr = (nuint)ReadUIntFromBuffer(monsterDataBuffer, 0x88, IntType.Uint64);
@@ -104,9 +104,9 @@ public sealed partial class GameReader
 
     // Go getMonsterStats: statCount 8-byte entries (id u16, value u32) from statPtr + 2; a later entry for the same
     // stat replaces an earlier one.
-    internal IReadOnlyDictionary<StatId, int> GetMonsterStats(ulong statCount, nuint statPtr)
+    internal IReadOnlyDictionary<StatId, long> GetMonsterStats(ulong statCount, nuint statPtr)
     {
-        var stats = new Dictionary<StatId, int>();
+        var stats = new Dictionary<StatId, long>();
 
         if (statCount > 0)
         {
@@ -116,7 +116,7 @@ public sealed partial class GameReader
                 var offset = (ulong)(i * 8);
                 var statEnum = ReadUIntFromBuffer(statBuffer, offset, IntType.Uint16);
                 var statValue = ReadUIntFromBuffer(statBuffer, offset + 0x2, IntType.Uint32);
-                stats[(StatId)unchecked((short)statEnum)] = GoInt.Narrow(statValue);
+                stats[(StatId)unchecked((short)statEnum)] = GoInt.ToInt(statValue);
             }
         }
 
@@ -167,7 +167,7 @@ public sealed partial class GameReader
 
                     var stats = GetMonsterStats(statCount, statPtr);
 
-                    var id = new UnitId(GoInt.Narrow(unitId));
+                    var id = new UnitId(GoInt.ToInt(unitId));
                     var hovered = hover.IsHovered && hover.UnitType == 1 && hover.UnitId == id;
 
                     if ((!ShouldBeIgnored(txtFileNo) || stats.GetValueOrDefault(StatId.Experience) > 0) && isCorpse != 0)

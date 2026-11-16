@@ -107,6 +107,34 @@ public sealed class PlayerTests
     }
 
     [Fact]
+    public void GetPlayerUnit_KeepsUnsigned32BitStatsAndIdsPositive_LikeGo()
+    {
+        // Level 99 experience (3,520,485,254) and a unit id of 2^31 or more: Go's 64-bit int keeps both positive.
+        var image = new GameImage();
+        image.AddPlayer(new PlayerSpec
+        {
+            UnitId = 0x9000_0000,
+            Name = "Hc",
+            X = 1,
+            Y = 1,
+            Area = 1,
+            IsMain = true,
+            Stats = [new RawStat(StatId.Experience, 3_520_485_254)],
+            BaseStats = [new RawStat(StatId.Experience, 3_520_485_254), new RawStat(StatId.Level, 99)],
+        });
+        using var reader = image.Reader();
+
+        var raw = reader.GetRawPlayerUnits().GetMainPlayer();
+        var pu = reader.GetPlayerUnit(raw);
+        Assert.Equal(new UnitId(0x9000_0000L), pu.Id);
+        Assert.True(pu.TryFindStat(StatId.Experience, 0, out var xp));
+        Assert.Equal(3_520_485_254L, xp.Value);
+        Assert.Equal(new StatData(StatId.Experience, 3_520_485_254L, 0), pu.BaseStats[0]);
+        Assert.Equal(990_000L, pu.MaxGold());
+        Assert.True(reader.InGame());
+    }
+
+    [Fact]
     public void CalculateStates_GivesBitPlusOnePlusOffset_LowestBitFirst()
     {
         var all = GameReader.CalculateStates(0xFFFF_FFFF, 31);
@@ -138,8 +166,9 @@ public sealed class PlayerTests
         using var reader = image.Reader();
 
         var stats = reader.GetStatsList((nuint)header);
-        // Id 0xFFFF is stat.ID(-1); a uint32 value of 2^31 or more comes out negative in the port's 32-bit int.
-        Assert.Equal([new StatData((StatId)(-1), -10, 7), new StatData(StatId.FireResist, int.MinValue, 0xFFFF)], stats);
+        // Id 0xFFFF is stat.ID(-1); values are Go's int(uint32), never negative: a resist of -10 as the game stores it
+        // reads as 4294967286, as in Go.
+        Assert.Equal([new StatData((StatId)(-1), 4294967286L, 7), new StatData(StatId.FireResist, 0x8000_0000L, 0xFFFF)], stats);
     }
 
     public static TheoryData<StatId, uint, int> StatScaling => new()
@@ -311,7 +340,8 @@ public sealed class PlayerTests
     [InlineData(1u, (ushort)0, (ushort)1, 1u, false)]
     [InlineData(1u, (ushort)1, (ushort)0, 1u, false)]
     [InlineData(1u, (ushort)1, (ushort)1, 0u, false)]
-    [InlineData(0x8000_0000u, (ushort)1, (ushort)1, 1u, false)] // unit id read as a negative int
+    [InlineData(0x8000_0000u, (ushort)1, (ushort)1, 1u, true)] // Go's UnitID(uint32) is never negative
+    [InlineData(0xFFFF_FFFFu, (ushort)1, (ushort)1, 1u, true)]
     public void InGame_NeedsAnIdAPositionAndAnArea(uint id, ushort x, ushort y, uint area, bool expected)
     {
         var image = new GameImage();

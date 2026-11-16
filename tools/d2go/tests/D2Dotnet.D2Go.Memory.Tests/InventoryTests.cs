@@ -160,7 +160,7 @@ public sealed class InventoryTests
         Assert.False(near.IsRuneword);
 
         var far = inv.AllItems[1];
-        Assert.Equal(new UnitId(int.MinValue + 1), far.UnitId);
+        Assert.Equal(new UnitId(0x8000_0001L), far.UnitId);
         Assert.Equal(ItemQuality.Unique, far.Quality);
         Assert.True(far.Ethereal && far.Identified && far.IsRuneword);
     }

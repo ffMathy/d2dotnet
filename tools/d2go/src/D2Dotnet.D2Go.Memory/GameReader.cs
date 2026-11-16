@@ -158,7 +158,7 @@ public sealed partial class GameReader : GameProcess
             var hoveredType = ReadUIntFromBuffer(hoverBuffer, 0x04, IntType.Uint32);
             var hoveredUnitId = ReadUIntFromBuffer(hoverBuffer, 0x08, IntType.Uint32);
 
-            return new HoverData(IsHovered: true, UnitId: new UnitId(GoInt.Narrow(hoveredUnitId)), UnitType: GoInt.Narrow(hoveredType));
+            return new HoverData(IsHovered: true, UnitId: new UnitId(GoInt.ToInt(hoveredUnitId)), UnitType: GoInt.ToInt(hoveredType));
         }
 
         return default;
@@ -187,7 +187,7 @@ public sealed partial class GameReader : GameProcess
             var statValue = ReadUIntFromBuffer(statBuffer, offset + 0x4, IntType.Uint32);
 
             var id = (StatId)unchecked((short)statEnum);
-            stats.Add(new StatData(id, GoInt.Narrow(StatValue(id, statValue)), GoInt.Narrow(statLayer)));
+            stats.Add(new StatData(id, StatValue(id, statValue), GoInt.Narrow(statLayer)));
         }
 
         return new Stats(stats);
@@ -287,7 +287,7 @@ public sealed partial class GameReader : GameProcess
     public string LastGamePass() => ReadStringFromMemory(unchecked(ModuleBaseAddress + LastGameAddress + 0x60), 0);
 
     /// <summary>The frame rate (Go <c>FPS</c>).</summary>
-    public int Fps() => GoInt.Narrow(ReadUInt(unchecked(ModuleBaseAddress + FpsAddress), IntType.Uint32));
+    public long Fps() => GoInt.ToInt(ReadUInt(unchecked(ModuleBaseAddress + FpsAddress), IntType.Uint32));
 
     /// <summary>
     /// The child widgets of the panel manager, by name (Go <c>UpdateWidgets</c>); empty when any read fails. Scans

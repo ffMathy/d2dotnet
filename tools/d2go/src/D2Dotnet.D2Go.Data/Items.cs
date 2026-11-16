@@ -12,10 +12,10 @@ public sealed record Inventory
 
     public IReadOnlyList<GameItem> AllItems { get; init; } = [];
 
-    public int Gold { get; init; }
+    public long Gold { get; init; }
 
     /// <summary>Gold in each of the four stash tabs (Go <c>[4]int</c>).</summary>
-    public IReadOnlyList<int> StashedGold { get; init; } = [0, 0, 0, 0];
+    public IReadOnlyList<long> StashedGold { get; init; } = [0, 0, 0, 0];
 
     /// <summary>
     /// The first item whose name equals <paramref name="name"/> ignoring case and that is in one of

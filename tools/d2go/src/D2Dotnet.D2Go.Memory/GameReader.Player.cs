@@ -61,7 +61,7 @@ public sealed partial class GameReader
                     var stats = GetStatsList(statsListExPtr + 0x88);
                     var states = GetStates(statsListExPtr);
 
-                    var id = new UnitId(GoInt.Narrow(unitId));
+                    var id = new UnitId(GoInt.ToInt(unitId));
                     rawPlayerUnits.Add(new RawPlayerUnit
                     {
                         UnitId = id,

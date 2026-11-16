@@ -48,7 +48,7 @@ public sealed partial class GameReader
         // Gold
         mainPlayer.BaseStats.TryFindStat(StatId.Gold, 0, out var inventoryGold);
         mainPlayer.BaseStats.TryFindStat(StatId.StashGold, 0, out var mainPlayerStashedGold);
-        var stashedGold = new int[4];
+        var stashedGold = new long[4];
         stashedGold[0] = mainPlayerStashedGold.Value;
         for (var i = 0; i < stashPlayerUnitOrder.Count; i++)
         {
@@ -96,7 +96,7 @@ public sealed partial class GameReader
                     var itemY = ReadUIntFromBuffer(pathBuffer, 0x14, IntType.Uint16);
 
                     var name = ItemNames.GetNameByEnum((uint)txtFileNo);
-                    var id = new UnitId(GoInt.Narrow(unitId));
+                    var id = new UnitId(GoInt.ToInt(unitId));
                     var itemHovered = hover.IsHovered && hover.UnitType == 4 && hover.UnitId == id;
 
                     var itm = SetProperties(
@@ -142,7 +142,7 @@ public sealed partial class GameReader
                                 break;
                             }
 
-                            if (new UnitId(GoInt.Narrow(itemOwnerNpc)) == mainPlayer.UnitId || itemOwnerNpc == 1)
+                            if (new UnitId(GoInt.ToInt(itemOwnerNpc)) == mainPlayer.UnitId || itemOwnerNpc == 1)
                             {
                                 if (invPage == 0)
                                 {
@@ -157,7 +157,7 @@ public sealed partial class GameReader
 
                             break;
                         case 1:
-                            if (new UnitId(GoInt.Narrow(itemOwnerNpc)) == mainPlayer.UnitId || itemOwnerNpc == 1)
+                            if (new UnitId(GoInt.ToInt(itemOwnerNpc)) == mainPlayer.UnitId || itemOwnerNpc == 1)
                             {
                                 location = LocationType.Equipped;
                                 if (itm.Type(Tables).Code == ItemTypeCodes.TypeBelt)
@@ -166,7 +166,7 @@ public sealed partial class GameReader
 
                             break;
                         case 2:
-                            if (new UnitId(GoInt.Narrow(itemOwnerNpc)) == mainPlayer.UnitId || itemOwnerNpc == 1)
+                            if (new UnitId(GoInt.ToInt(itemOwnerNpc)) == mainPlayer.UnitId || itemOwnerNpc == 1)
                                 location = LocationType.Belt;
                             break;
                         case 3:
@@ -211,8 +211,8 @@ public sealed partial class GameReader
         };
     }
 
-    // Go uint(UnitID): the unit ids d2go reads are 32-bit, so this gives back the value read.
-    private static ulong UnitIdAsUInt(UnitId id) => unchecked((uint)id.Value);
+    // Go uint(UnitID): the 64-bit int reinterpreted as unsigned, which gives back the 32-bit id read.
+    private static ulong UnitIdAsUInt(UnitId id) => unchecked((ulong)id.Value);
 
     /// <summary>
     /// The base and full stats of an item (Go <c>getItemStats</c>): the lists at <c>+0x30</c> and <c>+0x88</c> of its

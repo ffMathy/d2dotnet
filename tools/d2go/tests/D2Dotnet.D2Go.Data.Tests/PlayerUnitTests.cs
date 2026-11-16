@@ -33,6 +33,8 @@ public class PlayerUnitTests
     {
         Assert.Equal(50000, WithStats(new StatData(StatId.Level, 5, 0)).MaxGold());
         Assert.Equal(0, new PlayerUnit().MaxGold());
+        // Go's int is 64-bit: no 32-bit overflow.
+        Assert.Equal(3_000_000_000L, WithStats(new StatData(StatId.Level, 300_000, 0)).MaxGold());
     }
 
     [Fact]
@@ -41,6 +43,7 @@ public class PlayerUnitTests
         Assert.Equal(300, WithStats(new StatData(StatId.Gold, 100, 0), new StatData(StatId.StashGold, 200, 0)).TotalPlayerGold());
         Assert.Equal(100, WithStats(new StatData(StatId.Gold, 100, 0)).TotalPlayerGold());
         Assert.Equal(0, new PlayerUnit().TotalPlayerGold());
+        Assert.Equal(8_589_934_590L, WithStats(new StatData(StatId.Gold, uint.MaxValue, 0), new StatData(StatId.StashGold, uint.MaxValue, 0)).TotalPlayerGold());
     }
 
     [Theory]
@@ -192,7 +195,7 @@ public class GameDataTests
     private static Monster Merc(int life, int maxLife, NpcId name = NpcId.Guard) => new()
     {
         Name = name,
-        Stats = new Dictionary<StatId, int> { [StatId.Life] = life, [StatId.MaxLife] = maxLife },
+        Stats = new Dictionary<StatId, long> { [StatId.Life] = life, [StatId.MaxLife] = maxLife },
     };
 
     [Theory]
@@ -214,7 +217,7 @@ public class GameDataTests
     public void MercHPPercent_IsZeroWithoutMerc_AndUsesTheFirstMerc()
     {
         Assert.Equal(0, new GameData().MercHPPercent());
-        Assert.Equal(0, new GameData { Monsters = [new Monster { Name = NpcId.Zombie, Stats = new Dictionary<StatId, int> { [StatId.Life] = 9000 } }] }.MercHPPercent());
+        Assert.Equal(0, new GameData { Monsters = [new Monster { Name = NpcId.Zombie, Stats = new Dictionary<StatId, long> { [StatId.Life] = 9000 } }] }.MercHPPercent());
 
         var two = new GameData
         {

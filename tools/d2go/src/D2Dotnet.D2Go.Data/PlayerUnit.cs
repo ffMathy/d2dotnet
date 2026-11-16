@@ -70,14 +70,14 @@ public sealed record PlayerUnit
         Stats.TryFindStat(id, layer, out stat) || BaseStats.TryFindStat(id, layer, out stat);
 
     /// <summary>The most gold the character can carry: 10000 per level.</summary>
-    public int MaxGold()
+    public long MaxGold()
     {
         TryFindStat(StatId.Level, 0, out var lvl);
         return GoldPerLevel * lvl.Value;
     }
 
     /// <summary>The gold in the inventory plus the character's own stash (not the shared stash).</summary>
-    public int TotalPlayerGold()
+    public long TotalPlayerGold()
     {
         TryFindStat(StatId.Gold, 0, out var gold);
         TryFindStat(StatId.StashGold, 0, out var stashGold);
@@ -113,8 +113,8 @@ public sealed record PlayerUnit
         TryFindStat(StatId.FasterCastRate, 0, out var fcr);
         var baseAnimation = GetCastingBaseSpeed();
 
-        // Go's int is 64-bit: keep the products in long.
-        var ecfr = Math.Floor((double)((long)fcr.Value * 120) / ((long)fcr.Value + 120));
+        // Go's int is 64-bit, as is StatData.Value.
+        var ecfr = Math.Floor((double)(fcr.Value * 120) / (fcr.Value + 120));
         if (ecfr > 75)
             ecfr = 75;
 

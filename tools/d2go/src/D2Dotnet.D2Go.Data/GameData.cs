@@ -131,7 +131,7 @@ public readonly record struct Room(Position Position, int Width, int Height)
 }
 
 /// <summary>The unit under the mouse cursor (Go <c>data.HoverData</c>, which embeds <c>UnitID</c>).</summary>
-public readonly record struct HoverData(bool IsHovered, UnitId UnitId, int UnitType);
+public readonly record struct HoverData(bool IsHovered, UnitId UnitId, long UnitType);
 
 /// <summary>The current online game (Go <c>data.OnlineGame</c>).</summary>
 public sealed record OnlineGame
@@ -140,7 +140,7 @@ public sealed record OnlineGame
 
     public string LastGamePassword { get; init; } = "";
 
-    public int Fps { get; init; }
+    public long Fps { get; init; }
 }
 
 /// <summary>A party member (Go <c>data.RosterMember</c>).</summary>

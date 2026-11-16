@@ -61,7 +61,10 @@ public sealed class UnitTests
         Assert.Equal(3, m.Stats.Count);
         Assert.Equal(0x8000, m.Stats[StatId.Life]);
         Assert.Equal(100, m.Stats[StatId.FireResist]);
-        Assert.Equal(-10, m.Stats[StatId.ColdResist]);
+        // Go's int(uint32): a resist of -10 as the game stores it reads as 4294967286, so Go (and the port) report
+        // the monster as cold immune.
+        Assert.Equal(4294967286L, m.Stats[StatId.ColdResist]);
+        Assert.True(m.IsImmune(Resist.ColdImmune));
     }
 
     [Theory]

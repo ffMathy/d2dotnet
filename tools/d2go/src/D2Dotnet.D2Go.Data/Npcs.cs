@@ -80,7 +80,7 @@ public sealed record Monster
     public Position Position { get; init; }
 
     /// <summary>Stat values (Go <c>map[stat.ID]int</c>; a missing stat reads as 0).</summary>
-    public IReadOnlyDictionary<StatId, int> Stats { get; init; } = new Dictionary<StatId, int>();
+    public IReadOnlyDictionary<StatId, long> Stats { get; init; } = new Dictionary<StatId, long>();
 
     public MonsterType Type { get; init; }
 

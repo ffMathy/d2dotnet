@@ -20,8 +20,9 @@ public sealed class GameReaderTests
         image.SetHover(0, 4, 9);
         Assert.Equal(default, reader.HoveredData());
 
-        image.SetHover(2, 4, 0xFFFF_FFFF);
-        Assert.Equal(new HoverData(true, new UnitId(-1), 4), reader.HoveredData());
+        // Go keeps the uint32 fields in its 64-bit int: never negative.
+        image.SetHover(2, 0xFFFF_FFFF, 0xFFFF_FFFF);
+        Assert.Equal(new HoverData(true, new UnitId(0xFFFF_FFFFL), 0xFFFF_FFFFL), reader.HoveredData());
     }
 
     [Theory]
@@ -154,6 +155,9 @@ public sealed class GameReaderTests
         Assert.True(reader.IsOnline());
         Assert.True(reader.IsIngame());
         Assert.Equal(144, reader.Fps());
+        m.WriteU32(GameImage.Base + 0x2140DF4, 0x8000_0000);
+        Assert.Equal(0x8000_0000L, reader.Fps());
+        m.WriteU32(GameImage.Base + 0x2140DF4, 144);
         Assert.Equal("game-01", reader.LastGameName());
         Assert.Equal("pw", reader.LastGamePass());
         Assert.Equal("MySorc", reader.GetSelectedCharacterName());
@@ -224,6 +228,9 @@ public sealed class GameReaderTests
         Assert.Equal(4, kb.UseBelt.Count);
         Assert.Equal(new KeyBinding(default, new KeyBytes(0x34, 0)), kb.UseBelt[3]);
         Assert.Equal(kb.Skills[1].KeyBinding, kb.MustKBForSkill(SkillId.Teleport));
+
+        // Two reads of the same memory are equal, as Go's == on the struct says.
+        Assert.Equal(kb, reader.GetKeyBindings());
     }
 
     [Fact]

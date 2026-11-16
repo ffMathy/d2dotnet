@@ -18,10 +18,82 @@ public class GoCompatTests
     [InlineData("K", "k", true)] // Kelvin sign folds to k in Go
     [InlineData("K", "K", true)]
     [InlineData("été", "ÉTÉ", true)]
+    [InlineData("\u03F4", "\u03D1", true)] // theta orbit 0398, 03B8, 03D1, 03F4: neither upper nor lower case agrees
+    [InlineData("\u03F4", "\u03B8", true)]
+    [InlineData("\u0398", "\u03D1", true)]
+    [InlineData("\u00B5", "\u039C", true)] // micro sign, capital mu
+    [InlineData("\u00B5", "\u03BC", true)]
+    [InlineData("\u017F", "S", true)] // long s
+    [InlineData("\u2126", "\u03C9", true)] // ohm sign, small omega
+    [InlineData("\u1E9E", "\u00DF", true)] // capital sharp s
+    [InlineData("\u01C4", "\u01C5", true)] // DZ with caron: three cases
+    [InlineData("\u01C4", "\u01C6", true)]
+    [InlineData("\u0130", "i", false)] // Go keeps dotted capital I and dotless i out of the i orbit
+    [InlineData("\u0130", "I", false)]
+    [InlineData("\u0131", "I", false)]
+    [InlineData("\u0131", "i", false)]
+    [InlineData("K", "\u212A", true)] // Kelvin sign orbit: K, k, U+212A
+    [InlineData("k", "\u212A", true)]
+    [InlineData("A", "a\u0301", false)]
+    [InlineData("\uD83D\uDE00x", "\uD83D\uDE00X", true)] // supplementary runes
+    [InlineData("\U00010400", "\U00010428", true)] // Deseret long I
     public void EqualFold_FollowsGoSimpleFolding(string s, string t, bool expected)
     {
         Assert.Equal(expected, GoStrings.EqualFold(s, t));
         Assert.Equal(expected, GoStrings.EqualFold(t, s));
+    }
+
+    [Theory]
+    [InlineData(0x4B, 0x6B)]
+    [InlineData(0x6B, 0x212A)]
+    [InlineData(0x212A, 0x4B)]
+    [InlineData(0x3D1, 0x3F4)]
+    [InlineData(0x3F4, 0x398)]
+    [InlineData(0x398, 0x3B8)]
+    [InlineData(0x3B8, 0x3D1)]
+    [InlineData(0x130, 0x130)]
+    [InlineData(0x131, 0x131)]
+    [InlineData(0x41, 0x61)]
+    [InlineData(0x31, 0x31)]
+    [InlineData(0xD800, 0xD800)]
+    [InlineData(-1, -1)]
+    [InlineData(0x110000, 0x110000)]
+    public void SimpleFold_IsGosNextRuneOfTheOrbit(int r, int expected) => Assert.Equal(expected, GoStrings.SimpleFold(r));
+
+    [Fact]
+    public void SimpleFold_EveryOrbitIsACycle_AndHasGosSize()
+    {
+        // Go 1.24's unicode.SimpleFold (Unicode 15.0) moves 2878 runes; every orbit returns to its start within four
+        // steps, its other members are larger until it wraps to the smallest, and EqualFold matches every pair in it.
+        var moved = 0;
+        for (var r = 0; r <= 0x10FFFF; r++)
+        {
+            var next = GoStrings.SimpleFold(r);
+            if (next == r)
+                continue;
+            moved++;
+
+            var orbit = new List<int> { r };
+            for (var x = next; x != r; x = GoStrings.SimpleFold(x))
+            {
+                orbit.Add(x);
+                Assert.True(orbit.Count <= 4, $"Orbit of U+{r:X4} does not cycle.");
+            }
+
+            var wraps = 0;
+            for (var i = 0; i < orbit.Count; i++)
+            {
+                if (orbit[(i + 1) % orbit.Count] < orbit[i])
+                    wraps++;
+            }
+
+            Assert.Equal(1, wraps);
+            var s = char.ConvertFromUtf32(r);
+            foreach (var other in orbit)
+                Assert.True(GoStrings.EqualFold(s, char.ConvertFromUtf32(other)), $"U+{r:X4} U+{other:X4}");
+        }
+
+        Assert.Equal(2878, moved);
     }
 
     [Theory]

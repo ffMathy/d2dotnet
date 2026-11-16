@@ -169,7 +169,7 @@ public class MonsterTests
         Name = name,
         Type = type,
         UnitId = new UnitId(unitId),
-        Stats = new Dictionary<StatId, int> { [StatId.Life] = life },
+        Stats = new Dictionary<StatId, long> { [StatId.Life] = life },
     };
 
     [Fact]
@@ -252,7 +252,7 @@ public class MonsterTests
     [MemberData(nameof(Immunities))]
     public void IsImmune_NeedsTheMatchingResistAtLeast100(StatId stat, int value, string resist, bool expected)
     {
-        var monster = new Monster { Stats = new Dictionary<StatId, int> { [stat] = value } };
+        var monster = new Monster { Stats = new Dictionary<StatId, long> { [stat] = value } };
         Assert.Equal(expected, monster.IsImmune(resist));
     }
 
@@ -261,7 +261,7 @@ public class MonsterTests
     {
         var monster = new Monster
         {
-            Stats = new Dictionary<StatId, int> { [StatId.FireResist] = 50, [StatId.ColdResist] = 100, [StatId.Life] = 5 },
+            Stats = new Dictionary<StatId, long> { [StatId.FireResist] = 50, [StatId.ColdResist] = 100, [StatId.Life] = 5 },
         };
         Assert.True(monster.IsImmune(Resist.ColdImmune));
         Assert.False(monster.IsImmune(Resist.FireImmune));
@@ -379,6 +379,45 @@ public class KeyBindingsTests
         Assert.False(kb.TryGetKeyBindingForSkill(SkillId.FrozenOrb, out binding));
         Assert.Equal(default, binding);
         Assert.Equal(default, kb.MustKBForSkill(SkillId.FrozenOrb));
+    }
+
+    [Fact]
+    public void Equality_ComparesSkillsAndBeltByValue_LikeGoArrays()
+    {
+        static KeyBindings Build(byte belt) => new()
+        {
+            Inventory = Kb(0x49, 0),
+            Skills = Enumerable.Range(0, 16).Select(i => new SkillBinding((SkillId)i, Kb((byte)(0x70 + i), 0))).ToArray(),
+            UseBelt = [Kb(0x31, 0), Kb(0x32, 0), Kb(0x33, 0), Kb(belt, 0)],
+        };
+
+        var a = Build(0x34);
+        var b = Build(0x34);
+        Assert.NotSame(a.Skills, b.Skills);
+        Assert.Equal(a, b);
+        Assert.True(a == b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+        Assert.Equal(new KeyBindings(), new KeyBindings());
+        Assert.Equal(new KeyBindings(), new KeyBindings { Skills = new SkillBinding[16], UseBelt = new KeyBinding[4] });
+
+        Assert.NotEqual(a, Build(0x35));
+        Assert.NotEqual(a, a with { Skills = [.. a.Skills.Take(15), new SkillBinding(SkillId.Teleport, Kb(0x7F, 0))] });
+        Assert.NotEqual(a, a with { Inventory = Kb(0x42, 0) });
+    }
+
+    [Fact]
+    public void SkillsAndBelt_AreCopies_LikeGoArrays()
+    {
+        var skills = new SkillBinding[16];
+        var belt = new KeyBinding[4];
+        var kb = new KeyBindings { Skills = skills, UseBelt = belt };
+        skills[0] = new SkillBinding(SkillId.Teleport, Kb(0x70, 0));
+        belt[0] = Kb(0x31, 0);
+
+        Assert.Equal(default, kb.Skills[0]);
+        Assert.Equal(default, kb.UseBelt[0]);
+        Assert.Equal(new KeyBindings(), kb);
+        Assert.Throws<ArgumentNullException>(() => new KeyBindings { Skills = null! });
     }
 
     [Fact]

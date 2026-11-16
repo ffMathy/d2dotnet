@@ -154,22 +154,31 @@ Behaviour is Go's, including its edge cases and bugs. Where the representation d
   are read-only collections that support collection expressions; other slices are `IReadOnlyList<T>`, Go maps are
   `IReadOnlyDictionary`. A nil slice or map is an empty collection. Go arrays keep their length as defaults:
   `Inventory.StashedGold` (4), `KeyBindings.Skills` (16), `KeyBindings.UseBelt` (4); `[2]byte` is `KeyBytes`.
+  `KeyBindings`, which in Go holds only arrays and structs and so compares with `==`, copies `Skills` and `UseBelt`
+  and compares them element by element: two `KeyBindings` read from the same memory are equal.
   `CollisionGrid` is `bool[][]`. `Widgets` is `IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>>`.
   `area.CanBeTerrorized` (`map[ID]bool`, every value `true`) is an `IReadOnlySet<AreaId>`. `Quests` adds
   `StatesOf(quest)` for Go's `quests[q]`, which gives empty states for a missing quest.
 * **Embedding.** Promoted members are written out: `Room.X`/`Y`, `SkillBinding.Key1`/`Key2`, `AreaInfo.IsTown()`,
   `CanBeTerrorized()`, `Act()`, `Area()`, `SkillInfo.Desc()`, `GameObject.Desc()`; the embedded value itself is a
   property (`Room.Position`, `GameItem.UnitId`, `GameObject.Name`, `ItemLocation.LocationType`, ...).
-* **Integers.** Go's `int` is 64-bit; the port uses `int` (and `uint` for Go `uint`, `nuint` for `uintptr`).
-  Float-to-int conversions follow Go on amd64 (truncation; the minimum integer for NaN, infinities and out of range
+* **Integers.** Go's `int` is 64-bit. The port uses `long` where Go's `int` holds a value read from an unsigned
+  32-bit game field or arithmetic on one: `StatData.Value`, the values of `Monster.Stats`, `UnitId.Value`,
+  `HoverData.UnitType`, `OnlineGame.Fps`, `Inventory.Gold` and `StashedGold`, `PlayerUnit.MaxGold()` and
+  `TotalPlayerGold()`. So experience above 2^31 (level 99 is 3,520,485,254) and unit ids of 2^31 or more stay positive,
+  as in Go. Elsewhere it uses `int` (coordinates, sizes, item ids, layers, percentages; and `uint` for Go `uint`,
+  `nuint` for `uintptr`). Float-to-int conversions follow Go on amd64 (truncation; the minimum integer for NaN, infinities and out of range
   values), so `HPPercent()`/`MPPercent()` with a max of 0 and `MercHPPercent()` with a max life of 0 give
   `int.MinValue` where Go gives `math.MinInt64`. `CastingFrames()` keeps Go's 64-bit intermediate products.
 * **Panics.** Where Go panics, the port throws: `ItemNames.GetNameByEnum` and `StatId.ToStatString` with an id
   outside their list (`ArgumentOutOfRangeException`), `KeyBytes[i]` and `Room.GetWalkableTiles` outside the grid
   (`IndexOutOfRangeException`).
 * **Case folding.** `strings.EqualFold` (`Inventory.TryFind`, `Roster.TryFindByName`, `ItemNames.GetIdByName`) is
-  emulated rune by rune with invariant upper and lower case mapping, which covers Go's simple folding for the names
-  these compare (including folds like the Kelvin sign and `k`).
+  Go's algorithm, walking `unicode.SimpleFold` orbits: Go's `caseOrbit` table (from Go 1.24/1.25, Unicode 15.0) for
+  orbits of three or more runes and for U+0130/U+0131, which Go keeps out of the `i` orbit, and .NET's invariant
+  simple case mappings for the rest. With .NET 10 this gives Go 1.24's `SimpleFold` for every code point (checked
+  against Go once; the tests pin the 2878 runes it moves). Runes whose case mapping a later Unicode version adds can
+  fold here and not in Go, or the other way round, as .NET and Go update their tables.
 * **Unexported names.** Go's lower-case constants that the exported API uses are public members:
   `SkillId.MonInfernoSentry`, `MonDeathSentry`, `SentryLightning`, `FenrisRage`, `DeathSentryLtng` (keys of
   `skill.SkillNames`, whose values keep the Go spelling) and `ObjectName.Dummy411`, `Dummy412`. `goldPerLevel` is a
@@ -192,6 +201,9 @@ Behaviour is Go's, including its edge cases and bugs. Where the representation d
 * `Inventory.ByLocation` lists an item once per matching location argument, so repeated locations repeat items.
 * `Belt.TryGetFirstPotion` matches the potion type with a case-sensitive substring of the item name.
 * `OpenMenus.IsMenuOpen()` ignores `LoadingScreen` and `MapShown`.
+* Stat values are Go's `int` of the game's unsigned 32-bit field, never negative: a negative stat as the game stores
+  it, such as a resistance of -10, reads as 4294967286, so `Monster.IsImmune` reports a monster with a negative
+  resistance as immune.
 
 ### Reading the excel tables
 
@@ -290,12 +302,13 @@ Behaviour is Go's. Where it differs, and why:
   (`itm.Type().Code == item.TypeBelt`), which needs the item tables Go compiles in (see
   [No game data](#no-game-data-in-this-repository)).
 * **Integers.** Values read from memory are `ulong` (Go `uint`) and addresses `nuint` (Go `uintptr`), with Go's
-  wrapping arithmetic (`unchecked`). Results that Go keeps in its 64-bit `int` (stat values, ids, coordinates,
-  pages, FPS, widget counts, distances) are computed as Go computes them and then narrowed to the model's 32-bit
-  `int` by keeping the low 32 bits. Only 32-bit fields of 2^31 or more change: Go reads them as large positive
-  numbers, the port as negative ones (which is how the game stores negative stats, for example a resistance of -10
-  read from a `uint32` is 4294967286 in Go and -10 here). Typed ids keep Go's conversions (`stat.ID` and `skill.ID`
-  are 16-bit, so a `uint16` id of 0xFFFF is -1 in both).
+  wrapping arithmetic (`unchecked`). Stat values (player, item and monster stats), unit ids, the hovered unit type,
+  FPS and gold are Go's 64-bit `int` of the field read (`long`), so they match Go for every value: experience above
+  2^31 and a resistance of -10 as the game stores it (4294967286) are large positive numbers in both, and `InGame()`
+  accepts any non-zero unit id. Coordinates, area ids, item ids and qualities, inventory pages, stat layers, widget
+  counts and distances are narrowed to the model's 32-bit `int` by keeping the low 32 bits, so only a field of 2^31
+  or more would differ from Go (it would come out negative); the game keeps these values far smaller. Typed ids keep
+  Go's conversions (`stat.ID` and `skill.ID` are 16-bit, so a `uint16` id of 0xFFFF is -1 in both).
 * **Strings.** Bytes are decoded as UTF-8 (Go strings hold raw bytes); invalid sequences become U+FFFD. With a size
   of 0, `ReadStringFromMemory` reads one byte at a time up to the first NUL instead of re-reading 1, 2, 3... bytes as
   Go does; the result is the same.

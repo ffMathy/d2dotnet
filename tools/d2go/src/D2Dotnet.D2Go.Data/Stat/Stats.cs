@@ -5,8 +5,11 @@ using System.Runtime.CompilerServices;
 
 namespace D2Dotnet.D2Go.Data.Stat;
 
-/// <summary>A stat value on a unit, for a layer (Go <c>stat.Data</c>).</summary>
-public readonly record struct StatData(StatId Id, int Value, int Layer);
+/// <summary>
+/// A stat value on a unit, for a layer (Go <c>stat.Data</c>). <see cref="Value"/> is Go's 64-bit <c>int</c>, so an
+/// unsigned 32-bit stat such as experience keeps its full range.
+/// </summary>
+public readonly record struct StatData(StatId Id, long Value, int Layer);
 
 /// <summary>A unit's stats (Go <c>stat.Stats</c>).</summary>
 [CollectionBuilder(typeof(Stats), nameof(Create))]
