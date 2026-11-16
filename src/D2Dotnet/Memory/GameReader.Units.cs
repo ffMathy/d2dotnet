@@ -69,7 +69,7 @@ public sealed partial class GameReader
                 var stats = ReadMonsterStats(Process.ReadPointer(statsEx + 0x30), Process.ReadUInt64(statsEx + 0x38));
 
                 // This excludes good NPCs but includes mercenaries.
-                if (IgnoredMonsters.Contains(monsterClass) && stats.GetValueOrDefault(StatId.Experience) <= 0)
+                if (IgnoredMonsters.Contains(monsterClass) && (stats.GetValue(StatId.Experience) ?? 0) <= 0)
                     continue;
 
                 (isCorpse ? dead : living).Add(new Monster
@@ -97,22 +97,31 @@ public sealed partial class GameReader
         _ => MonsterType.Normal,
     };
 
-    // count 8-byte entries (layer u16, id u16, value u32) from `list`, read from list + 2 as (id u16, value u32); values are
-    // signed and not rescaled; a later entry for the same stat replaces an earlier one.
-    internal IReadOnlyDictionary<StatId, int> ReadMonsterStats(nuint list, ulong count)
+    // count 8-byte entries (layer u16, id u16, value u32) from `list`; d2go read them from list + 0x2 as (id u16, value
+    // u32), dropping the layer. Values are signed and not rescaled; a later entry for the same stat (id and layer)
+    // replaces the value of an earlier one.
+    internal StatList ReadMonsterStats(nuint list, ulong count)
     {
-        var stats = new Dictionary<StatId, int>();
         if (count == 0 || count > MaxStats)
-            return Freeze(stats);
+            return StatList.Empty;
 
-        var buffer = Process.ReadBytes(unchecked(list + 0x2), (int)count * 8).AsSpan();
+        var buffer = Process.ReadBytes(list, (int)count * 8).AsSpan();
+        var stats = new List<Stat>((int)count);
         for (var i = 0; i < (int)count; i++)
         {
             var entry = buffer[(i * 8)..];
-            stats[(StatId)BinaryPrimitives.ReadInt16LittleEndian(entry)] = BinaryPrimitives.ReadInt32LittleEndian(entry[0x2..]);
+            var stat = new Stat(
+                (StatId)BinaryPrimitives.ReadInt16LittleEndian(entry[0x2..]),
+                BinaryPrimitives.ReadInt32LittleEndian(entry[0x4..]),
+                BinaryPrimitives.ReadUInt16LittleEndian(entry));
+            var existing = stats.FindIndex(s => s.Id == stat.Id && s.Layer == stat.Layer);
+            if (existing < 0)
+                stats.Add(stat);
+            else
+                stats[existing] = stat;
         }
 
-        return Freeze(stats);
+        return new StatList(stats);
     }
 
     internal IReadOnlyList<GameObject> ReadObjects(Point origin, HoveredUnit? hover)

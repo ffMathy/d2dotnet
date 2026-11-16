@@ -32,15 +32,19 @@ finally
 | `CascFormatException` | Corrupt, truncated or unsupported storage data (an `IOException`). |
 | `CascEncryptedException` | A file is encrypted with a TACT key this reader does not have; carries `KeyName`. |
 
-The CASC reader is written from scratch in C# (no third-party library), so it carries no licence
-obligations beyond this repository's.
+The CASC reader uses no third-party library at run time. It is written in C# from CascLib's source
+(see [Sources](#sources)), and its TVFS parser (`Casc/TvfsManifest.cs`) is a port of CascLib's
+`CascRootFile_TVFS.cpp`, so CascLib's MIT licence applies to it: see [`Casc/LICENSE-CascLib`](Casc/LICENSE-CascLib)
+and [THIRD-PARTY-NOTICES.md](../../../THIRD-PARTY-NOTICES.md). The Jenkins hash is a port of `lookup3.c`, which is
+public domain.
 
 ## Paths
 
 Every provider uses the same convention: paths relative to the game's data root in the classic
 layout, e.g. `data/global/excel/levels.txt`. Lookups ignore case and accept `/` or `\` (and a leading
 separator). `EnumerateFiles` returns paths normalized by `GamePath.Normalize`: lowercase, `/`, no
-leading slash.
+leading slash. `DirectoryFileProvider` never reads outside its folder: a path with a `.` or `..` segment, an
+empty segment (`data//x`) or a drive or stream colon (`C:/x`) is not found.
 
 ### D2R names in CASC
 

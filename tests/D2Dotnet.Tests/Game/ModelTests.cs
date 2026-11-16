@@ -1,4 +1,3 @@
-using System.Collections.Frozen;
 using D2Dotnet.Data;
 using D2Dotnet.Game;
 
@@ -7,7 +6,7 @@ namespace D2Dotnet.Tests.Game;
 public class MonsterTests
 {
     private static Monster With(MonsterId id, params (StatId Id, int Value)[] stats) =>
-        new() { Class = id, Stats = stats.ToFrozenDictionary(s => s.Id, s => s.Value) };
+        new() { Class = id, Stats = new StatList(stats.Select(s => new Stat(s.Id, s.Value))) };
 
     [Fact]
     public void IsImmune_NeedsAResistanceOf100()
@@ -20,6 +19,22 @@ public class MonsterTests
         Assert.False(m.IsImmune(Element.Poison)); // d2go: -10 read as 4294967286, "immune"
         Assert.True(m.IsImmune(Element.Magic));
         Assert.Throws<ArgumentOutOfRangeException>(() => m.IsImmune((Element)99));
+        Assert.False(With(MonsterId.Zombie).IsImmune(Element.Fire)); // no resistance stat
+    }
+
+    [Fact]
+    public void GetStat_IsNullWhenMissing_AndReadsTheLayer()
+    {
+        // A missing stat is null, not 0: a monster without a fire resistance stat differs from one with 0%.
+        var m = new Monster
+        {
+            Stats = new StatList([new Stat(StatId.FireResist, 0), new Stat(StatId.SingleSkill, 3, Layer: 54)]),
+        };
+        Assert.Equal(0, m.GetStat(StatId.FireResist));
+        Assert.Null(m.GetStat(StatId.ColdResist));
+        Assert.Equal(3, m.GetStat(StatId.SingleSkill, 54));
+        Assert.Null(m.GetStat(StatId.SingleSkill));
+        Assert.Null(new Monster().GetStat(StatId.Life));
     }
 
     [Fact]
@@ -31,7 +46,8 @@ public class MonsterTests
         Assert.False(With(MonsterId.ClayGolem, (StatId.Life, 1)).IsEnemy);
         Assert.False(With(MonsterId.BaalTaunt, (StatId.Life, 1)).IsEnemy);
         Assert.False(With((MonsterId)146, (StatId.Life, 1)).IsEnemy); // a town NPC
-        Assert.Equal(0, With(MonsterId.Zombie).GetStat(StatId.Life));
+        Assert.False(With(MonsterId.Zombie, (StatId.Life, 0)).IsEnemy);
+        Assert.Null(With(MonsterId.Zombie).GetStat(StatId.Life));
     }
 
     [Theory]
@@ -302,7 +318,7 @@ public class GameSnapshotTests
     private static Monster Merc(int life, int maxLife, MonsterId id = MonsterId.Guard) => new()
     {
         Class = id,
-        Stats = new Dictionary<StatId, int> { [StatId.Life] = life, [StatId.MaxLife] = maxLife },
+        Stats = new StatList([new Stat(StatId.Life, life), new Stat(StatId.MaxLife, maxLife)]),
     };
 
     [Theory]
@@ -325,6 +341,14 @@ public class GameSnapshotTests
     }
 
     [Fact]
+    public void MercenaryLifePercent_MissingStats()
+    {
+        // No max life: unknown. No life stat: 0%.
+        Assert.Null(new GameSnapshot { Monsters = [new Monster { Class = MonsterId.Guard, Stats = new StatList([new Stat(StatId.Life, 300 << 8)]) }] }.MercenaryLifePercent);
+        Assert.Equal(0, new GameSnapshot { Monsters = [new Monster { Class = MonsterId.Guard, Stats = new StatList([new Stat(StatId.MaxLife, 400 << 8)]) }] }.MercenaryLifePercent);
+    }
+
+    [Fact]
     public void Mercenary_IsTheFirstMercenary()
     {
         Assert.Null(new GameSnapshot().MercenaryLifePercent);
@@ -342,7 +366,7 @@ public class GameSnapshotTests
         var snapshot = new GameSnapshot
         {
             Party = [new PartyMember("Alice", AreaId.Harrogath, default), new PartyMember("BOB", AreaId.LutGholein, default), new PartyMember("bob", AreaId.KurastDocks, default)],
-            Monsters = [new Monster { Id = new UnitId(5), Stats = new Dictionary<StatId, int> { [StatId.Life] = 1 } }, Merc(1, 1)],
+            Monsters = [new Monster { Id = new UnitId(5), Stats = new StatList([new Stat(StatId.Life, 1)]) }, Merc(1, 1)],
             Objects = [new GameObject { Id = new UnitId(9) }],
             Quests = new Dictionary<QuestId, QuestStatus> { [QuestId.Act1DenOfEvil] = QuestStatus.RewardGranted },
         };

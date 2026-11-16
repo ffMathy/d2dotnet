@@ -94,6 +94,23 @@ public class GameDatabaseTests
         Assert.Contains("'Id'", error.Message);
     }
 
+    [Theory]
+    [InlineData("40000")]
+    [InlineData("-32769")]
+    public void SkillIdOutside16Bits_IsAnInvalidDataError(string id)
+    {
+        // The game keeps skill ids in 16 bits; this was an OverflowException naming nothing.
+        var db = new GameDatabase(SyntheticGame.Files().Add("data/global/excel/skills.txt", $"skill\t*Id\nAttack\t0\nBig\t{id}\n"));
+        var error = Assert.Throws<InvalidDataException>(() => db.Skills);
+        Assert.Contains("skills.txt", error.Message);
+        Assert.Contains("'*Id'", error.Message);
+        Assert.Contains($"'{id}'", error.Message);
+        Assert.Contains("row 1", error.Message);
+
+        db = new GameDatabase(SyntheticGame.Files().Add("data/global/excel/skills.txt", "skill\t*Id\nLast\t32767\nFirst\t-32768\n"));
+        Assert.Equal([(SkillId)short.MaxValue, (SkillId)short.MinValue], db.Skills.Select(s => s.Id));
+    }
+
     [Fact]
     public void Levels_AreKeyedByTheirId_WithoutTheDivider()
     {

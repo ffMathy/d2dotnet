@@ -68,14 +68,17 @@ public sealed record Monster
 
     /// <summary>
     /// The monster's stats, as the game stores them (signed 32-bit values, not rescaled: life and max life are in
-    /// 1/256 points). A stat the game lists twice keeps its last value.
+    /// 1/256 points), in the game's order. A stat (id and layer) the game lists twice is listed once, with its last value.
     /// </summary>
-    public IReadOnlyDictionary<StatId, int> Stats { get; init; } = FrozenDictionary<StatId, int>.Empty;
+    public StatList Stats { get; init; } = StatList.Empty;
 
-    /// <summary>A stat's value, 0 when the monster does not have it.</summary>
-    public int GetStat(StatId id) => Stats.GetValueOrDefault(id);
+    /// <summary>The value of a stat from <see cref="Stats"/>; null when the monster does not have it.</summary>
+    public int? GetStat(StatId id, ushort layer = 0) => Stats.GetValue(id, layer);
 
-    /// <summary>True when the monster's resistance to <paramref name="element"/> is 100 or more.</summary>
+    /// <summary>
+    /// True when the monster's resistance to <paramref name="element"/> is 100 or more; false when it has no such
+    /// resistance stat.
+    /// </summary>
     public bool IsImmune(Element element) => GetStat(element switch
     {
         Element.Fire => StatId.FireResist,
@@ -111,6 +114,9 @@ public sealed record Monster
     public bool IsUntargetable => Class is MonsterId.WaterWatcherLimb or MonsterId.WaterWatcherHead or MonsterId.BaalTaunt
         or MonsterId.Act5Combatant or MonsterId.Act5Combatant2 or MonsterId.BarricadeTower;
 
-    /// <summary>A living hostile monster: not a mercenary, pet, friendly NPC or untargetable, and with life above 0.</summary>
+    /// <summary>
+    /// A living hostile monster: not a mercenary, pet, friendly NPC or untargetable, and with a life stat above 0 (a monster
+    /// without a life stat is not an enemy).
+    /// </summary>
     public bool IsEnemy => !IsMercenary && !IsUntargetable && !IsFriendlyNpc && !IsPet && GetStat(StatId.Life) > 0;
 }

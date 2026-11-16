@@ -49,7 +49,7 @@ public sealed class UnitTests
     }
 
     [Fact]
-    public void MonsterStats_AreSigned_NotRescaled_LaterEntriesWin()
+    public void MonsterStats_AreSigned_NotRescaled_WithLayers_LaterEntriesWin()
     {
         var image = new GameImage();
         image.AddMonster((uint)MonsterId.Zombie, 1, 1, 1, stats:
@@ -58,16 +58,27 @@ public sealed class UnitTests
             new RawStat(StatId.FireResist, 100, Layer: 9),
             new RawStat(StatId.Life, 0x8000),
             new RawStat(StatId.ColdResist, 0xFFFF_FFF6),
+            new RawStat(StatId.FireResist, 100),
         ]);
 
         var m = Assert.Single(image.Reader().ReadMonsters());
-        Assert.Equal(3, m.Stats.Count);
-        Assert.Equal(0x8000, m.Stats[StatId.Life]);
-        Assert.Equal(100, m.Stats[StatId.FireResist]);
+        // d2go keyed the stats by id alone (the layer was dropped), so the two fire resistances were one.
+        Assert.Equal(
+            [
+                new Stat(StatId.Life, 0x8000),
+                new Stat(StatId.FireResist, 100, 9),
+                new Stat(StatId.ColdResist, -10),
+                new Stat(StatId.FireResist, 100),
+            ],
+            m.Stats);
+        Assert.Equal(0x8000, m.GetStat(StatId.Life));
+        Assert.Equal(100, m.GetStat(StatId.FireResist, 9));
         // d2go read -10 as 4294967286 and so reported the monster as cold immune.
-        Assert.Equal(-10, m.Stats[StatId.ColdResist]);
+        Assert.Equal(-10, m.GetStat(StatId.ColdResist));
+        Assert.Null(m.GetStat(StatId.PoisonResist));
         Assert.False(m.IsImmune(Element.Cold));
         Assert.True(m.IsImmune(Element.Fire));
+        Assert.False(m.IsImmune(Element.Poison));
     }
 
     [Fact]
@@ -120,7 +131,7 @@ public sealed class UnitTests
         Assert.Equal([2u, 1u], corpses.Select(c => c.Id.Value));
         Assert.Equal(MonsterType.SuperUnique, corpses[0].Type);
         Assert.Equal(MonsterType.Minion, corpses[1].Type);
-        Assert.Equal(3, corpses[0].Stats[StatId.Strength]);
+        Assert.Equal(3, corpses[0].GetStat(StatId.Strength));
         Assert.Empty(corpses[1].Stats);
     }
 

@@ -83,6 +83,41 @@ public class DirectoryFileProviderTests : IDisposable
         Assert.Null(provider.ReadFile(path));
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("data/")]
+    public void RootedPaths_DoNotEscape(string prefix)
+    {
+        // Path.Combine drops the base folder for a rooted second part: "data//<absolute>" sliced after the "data/" prefix
+        // is rooted, as is a drive-qualified path ("C:/x", "C:x") on Windows.
+        _dir.WriteFile("root/data/global/excel/levels.txt", "levels");
+        var outside = _dir.WriteFile("outside.txt", "secret");
+        var root = prefix.Length == 0 ? _dir.Combine("root") : _dir.Combine("root", "data");
+        var provider = new DirectoryFileProvider(root);
+        Assert.Equal(prefix, provider.PathPrefix);
+
+        var forward = outside.Replace('\\', '/');
+        string[] paths =
+        [
+            prefix + "/" + forward.TrimStart('/'),
+            prefix + "/" + forward,
+            prefix + forward,
+            forward,
+            "data//" + forward.TrimStart('/'),
+            "data/global//excel/levels.txt",
+            "c:/windows/win.ini",
+            "C:win.ini",
+            "data/global/excel/levels.txt:stream",
+        ];
+        foreach (var path in paths)
+        {
+            Assert.False(provider.Exists(path), path);
+            Assert.Null(provider.ReadFile(path));
+        }
+
+        Assert.Equal("levels", Text(provider.ReadFile("data/global/excel/levels.txt")));
+    }
+
     [Fact]
     public void MissingRoot_Throws()
     {

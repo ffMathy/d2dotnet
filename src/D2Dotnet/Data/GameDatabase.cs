@@ -225,9 +225,21 @@ public sealed class GameDatabase
         int name = t.GetRequiredColumnIndex("skill"), left = t.GetColumnIndex("leftskill"), right = t.GetColumnIndex("rightskill"); // rightskill is D2R only
         int charClass = t.GetColumnIndex("charclass"), desc = t.GetColumnIndex("skilldesc");
         var records = GameRows(t, name).Select(r => new SkillInfo(
-            (SkillId)checked((short)t.ParseInt32(r, id)), t.GetString(r, name), t.GetString(r, charClass), t.GetString(r, desc),
+            SkillIdOf(t, r, id), t.GetString(r, name), t.GetString(r, charClass), t.GetString(r, desc),
             Flag(t, r, left), Flag(t, r, right)));
         return new GameTable<SkillId, SkillInfo>(records, s => s.Id);
+    }
+
+    // The game keeps skill ids in 16 bits: a larger id is malformed for this column.
+    private static SkillId SkillIdOf(ExcelTable t, int row, int column)
+    {
+        var value = t.ParseInt32(row, column);
+        if (value is < short.MinValue or > short.MaxValue)
+        {
+            throw new InvalidDataException(
+                $"{t.Name}: row {row}, column '{t.Columns[column]}' has '{t.GetString(row, column)}', which is not a 16-bit skill id.");
+        }
+        return (SkillId)value;
     }
 
     private GameTable<string, SkillDescriptionInfo> LoadSkillDescriptions()

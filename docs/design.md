@@ -7,9 +7,9 @@ document records where it draws its lines, and why. It does not follow the shape
 ## Decisions
 
 1. **One library.** All code is in a single assembly, `D2Dotnet`, with no third-party dependencies; programs
-   reference it. The repository ships no apps. The old split (map server, map generator, game files, d2go data, d2go
-   memory) mirrored where the code came from, not how it is
-   used: every part needed the same IDs, the same excel tables and the same file access.
+   reference it. The repository ships no apps. Splitting it by origin (map generator, game files, d2go data, d2go
+   memory) would mirror where the code came from, not how it is used: every part needs the same IDs, the same excel
+   tables and the same file access.
 
 2. **One vocabulary.** Each game concept has exactly one type, in the root namespace `D2Dotnet`:
    - `AreaId` (Levels.txt row id): replaces the map generator's `LevelIds` and d2go's `area.ID`.

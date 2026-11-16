@@ -54,8 +54,8 @@ Immutable records; lookups return `null` when there is nothing; numbers have the
 | --- | --- |
 | `GameSnapshot` | Everything below, plus `Enemies`, `Mercenary`, `MercenaryLifePercent`, `FindMonster`, `FindObject`, `FindPartyMember`, `GetQuestStatus` |
 | `PlayerUnit`, `MainPlayer` | A unit of the player table (players, corpses, shared stash tabs); the controlled player with class, skills (`SkillPoints`), selected skills, waypoints, `Level`, `Experience`, `LifePercent`, `ManaPercent`, `MaxGold`, `TotalGold`, `CastingFrames`, `HasDebuff` |
-| `Stat`, `StatList` | A stat (signed 32-bit value, 16-bit layer) and an ordered stat list with `GetValue`/`TryGet` |
-| `Monster`, `MonsterType`, `Element` | A monster unit (class `MonsterId`, stats, `IsImmune`, `IsMercenary`, `IsPet`, `IsFriendlyNpc`, `IsElite`, `IsMonsterRaiser`, `IsUntargetable`, `IsEnemy`) |
+| `Stat`, `StatList` | A stat (signed 32-bit value, 16-bit layer) and an ordered stat list with `GetValue`/`TryGet`; players, monsters and items all use it, and their `GetStat(StatId, layer)` returns null when the stat is missing |
+| `Monster`, `MonsterType`, `Element` | A monster unit (class `MonsterId`, stats as the game stores them (life in 1/256 points), `IsImmune`, `IsMercenary`, `IsPet`, `IsFriendlyNpc`, `IsElite`, `IsMonsterRaiser`, `IsUntargetable`, `IsEnemy`) |
 | `GameObject`, `ShrineType`, `ShrineTypes`, `InteractType` | An object unit (class `ObjectId`, shrine kind, `IsWaypoint`, `IsPortal`, `IsChest`, `IsDoor`...) |
 | `Inventory`, `Item`, `Belt`, `ItemLocation`, `ItemQuality`, `ItemTier`, `PotionType` | Items with their base item (`ItemInfo` from the game data), location, flags and stats; gold; the belt |
 | `KeyBindings`, `KeyBinding`, `Key`, `SkillBinding` | The key binding table |
@@ -117,6 +117,10 @@ The memory layout is unchanged. Everything else that behaves differently:
   and returned the minimum integer. `MercenaryLifePercent` is also null without a mercenary (d2go: 0).
 - Unit ids are `uint`, skill points `ushort`, the frame rate `uint`, gold `int` (the game's widths); d2go used Go's
   64-bit `int`.
+- Monster stats are a `StatList` with their layers, like player and item stats, and `Monster.GetStat` returns null for a
+  stat the monster does not have: a monster without a fire resistance stat is not one with 0%. d2go keyed them by id
+  alone (a stat on two layers kept the last one read) and returned 0 on a miss. `IsImmune` and `IsEnemy` are false
+  without the stat, as before.
 - A missing player, corpse, hover or quest is `null` (or `QuestStatus.None`), not a zero value: `GameSnapshot.Player`
   is null out of a game, the party has no zero member for a missing main player, `Corpse` is null instead of
   `Found: false`, `Hover` is null instead of `IsHovered: false`.
@@ -138,9 +142,9 @@ The memory layout is unchanged. Everything else that behaves differently:
   object as its interact type. d2go decided from the 8 bytes at unit `+0x0A`, which overlap the unit id, the mode and
   the unit data pointer: nearly every object read as a shrine and lost its interact type. The shrine name is
   `ShrineType.GetName()`.
-- Item stats from modifier lists replace the value of a stat that is already listed, and each stat (id and layer) is
-  listed once. d2go assigned the new value to a copy, so it was lost, and added a stat listed twice in the `0x40` list
-  twice.
+- Each item stat (id and layer) is listed once; d2go added a stat listed twice in the `0x40` list twice. A modifier
+  list's stat that is already listed keeps the listed value, as in d2go: the full list holds the item's total, a
+  modifier list only its own part of it.
 - An item in the inventory whose owner matches no shared stash unit is read even when there are fewer than three
   shared stash units; d2go panicked.
 - Terror zones are read from the offline address when the Online tab is not selected; d2go always read the online one.

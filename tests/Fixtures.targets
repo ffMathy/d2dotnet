@@ -5,8 +5,8 @@
     - d2go (Farmith/d2go) at the pinned commit: its generated Go tables (pkg/data/**) and the excel tables they were
       generated from (cmd/txttocode/txt/*.txt).
     Both contain Blizzard-derived data and are NEVER committed. A failed download does not break the build; the tests
-    that need the fixtures then fail with a clear message (see tests/D2Dotnet.Tests/Fixtures.cs). The cache folders are
-    the old per-tool fixture targets used.
+    that need the fixtures then fail with a clear message (see tests/D2Dotnet.Tests/Fixtures.cs). A checkout already in
+    .cache/libd2 or .cache/d2go is reused.
   -->
   <PropertyGroup>
     <LibD2Commit>00004e6383890d895507ab4d12dfbb1a857c3bdf</LibD2Commit>

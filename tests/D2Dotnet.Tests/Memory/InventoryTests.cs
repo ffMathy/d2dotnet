@@ -226,10 +226,10 @@ public sealed class InventoryTests
     }
 
     [Fact]
-    public void ItemStats_WithModifiers_ListEachStatOnce_AndModifiersUpdateValues()
+    public void ItemStats_WithModifiers_ListEachStatOnce_AndTheFullValueWins()
     {
-        // d2go assigned a modifier's value to a copy, so an existing stat never changed, and added a stat the 0x40
-        // list repeats twice.
+        // The full list holds the item's total, a modifier list one part of it: a stat already listed keeps its value,
+        // as in d2go (which assigned a modifier's value to a copy). d2go also added a stat the 0x40 list repeats twice.
         var image = new GameImage();
         var n3 = image.StatListNode(0, [new RawStat(StatId.Energy, 4)]);
         var n2 = image.StatListNode(0x2040, [new RawStat(StatId.Vitality, 3), new RawStat(StatId.Strength, 1), new RawStat(StatId.Vitality, 3)], n3);
@@ -238,11 +238,11 @@ public sealed class InventoryTests
 
         var (b, f) = image.Reader().ReadItemStats((nuint)stats);
 
-        // Full: the stats of the first list with flag 0x40 that are missing, then every modifier list's stats (n1, then
-        // n2: its Strength 1 replaces n1's 99).
+        // Full: the full list, then the missing stats of the first list with flag 0x40, then the missing stats of every
+        // modifier list (n1, then n2). Neither n1's Strength 99 nor n2's Strength 1 replaces the full list's 10.
         Assert.Equal(
             [
-                new Stat(StatId.Strength, 1),
+                new Stat(StatId.Strength, 10),
                 new Stat(StatId.Vitality, 3),
                 new Stat(StatId.Dexterity, 7),
                 new Stat(StatId.Strength, 8, 1),
@@ -250,6 +250,21 @@ public sealed class InventoryTests
             f);
         // Base: only the stats of lists whose flags are exactly 0x80000000, when missing.
         Assert.Equal([new Stat(StatId.Strength, 5), new Stat(StatId.Dexterity, 7), new Stat(StatId.Strength, 8, 1)], b);
+    }
+
+    [Fact]
+    public void ItemStats_AStatInTwoModifierLists_KeepsTheFullValue()
+    {
+        // A weapon with +20 from an affix and +15 from a socketed jewel: the full list has the total, 35.
+        var image = new GameImage();
+        var jewel = image.StatListNode(0x80000000, [new RawStat(StatId.IncreasedAttackSpeed, 15)]);
+        var affix = image.StatListNode(0x80000000, [new RawStat(StatId.IncreasedAttackSpeed, 20), new RawStat(StatId.Dexterity, 2)], jewel);
+        var stats = image.ItemStats([], [new RawStat(StatId.IncreasedAttackSpeed, 35)], flags: 0x8000_0000, lastStatsList: affix);
+
+        var (b, f) = image.Reader().ReadItemStats((nuint)stats);
+        Assert.Equal([new Stat(StatId.IncreasedAttackSpeed, 35), new Stat(StatId.Dexterity, 2)], f);
+        // Base: the first modifier list's value of a stat missing from the base list.
+        Assert.Equal([new Stat(StatId.IncreasedAttackSpeed, 20), new Stat(StatId.Dexterity, 2)], b);
     }
 
     [Fact]

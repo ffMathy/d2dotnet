@@ -84,8 +84,9 @@ public sealed record GameSnapshot
     public Monster? Mercenary => Monsters.FirstOrDefault(m => m.IsMercenary);
 
     /// <summary>
-    /// The mercenary's life in percent, or null without a mercenary or when its max life is unknown. A life stat of up to
-    /// 32768 is read as a fraction of 32768 of the max life, as the game keeps it for some mercenaries.
+    /// The mercenary's life in percent, or null without a mercenary or when its max life is unknown or 0 (a mercenary
+    /// without a life stat is at 0%). A life stat of up to 32768 is read as a fraction of 32768 of the max life, as the
+    /// game keeps it for some mercenaries.
     /// </summary>
     public int? MercenaryLifePercent
     {
@@ -93,10 +94,10 @@ public sealed record GameSnapshot
         {
             if (Mercenary is not { } merc)
                 return null;
-            var lifeStat = merc.GetStat(StatId.Life);
-            var maxLife = merc.GetStat(StatId.MaxLife) >> 8;
+            var maxLife = (merc.GetStat(StatId.MaxLife) ?? 0) >> 8;
             if (maxLife <= 0)
                 return null;
+            var lifeStat = merc.GetStat(StatId.Life) ?? 0;
             var life = lifeStat <= 32768 ? lifeStat / 32768.0 * maxLife : lifeStat >> 8;
             return (int)(life / maxLife * 100);
         }

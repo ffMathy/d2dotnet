@@ -6,8 +6,8 @@ namespace D2Dotnet.Files.Casc;
 /// checksum in the 30-byte header in front of every record in a <c>data.###</c> archive.
 /// </summary>
 /// <remarks>
-/// Ported from the byte-at-a-time branch of lookup3.c (as bundled with CascLib), which gives the
-/// same result as the aligned branches on little-endian machines.
+/// Ported from the byte-at-a-time branch of lookup3.c (public domain, as bundled with CascLib), which gives
+/// the same result as the aligned branches on little-endian machines.
 /// </remarks>
 internal static class Jenkins96
 {

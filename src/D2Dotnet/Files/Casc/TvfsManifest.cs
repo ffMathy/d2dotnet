@@ -16,7 +16,8 @@ internal sealed record TvfsFile(string Path, IReadOnlyList<TvfsSpan> Spans)
 /// Parser for TVFS ("TACT virtual file system"), the root manifest of D2R and other recent TACT products.
 /// </summary>
 /// <remarks>
-/// Ported from CascLib's <c>CascRootFile_TVFS.cpp</c>, cross-checked with TACTLib's <c>VFSManifestReader</c>.
+/// Ported from CascLib's <c>CascRootFile_TVFS.cpp</c> (MIT, (c) Ladislav Zezula; see <c>LICENSE-CascLib</c> and
+/// THIRD-PARTY-NOTICES.md), cross-checked with TACTLib's <c>VFSManifestReader</c>.
 /// Header, all big-endian after the signature:
 /// <code>
 /// char[4] "TVFS"  u8 formatVersion (1)  u8 headerSize (0x26, 0x2E with EST)  u8 ekeySize (9)  u8 patchKeySize (9)

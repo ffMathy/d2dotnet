@@ -204,7 +204,7 @@ internal sealed class GameImage
         Memory.WriteU64(unit + 0x10, unitData);
         Memory.WriteU64(unit + 0x38, Path(x, y, 0x02));
         var statsEx = Memory.Alloc(0x100);
-        // Monster stats: pointer at +0x30, count at +0x38, entries read from pointer + 2 as (id u16, value u32).
+        // Monster stats: pointer at +0x30, count at +0x38, 8-byte entries (layer u16, id u16, value u32).
         WriteStatList(statsEx + 0x30, stats ?? []);
         Memory.WriteU64(unit + 0x88, statsEx);
         Memory.WriteU8(unit + 0x1A6, corpse ? (byte)1 : (byte)0);

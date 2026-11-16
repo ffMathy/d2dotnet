@@ -22,6 +22,7 @@ namespace D2Dotnet.Files;
 public sealed class DirectoryFileProvider : IGameFileProvider
 {
     private readonly Lazy<Dictionary<string, string>> _files;
+    private readonly string _baseWithSeparator;
 
     /// <param name="root">The folder to read; see the remarks for the accepted layouts.</param>
     /// <exception cref="DirectoryNotFoundException"><paramref name="root"/> does not exist.</exception>
@@ -31,6 +32,7 @@ public sealed class DirectoryFileProvider : IGameFileProvider
         if (!Directory.Exists(full))
             throw new DirectoryNotFoundException($"Game data folder '{root}' does not exist.");
         (BaseDirectory, PathPrefix) = Detect(full);
+        _baseWithSeparator = Path.EndsInDirectorySeparator(BaseDirectory) ? BaseDirectory : BaseDirectory + Path.DirectorySeparatorChar;
         _files = new Lazy<Dictionary<string, string>>(Scan, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
@@ -64,10 +66,17 @@ public sealed class DirectoryFileProvider : IGameFileProvider
         var normalized = GamePath.Normalize(path);
         if (normalized.Length == 0 || normalized.EndsWith('/') || !normalized.StartsWith(PathPrefix, StringComparison.Ordinal))
             return null;
-        if (normalized.Split('/').Any(part => part is ".." or "."))
-            return null; // stay inside the base folder
+        // Stay inside the base folder: no "." or ".." segment, no empty segment ("data//etc/x" would make the part after
+        // the prefix rooted) and no drive or stream colon ("c:/windows/x" is rooted on Windows).
+        if (normalized.Contains(':') || normalized.Split('/').Any(part => part is "" or ".." or "."))
+            return null;
 
-        var direct = Path.Combine(BaseDirectory, path.Replace('\\', '/').TrimStart('/')[PathPrefix.Length..]);
+        var relative = path.Replace('\\', '/').TrimStart('/')[PathPrefix.Length..];
+        if (Path.IsPathRooted(relative))
+            return null;
+        var direct = Path.GetFullPath(Path.Combine(BaseDirectory, relative));
+        if (!direct.StartsWith(_baseWithSeparator, StringComparison.Ordinal))
+            return null;
         if (File.Exists(direct))
             return direct;
         return _files.Value.TryGetValue(normalized, out var file) ? file : null;

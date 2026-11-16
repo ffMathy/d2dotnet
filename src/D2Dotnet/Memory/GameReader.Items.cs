@@ -148,7 +148,8 @@ public sealed partial class GameReader
     /// <summary>
     /// The base and full stats of an item: the lists at <c>+0x30</c> and <c>+0x88</c> of its stats, plus, when flag
     /// <c>0x80000000</c> is set, the stats of the modifier lists linked from <c>+0x70</c> (each previous list at <c>+0x48</c>).
-    /// A stat (id and layer) is listed once; a modifier list's value replaces the value already listed.
+    /// A stat (id and layer) is listed once, with the first value found: the full list's (the item's total) wins over a
+    /// modifier list's (one part of it).
     /// </summary>
     internal (StatList BaseStats, StatList Stats) ReadItemStats(nuint statsEx)
     {
@@ -177,8 +178,9 @@ public sealed partial class GameReader
                     AddMissing(full, stat);
             }
 
-            // Then every modifier list with flags: its stats update the full stats, and the base stats when its flags are
-            // exactly 0x80000000.
+            // Then every modifier list with flags: its stats that are not listed yet are added to the full stats, and to
+            // the base stats when its flags are exactly 0x80000000. A stat already listed keeps its value: the full list
+            // holds the item's total, a modifier list only its own part of it.
             list = last;
             for (var n = 0; list != 0 && n < MaxListLength; n++)
             {
@@ -187,7 +189,7 @@ public sealed partial class GameReader
                 {
                     foreach (var stat in ReadStatList(list + 0x30))
                     {
-                        Set(full, stat);
+                        AddMissing(full, stat);
                         if (listFlags == 0x80000000)
                             AddMissing(baseStats, stat);
                     }
@@ -205,15 +207,6 @@ public sealed partial class GameReader
         {
             if (IndexOf(stats, stat) < 0)
                 stats.Add(stat);
-        }
-
-        static void Set(List<Stat> stats, Stat stat)
-        {
-            var i = IndexOf(stats, stat);
-            if (i < 0)
-                stats.Add(stat);
-            else
-                stats[i] = stat;
         }
     }
 }

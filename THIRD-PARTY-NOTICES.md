@@ -1,7 +1,8 @@
 # Third-party notices
 
 d2dotnet contains code ported from the projects below. Each is used under its
-own license, reproduced here.
+own license, reproduced here. The NuGet package of the library carries this file and the three license copies
+(`LICENSE-libd2`, `LICENSE-d2go`, `LICENSE-CascLib`) at its root.
 
 ## libd2
 
@@ -77,6 +78,43 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## CascLib
+
+<https://github.com/ladislav-zezula/CascLib>, MIT, Copyright (c) 2014 Ladislav Zezula.
+
+The CASC reader of the library (`src/D2Dotnet/Files/Casc`, see [src/D2Dotnet/Files/README.md](src/D2Dotnet/Files/README.md))
+is written from CascLib's source: the index, encoding, BLTE and build configuration readers follow its structures and
+code, and the TVFS parser (`src/D2Dotnet/Files/Casc/TvfsManifest.cs`) is a port of `CascRootFile_TVFS.cpp`. The Jenkins
+hash (`Jenkins96.cs`) is a port of Bob Jenkins' `lookup3.c` as bundled with CascLib, which is public domain. A copy of
+this license is also kept in `src/D2Dotnet/Files/Casc/LICENSE-CascLib`.
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2014 Ladislav Zezula
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+TACTLib (<https://github.com/overtools/TACTLib>, MIT) was used only to cross-check the TVFS header; none of its code
+is carried over.
 
 ## NuGet dependencies
 
