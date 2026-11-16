@@ -4,6 +4,9 @@ using D2Dotnet.D2Go.Data.Stat;
 
 namespace D2Dotnet.D2Go.Memory.Tests;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+
 /// <summary>monsters.go and object.go.</summary>
 public sealed class UnitTests
 {

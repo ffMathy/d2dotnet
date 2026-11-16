@@ -4,13 +4,16 @@ A monorepo of Diablo II: Resurrected tools ported to .NET.
 
 ## Layout
 
-Every tool lives in its own folder with the same shape:
+The repository is moving to one library plus the apps that use it; see [docs/design.md](docs/design.md).
 
 ```
-tools/<tool>/
-    src/<Project>/       the tool itself
-    tests/<Project>.Tests/  xUnit tests
-    README.md            what the tool does and how to run it
+src/D2Dotnet/                the library (no third-party dependencies)
+    *.cs                     shared ids: AreaId, Difficulty, ActId, Point, Rect, MonsterId, ObjectId, ItemId, ...
+    Files/                   game files: IGameFileProvider, CASC and folder providers, GameFiles, GameInstall
+    Data/                    ExcelTable (the excel reader), GameDatabase (typed tables), Localization (D2R strings)
+tests/D2Dotnet.Tests/        xUnit tests of the library, oracles included
+tests/Fixtures.targets       downloads the pinned libd2 and d2go sources into .cache/ for the oracle tests
+tools/<tool>/                the tools not yet moved onto the library: src/<Project>/, tests/<Project>.Tests/, README.md
 ```
 
 Shared build settings are in the repository root: `Directory.Build.props` (net10.0, nullable reference types,
@@ -28,9 +31,9 @@ dotnet test D2Dotnet.slnx
 
 The same commands run in CI (`.github/workflows/build.yml`) for every push and pull request.
 
-The map tests download the pinned [libd2](https://github.com/jaenster/libd2) source (its test fixtures include
-game data), and the d2go tests the pinned [d2go](https://github.com/Farmith/d2go) source (its excel tables), into the
-gitignored `.cache/` folder on their first build; nothing derived from the game is committed.
+The library and map tests download the pinned [libd2](https://github.com/jaenster/libd2) source (its test fixtures
+include game data), and the library and d2go tests the pinned [d2go](https://github.com/Farmith/d2go) source (its excel
+tables), into the gitignored `.cache/` folder on their first build; nothing derived from the game is committed.
 
 ## Tools
 

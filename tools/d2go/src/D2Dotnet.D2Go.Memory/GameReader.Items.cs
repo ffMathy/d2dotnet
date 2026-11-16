@@ -8,6 +8,10 @@ using DataInventory = D2Dotnet.D2Go.Data.Inventory;
 
 namespace D2Dotnet.D2Go.Memory;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+using StateId = D2Dotnet.D2Go.Data.State.StateId;
+
 public sealed partial class GameReader
 {
     /// <summary>

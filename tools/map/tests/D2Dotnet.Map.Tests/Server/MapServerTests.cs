@@ -12,6 +12,9 @@ using SkiaSharp;
 
 namespace D2Dotnet.Map.Tests.Server;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using Difficulty = D2Dotnet.Map.Data.Difficulty;
+
 /// <summary>Runs the real server (routes, map service, cache, model to JSON conversion) over the fake generator.</summary>
 public sealed class MapServerFactory : WebApplicationFactory<Program>
 {

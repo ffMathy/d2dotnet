@@ -4,6 +4,9 @@ using D2Dotnet.D2Go.Data.Skill;
 
 namespace D2Dotnet.D2Go.Data;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using SkillId = D2Dotnet.D2Go.Data.Skill.SkillId;
+
 /// <summary>
 /// The game's key bindings (Go <c>data.KeyBindings</c>). Like the Go struct, which holds only arrays and structs, two
 /// key bindings are equal when every binding is, including each entry of <see cref="Skills"/> and

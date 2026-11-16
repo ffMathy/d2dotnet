@@ -7,7 +7,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../D2Dotnet.Map.GameData/D2Dotnet.Map.GameData.csproj" />
+    <ProjectReference Include="../../../../src/D2Dotnet/D2Dotnet.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="D2Dotnet.Map.Drlg.Tests" />

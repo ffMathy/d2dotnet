@@ -10,7 +10,7 @@ data of a **Diablo II: Resurrected** install (or a folder of files extracted fro
 
 | Folder | Namespace | What |
 | --- | --- | --- |
-| `src/D2Dotnet.Map.GameData` | `D2Dotnet.Map.GameData` | reads a D2R install (CASC) or an extracted folder, see [its README](src/D2Dotnet.Map.GameData/README.md) |
+| `../../src/D2Dotnet/Files` | `D2Dotnet.Files` | in the `D2Dotnet` library: reads a D2R install (CASC) or an extracted folder, see [its README](../../src/D2Dotnet/Files/README.md) |
 | `src/D2Dotnet.Map.Drlg` | `D2Dotnet.Map.Drlg` | the DRLG port of libd2: levels, rooms, collision, presets, exits, see [its README](src/D2Dotnet.Map.Drlg/README.md) |
 | `src/D2Dotnet.Map/Generation` | `D2Dotnet.Map.Generation` | in-process generation, cache, D2R string tables, and the conversion of the DRLG model to upstream's JSON |
 | `src/D2Dotnet.Map/Data` | `D2Dotnet.Map.Data` | `@diablo2/data`: `Act`, `Difficulty`, `Diablo2Level` |

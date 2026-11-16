@@ -3,6 +3,10 @@ using D2Dotnet.D2Go.Data.Skill;
 
 namespace D2Dotnet.D2Go.Data.Tests;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using AreaId = D2Dotnet.D2Go.Data.Area.AreaId;
+using SkillId = D2Dotnet.D2Go.Data.Skill.SkillId;
+
 /// <summary>
 /// The tables <see cref="GameTables.Load"/> reads from d2go's txt files must equal, entry for entry, the Go tables
 /// d2go's <c>cmd/txttocode</c> generated from the same files (parsed from the Go source of the pinned commit).

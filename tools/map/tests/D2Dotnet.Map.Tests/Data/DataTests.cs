@@ -2,6 +2,9 @@ using D2Dotnet.Map.Data;
 
 namespace D2Dotnet.Map.Tests.Data;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using Difficulty = D2Dotnet.Map.Data.Difficulty;
+
 public class JsNumberTests
 {
     [Theory]

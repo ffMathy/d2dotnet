@@ -5,6 +5,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace D2Dotnet.Map.Tests.Server;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using Difficulty = D2Dotnet.Map.Data.Difficulty;
+
 public class RouteValidationTests
 {
     private static RouteRequest Req(params (string Key, string Value)[] p) =>

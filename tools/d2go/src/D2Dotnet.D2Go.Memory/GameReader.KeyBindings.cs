@@ -6,6 +6,9 @@ using D2Dotnet.D2Go.Data.Skill;
 
 namespace D2Dotnet.D2Go.Memory;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using SkillId = D2Dotnet.D2Go.Data.Skill.SkillId;
+
 public sealed partial class GameReader
 {
     // keybindings.go, relative to the module base: the key binding blob and the skill hotkey blob.

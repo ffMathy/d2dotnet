@@ -6,6 +6,10 @@ using D2Dotnet.D2Go.Data.Stat;
 
 namespace D2Dotnet.D2Go.Data.Tests;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using SkillId = D2Dotnet.D2Go.Data.Skill.SkillId;
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+
 public class InventoryTests
 {
     private static GameItem Item(string name, LocationType location, int unitId = 0) =>

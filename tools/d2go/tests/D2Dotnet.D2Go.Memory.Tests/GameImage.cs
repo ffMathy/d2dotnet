@@ -3,6 +3,9 @@ using D2Dotnet.D2Go.Data.Stat;
 
 namespace D2Dotnet.D2Go.Memory.Tests;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+
 /// <summary>A stat list entry: layer u16, id u16, value u32.</summary>
 internal readonly record struct RawStat(StatId Id, uint Value, ushort Layer = 0);
 

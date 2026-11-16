@@ -1,6 +1,6 @@
+using D2Dotnet.Files;
 using D2Dotnet.Map.Drlg.Data;
 using D2Dotnet.Map.Drlg.Formats;
-using D2Dotnet.Map.GameData;
 
 namespace D2Dotnet.Map.Drlg.Tests;
 

@@ -5,6 +5,9 @@ using D2Dotnet.D2Go.Data.Stat;
 
 namespace D2Dotnet.D2Go.Data;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+
 /// <summary>The player's items and gold (Go <c>data.Inventory</c>).</summary>
 public sealed record Inventory
 {

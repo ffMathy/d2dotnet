@@ -72,14 +72,14 @@ public class MapGameDataTests
         {
             var excel = Directory.CreateDirectory(Path.Join(root.FullName, "data", "global", "excel"));
             File.WriteAllText(Path.Join(excel.FullName, "levels.txt"), "Id\tLevelName\r\n1\tTown\r\n");
-            var files = new D2Dotnet.Map.GameData.DirectoryFileProvider(root.FullName);
+            var files = new D2Dotnet.Files.DirectoryFileProvider(root.FullName);
             var err = Assert.Throws<InvalidDataException>(() => MapGameData.Load(new GameFilesDataSource(files), files, "enUS"));
             Assert.Contains("monstats.txt", err.Message);
 
             File.WriteAllText(Path.Join(excel.FullName, "MonStats.txt"), "Id\tNameStr\r\nzombie\tZombie\r\n");
             File.WriteAllText(Path.Join(excel.FullName, "superuniques.txt"), "Superunique\tName\r\n");
             File.WriteAllText(Path.Join(excel.FullName, "objects.txt"), "Name\tId\r\nWaypoint\t119\r\n");
-            files = new D2Dotnet.Map.GameData.DirectoryFileProvider(root.FullName);
+            files = new D2Dotnet.Files.DirectoryFileProvider(root.FullName);
             var data = MapGameData.Load(new GameFilesDataSource(files), files, "enUS");
             Assert.Equal("Town", data.LevelName(1));
             Assert.Equal("Zombie", data.Npc(0).Name);

@@ -49,8 +49,9 @@ SOFTWARE.
 
 `tools/map/src/D2Dotnet.Map.Drlg` is a C# port of libd2's Diablo II map generator (DRLG, `packages/drlg`) and of its
 DS1/DT1 parsers (`packages/formats`), pinned at commit `00004e6383890d895507ab4d12dfbb1a857c3bdf`. A copy of this
-license is also kept in `tools/map/src/D2Dotnet.Map.Drlg/LICENSE-libd2`. The tests download that commit into the
-gitignored `.cache/libd2/` at build time; none of it is committed.
+license is also kept in `tools/map/src/D2Dotnet.Map.Drlg/LICENSE-libd2`. The excel reader of the library,
+`src/D2Dotnet/Data/ExcelTable.cs`, follows libd2's `packages/drlg/src/txt.zig` (line, header and integer rules). The
+tests download that commit into the gitignored `.cache/libd2/` at build time; none of it is committed.
 
 ```
 MIT License
@@ -85,8 +86,9 @@ SOFTWARE.
 generates from the game's excel files (`cmd/txttocode`) are not ported: they are read from the user's game files at
 run time. d2go credits [MapAssist](https://github.com/OneXDeveloper/MapAssist) for the map seed reversal of
 `pkg/utils/map_seed_hash.go`; that search loop is not ported: `MapSeed` computes the same result directly from the
-hash formula. A copy of this license is
-also kept in `tools/d2go/LICENSE-d2go`. The tests download that commit into the gitignored `.cache/d2go/` at build
+hash formula. The id enums of the library (`src/D2Dotnet/AreaId.cs`, `MonsterId.cs`, `ObjectId.cs`, `SkillId.cs`,
+`StatId.cs`, `StateId.cs`, `QuestId.cs`, `ItemId.cs`, `ItemTypeCode.cs`) take their values and names from d2go's
+`pkg/data`. A copy of this license is also kept in `tools/d2go/LICENSE-d2go`. The tests download that commit into the gitignored `.cache/d2go/` at build
 time; none of it is committed.
 
 ```

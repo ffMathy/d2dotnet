@@ -5,6 +5,9 @@ using D2Dotnet.Map.Generation;
 
 namespace D2Dotnet.Map.Tests;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using Difficulty = D2Dotnet.Map.Drlg.Difficulty;
+
 /// <summary>Small synthetic game data and acts (no game files), shared by the server and generation tests.</summary>
 public static class Synthetic
 {

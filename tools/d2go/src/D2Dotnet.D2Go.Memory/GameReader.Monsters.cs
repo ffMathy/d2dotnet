@@ -8,6 +8,9 @@ using DataMonsters = D2Dotnet.D2Go.Data.Monsters;
 
 namespace D2Dotnet.D2Go.Memory;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+
 public sealed partial class GameReader
 {
     // Go shouldBeIgnored's list, in its order.

@@ -7,6 +7,9 @@ using Microsoft.Extensions.Options;
 
 namespace D2Dotnet.Map.Generation;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using Difficulty = D2Dotnet.Map.Data.Difficulty;
+
 /// <summary>Errors of the map generation.</summary>
 public sealed class MapGenerationException(string message, Exception? inner = null) : Exception(message, inner);
 

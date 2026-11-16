@@ -4,6 +4,9 @@ using DataInventory = D2Dotnet.D2Go.Data.Inventory;
 
 namespace D2Dotnet.D2Go.Memory.Tests;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+
 /// <summary>item.go.</summary>
 public sealed class InventoryTests
 {

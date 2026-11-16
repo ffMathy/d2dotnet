@@ -6,9 +6,11 @@ using D2Dotnet.Map.Render;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SkiaSharp;
-using Difficulty = D2Dotnet.Map.Drlg.Difficulty;
 
 namespace D2Dotnet.Map.Tests.Generation;
+
+// Inside the namespace: the library's D2Dotnet.Difficulty would win over a compilation-unit alias.
+using Difficulty = D2Dotnet.Map.Drlg.Difficulty;
 
 /// <summary>
 /// The real DRLG generator over libd2's baked game data (downloaded into the gitignored <c>.cache/libd2/</c> by the

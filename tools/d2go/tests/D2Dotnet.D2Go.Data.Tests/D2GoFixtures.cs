@@ -1,6 +1,6 @@
 using System.Reflection;
 using System.Text;
-using D2Dotnet.Map.GameData;
+using D2Dotnet.Files;
 
 namespace D2Dotnet.D2Go.Data.Tests;
 

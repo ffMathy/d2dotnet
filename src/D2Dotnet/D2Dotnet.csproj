@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>D2Dotnet</AssemblyName>
+    <RootNamespace>D2Dotnet</RootNamespace>
+    <Description>Diablo II: Resurrected for .NET: game file access (CASC or extracted folders), the excel tables and string tables, and the shared ids.</Description>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="D2Dotnet.Tests" />
+  </ItemGroup>
+</Project>

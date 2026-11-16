@@ -8,6 +8,9 @@ using D2Dotnet.D2Go.Data.Stat;
 
 namespace D2Dotnet.D2Go.Data;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+
 /// <summary>An NPC preset of the current level and its positions (Go <c>data.NPC</c>).</summary>
 public sealed record GameNpc
 {

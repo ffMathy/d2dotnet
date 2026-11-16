@@ -8,6 +8,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 WORKDIR /src
 COPY ./global.json ./Directory.Build.props ./
+COPY ./src ./src
 COPY ./tools/map/src ./tools/map/src
 RUN dotnet publish tools/map/src/D2Dotnet.Map/D2Dotnet.Map.csproj \
     -c Release -r linux-x64 --self-contained false -o /app

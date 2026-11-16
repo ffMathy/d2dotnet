@@ -5,6 +5,9 @@ using D2Dotnet.D2Go.Data.Stat;
 
 namespace D2Dotnet.D2Go.Memory;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+
 /// <summary>
 /// Reads the game state from a running game (Go <c>memory.GameReader</c>, which embeds <c>Process</c>: the
 /// <see cref="GameProcess"/> members are inherited). The constructor scans the game code for the

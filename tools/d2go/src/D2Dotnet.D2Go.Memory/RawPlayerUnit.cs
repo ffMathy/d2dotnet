@@ -9,6 +9,9 @@ using D2Dotnet.D2Go.Data.State;
 
 namespace D2Dotnet.D2Go.Memory;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using AreaId = D2Dotnet.D2Go.Data.Area.AreaId;
+
 /// <summary>A player unit as read from the unit table (Go <c>memory.RawPlayerUnit</c>, which embeds <c>data.UnitID</c>).</summary>
 public sealed record RawPlayerUnit
 {

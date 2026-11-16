@@ -4,6 +4,9 @@ using D2Dotnet.Map.Render;
 
 namespace D2Dotnet.Map.Server.Routes;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using Difficulty = D2Dotnet.Map.Data.Difficulty;
+
 /// <summary>Render a single level as a PNG: <c>GET /v1/map/:seed/:difficulty/:level.png</c> (upstream <c>routes/map.image.ts</c>).</summary>
 public sealed class MapImageRoute(IMapProvider maps) : IRoute
 {

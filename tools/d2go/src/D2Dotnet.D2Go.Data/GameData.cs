@@ -8,6 +8,10 @@ using D2Dotnet.D2Go.Data.Stat;
 
 namespace D2Dotnet.D2Go.Data;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using AreaId = D2Dotnet.D2Go.Data.Area.AreaId;
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+
 /// <summary>A snapshot of the game state read from memory (Go <c>data.Data</c>).</summary>
 public sealed record GameData
 {

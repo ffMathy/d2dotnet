@@ -5,6 +5,11 @@ using D2Dotnet.D2Go.Data.State;
 
 namespace D2Dotnet.D2Go.Data.Tests;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using AreaId = D2Dotnet.D2Go.Data.Area.AreaId;
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+using StateId = D2Dotnet.D2Go.Data.State.StateId;
+
 // Expected numbers come from running d2go's Go code (go run, amd64). Where Go's int(NaN/Inf) gives
 // math.MinInt64, the port gives int.MinValue, the same "integer indefinite" value at 32 bits.
 public class PlayerUnitTests

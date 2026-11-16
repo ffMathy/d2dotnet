@@ -1,5 +1,5 @@
 using System.Text.Json;
-using D2Dotnet.Map.GameData;
+using D2Dotnet.Files;
 using D2Dotnet.Map.Generation;
 
 namespace D2Dotnet.Map.Tests.Generation;

@@ -5,6 +5,9 @@ using Microsoft.Extensions.Logging;
 
 namespace D2Dotnet.Map.Server.Routes;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using Difficulty = D2Dotnet.Map.Data.Difficulty;
+
 /// <summary>Shared parameter validation (upstream <c>routes/map.ts</c>).</summary>
 public static class MapRouteParams
 {

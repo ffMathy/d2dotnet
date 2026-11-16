@@ -4,6 +4,9 @@ using D2Dotnet.D2Go.Data.Quest;
 
 namespace D2Dotnet.D2Go.Memory;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using QuestId = D2Dotnet.D2Go.Data.Quest.QuestId;
+
 public sealed partial class GameReader
 {
     // Go getQuests: each quest's two status bytes in the quest buffer (after its first 3 bytes).

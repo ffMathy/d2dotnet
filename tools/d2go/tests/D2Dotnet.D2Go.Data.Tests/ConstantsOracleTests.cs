@@ -13,6 +13,13 @@ using static D2Dotnet.D2Go.Data.Tests.GoSource;
 
 namespace D2Dotnet.D2Go.Data.Tests;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using AreaId = D2Dotnet.D2Go.Data.Area.AreaId;
+using QuestId = D2Dotnet.D2Go.Data.Quest.QuestId;
+using SkillId = D2Dotnet.D2Go.Data.Skill.SkillId;
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+using StateId = D2Dotnet.D2Go.Data.State.StateId;
+
 /// <summary>
 /// Every constant, hand-written list and hand-written id switch of d2go's pkg/data must be ported exactly: checked
 /// against the Go source of the pinned commit.

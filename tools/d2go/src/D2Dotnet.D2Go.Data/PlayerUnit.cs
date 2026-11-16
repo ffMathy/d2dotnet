@@ -7,6 +7,12 @@ using D2Dotnet.D2Go.Data.State;
 
 namespace D2Dotnet.D2Go.Data;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using AreaId = D2Dotnet.D2Go.Data.Area.AreaId;
+using SkillId = D2Dotnet.D2Go.Data.Skill.SkillId;
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+using StateId = D2Dotnet.D2Go.Data.State.StateId;
+
 /// <summary>The player's character (Go <c>data.PlayerUnit</c>).</summary>
 public sealed record PlayerUnit
 {

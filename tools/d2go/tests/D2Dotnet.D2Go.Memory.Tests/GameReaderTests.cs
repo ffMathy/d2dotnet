@@ -7,6 +7,12 @@ using D2Dotnet.D2Go.Data.Stat;
 
 namespace D2Dotnet.D2Go.Memory.Tests;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using AreaId = D2Dotnet.D2Go.Data.Area.AreaId;
+using QuestId = D2Dotnet.D2Go.Data.Quest.QuestId;
+using SkillId = D2Dotnet.D2Go.Data.Skill.SkillId;
+using StatId = D2Dotnet.D2Go.Data.Stat.StatId;
+
 /// <summary>game_reader.go, roster.go, quests.go, keybindings.go and terrorzones.go.</summary>
 public sealed class GameReaderTests
 {

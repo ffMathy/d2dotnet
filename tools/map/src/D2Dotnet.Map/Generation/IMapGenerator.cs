@@ -1,10 +1,13 @@
+using D2Dotnet.Files;
 using D2Dotnet.Map.Drlg;
 using D2Dotnet.Map.Drlg.Data;
-using D2Dotnet.Map.GameData;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace D2Dotnet.Map.Generation;
+
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using Difficulty = D2Dotnet.Map.Drlg.Difficulty;
 
 /// <summary>The map generator the server depends on: generates acts and knows the names to label them with.</summary>
 /// <remarks>Implementations must be thread-safe; the server calls them from several requests at once.</remarks>
@@ -43,7 +46,7 @@ public sealed class DrlgMapGenerator : IMapGenerator, IDisposable
     {
         var start = System.Diagnostics.Stopwatch.GetTimestamp();
         logger.LogInformation("GameData:Load {Path}", options.Diablo2Path);
-        var files = GameFileProviders.Open(options.Diablo2Path);
+        var files = GameFiles.Open(options.Diablo2Path);
         try
         {
             var source = new GameFilesDataSource(files);

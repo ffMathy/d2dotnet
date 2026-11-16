@@ -5,6 +5,9 @@ using D2Dotnet.D2Go.Data.Area;
 
 namespace D2Dotnet.D2Go.Memory;
 
+// Inside the namespace, so these win over the library's types of the same name in the enclosing D2Dotnet namespace.
+using AreaId = D2Dotnet.D2Go.Data.Area.AreaId;
+
 public sealed partial class GameReader
 {
     /// <summary>
