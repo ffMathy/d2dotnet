@@ -81,15 +81,18 @@ SOFTWARE.
 
 <https://github.com/hectorgimenez/d2go>, MIT, Copyright (c) 2023 Héctor Giménez.
 
-`tools/d2go` is a C# port of d2go's `pkg/data`, `pkg/memory` and `pkg/utils`, from the fork
-<https://github.com/Farmith/d2go> pinned at commit `1072577f86e79cb68cd74295666041f6010e07a7`. The tables d2go
-generates from the game's excel files (`cmd/txttocode`) are not ported: they are read from the user's game files at
-run time. d2go credits [MapAssist](https://github.com/OneXDeveloper/MapAssist) for the map seed reversal of
-`pkg/utils/map_seed_hash.go`; that search loop is not ported: `MapSeed` computes the same result directly from the
-hash formula. The id enums of the library (`src/D2Dotnet/AreaId.cs`, `MonsterId.cs`, `ObjectId.cs`, `SkillId.cs`,
-`StatId.cs`, `StateId.cs`, `QuestId.cs`, `ItemId.cs`, `ItemTypeCode.cs`) take their values and names from d2go's
-`pkg/data`. A copy of this license is also kept in `tools/d2go/LICENSE-d2go`. The tests download that commit into the gitignored `.cache/d2go/` at build
-time; none of it is committed.
+The game snapshot and memory reader of the library (`src/D2Dotnet/Game`, `src/D2Dotnet/Memory`, see
+[docs/memory.md](docs/memory.md)) are a redesign of d2go's `pkg/data`, `pkg/memory` and `pkg/utils`, from the fork
+<https://github.com/Farmith/d2go> pinned at commit `1072577f86e79cb68cd74295666041f6010e07a7`: the memory layout
+(code patterns, fixed addresses, structure offsets, pointer chains and read sizes), the hand-written lists (ignored
+monsters, monster and object classes, debuffs, terror zones, waypoints, shrine names) and the stat rescaling are
+d2go's. The tables d2go generates from the game's excel files (`cmd/txttocode`) are not carried over: they are read
+from the user's game files at run time. d2go credits [MapAssist](https://github.com/OneXDeveloper/MapAssist) for the
+map seed reversal of `pkg/utils/map_seed_hash.go`; that search loop is not carried over: `MapSeed` computes the same
+result directly from the hash formula. The id enums of the library (`src/D2Dotnet/AreaId.cs`, `MonsterId.cs`,
+`ObjectId.cs`, `SkillId.cs`, `StatId.cs`, `StateId.cs`, `QuestId.cs`, `ItemId.cs`, `ItemTypeCode.cs`) take their
+values and names from d2go's `pkg/data`. A copy of this license is also kept in `src/D2Dotnet/Memory/LICENSE-d2go`.
+The tests download that commit into the gitignored `.cache/d2go/` at build time; none of it is committed.
 
 ```
 MIT License

@@ -1,7 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <ProjectReference Include="../../src/D2Dotnet.D2Go.Data/D2Dotnet.D2Go.Data.csproj" />
-  </ItemGroup>
-
-  <Import Project="../D2GoFixtures.targets" />
-</Project>

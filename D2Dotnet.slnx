@@ -6,15 +6,6 @@
     <Project Path="tests/D2Dotnet.Tests/D2Dotnet.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/" />
-  <Folder Name="/tools/d2go/" />
-  <Folder Name="/tools/d2go/src/">
-    <Project Path="tools/d2go/src/D2Dotnet.D2Go.Data/D2Dotnet.D2Go.Data.csproj" />
-    <Project Path="tools/d2go/src/D2Dotnet.D2Go.Memory/D2Dotnet.D2Go.Memory.csproj" />
-  </Folder>
-  <Folder Name="/tools/d2go/tests/">
-    <Project Path="tools/d2go/tests/D2Dotnet.D2Go.Data.Tests/D2Dotnet.D2Go.Data.Tests.csproj" />
-    <Project Path="tools/d2go/tests/D2Dotnet.D2Go.Memory.Tests/D2Dotnet.D2Go.Memory.Tests.csproj" />
-  </Folder>
   <Folder Name="/tools/map/" />
   <Folder Name="/tools/map/src/">
     <Project Path="tools/map/src/D2Dotnet.Map.Drlg/D2Dotnet.Map.Drlg.csproj" />

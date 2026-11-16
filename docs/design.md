@@ -40,7 +40,7 @@ the projects it came from.
    - Go compatibility shims are gone: `GoStrings`, `ValueArray`, `GoInt`, "zero value on miss". Lookups return
      `null` or use `TryGet`; text comparisons use .NET comparers; numbers use the width the game stores.
    - Behaviour d2go had by accident (the documented "kept on purpose" Go bugs) is fixed, and each fix is listed in
-     the changelog section of the README.
+     "Changes from d2go" in `docs/memory.md`.
    - Memory layout facts (offsets, patterns, pointer chains) stay exactly as d2go has them. They describe the game,
      not d2go.
    - Win32 access stays behind `IProcessMemory`; only `WindowsProcessMemory` is Windows-only.
