@@ -174,11 +174,10 @@ Behaviour is Go's, including its edge cases and bugs. Where the representation d
   outside their list (`ArgumentOutOfRangeException`), `KeyBytes[i]` and `Room.GetWalkableTiles` outside the grid
   (`IndexOutOfRangeException`).
 * **Case folding.** `strings.EqualFold` (`Inventory.TryFind`, `Roster.TryFindByName`, `ItemNames.GetIdByName`) is
-  Go's algorithm, walking `unicode.SimpleFold` orbits: Go's `caseOrbit` table (from Go 1.24/1.25, Unicode 15.0) for
-  orbits of three or more runes and for U+0130/U+0131, which Go keeps out of the `i` orbit, and .NET's invariant
-  simple case mappings for the rest. With .NET 10 this gives Go 1.24's `SimpleFold` for every code point (checked
-  against Go once; the tests pin the 2878 runes it moves). Runes whose case mapping a later Unicode version adds can
-  fold here and not in Go, or the other way round, as .NET and Go update their tables.
+  Go's algorithm, walking `unicode.SimpleFold` orbits. `SimpleFold` is Go's ASCII rule plus a table of Go 1.24's
+  `unicode.SimpleFold` (Unicode 15.0.0) for every non-ASCII rune it moves (`GoSimpleFold.cs`, generated with Go), so
+  results are the same on every platform; .NET's own case mappings follow the platform's ICU version. The tests pin
+  the 2878 runes it moves.
 * **Unexported names.** Go's lower-case constants that the exported API uses are public members:
   `SkillId.MonInfernoSentry`, `MonDeathSentry`, `SentryLightning`, `FenrisRage`, `DeathSentryLtng` (keys of
   `skill.SkillNames`, whose values keep the Go spelling) and `ObjectName.Dummy411`, `Dummy412`. `goldPerLevel` is a
