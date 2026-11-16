@@ -1,6 +1,6 @@
 # d2dotnet
 
-A monorepo of Diablo 2 tools ported to .NET.
+A monorepo of Diablo II: Resurrected tools ported to .NET.
 
 ## Layout
 
@@ -28,11 +28,14 @@ dotnet test D2Dotnet.slnx
 
 The same commands run in CI (`.github/workflows/build.yml`) for every push and pull request.
 
+The map tests download the pinned [libd2](https://github.com/jaenster/libd2) source (its test fixtures include
+game data) into the gitignored `.cache/` folder on their first build; nothing derived from the game is committed.
+
 ## Tools
 
 | Tool | Description |
 | --- | --- |
-| [`tools/map`](tools/map/README.md) | Diablo 2 map server: port of the [`map` package](https://github.com/blacha/diablo2/tree/master/packages/map) of [github.com/blacha/diablo2](https://github.com/blacha/diablo2). Includes a C# port of the native map generator, run under wine, and serves level data as JSON and PNG. |
+| [`tools/map`](tools/map/README.md) | Diablo II: Resurrected map server: port of the [`map` package](https://github.com/blacha/diablo2/tree/master/packages/map) of [github.com/blacha/diablo2](https://github.com/blacha/diablo2) that generates maps in-process with a pure C# port of the map generator (DRLG) of [libd2](https://github.com/jaenster/libd2), reading a D2R install directly (no wine, no game DLLs), and serves level data as JSON and PNG. D2R only. |
 
 ## License
 

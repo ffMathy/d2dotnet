@@ -7,7 +7,10 @@ namespace D2Dotnet.Map.GameData;
 /// Paths are relative to the game's <c>data</c> root and use the classic layout, for example
 /// <c>data/global/excel/levels.txt</c> or <c>data/global/tiles/act1/town/townn1.ds1</c>.
 /// Lookups are case-insensitive and accept both <c>/</c> and <c>\</c> as separators.
-/// Implementations: a CASC reader for an installed game, and a plain folder of extracted files.
+/// Implementations: <see cref="CascFileProvider"/> for an installed game, and <see cref="DirectoryFileProvider"/>
+/// for a plain folder of extracted files; <see cref="GameFileProviders.Open"/> picks one.
+/// A missing file is not an error (<see cref="ReadFile"/> returns null); unreadable data is, and
+/// surfaces as an <see cref="IOException"/> such as <see cref="Casc.CascFormatException"/>.
 /// </remarks>
 public interface IGameFileProvider
 {

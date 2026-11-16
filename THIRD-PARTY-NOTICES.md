@@ -1,17 +1,17 @@
 # Third-party notices
 
-d2dotnet contains code ported from, and test fixtures copied from, the projects below. Each is used under its
+d2dotnet contains code ported from the projects below. Each is used under its
 own license, reproduced here.
 
 ## blacha/diablo2
 
 <https://github.com/blacha/diablo2>, MIT, Copyright (c) 2021 Blayne Chard.
 
-`tools/map` is a port of the `packages/map` package and of the parts of `packages/data`, `packages/bintools`,
-`packages/mpq` and `packages/viewer` it uses, including a C# port of the native C map generator (`d2-map.exe`,
-`packages/map/map`) in `tools/map/src/D2Dotnet.Map.Generator*`. `tools/map/d2.install.reg`, `tools/map/src/D2Dotnet.Map/wwwroot/index.html` and the test fixtures
-`test-implode.mpq`, `test-pkware.mpq` and `patchstring.tbl` are copied unchanged. A copy of this license is also
-kept in `tools/map/LICENSE`.
+`tools/map` is a port of the `packages/map` package and of the parts of `packages/data` and `packages/viewer` it
+uses. The never-exported object and npc lists of `tools/map/src/D2Dotnet.Map/Generation/UselessPresets.cs` and the
+object classes and quest exits of `LevelConverter.cs` come from its native generator (`packages/map/map`).
+`tools/map/src/D2Dotnet.Map/wwwroot/index.html` is copied unchanged. A copy of this license is also kept in
+`tools/map/LICENSE`.
 
 ```
 MIT License
@@ -41,20 +41,21 @@ SOFTWARE.
 
 <https://github.com/blacha/binparse>, MIT, Copyright (c) 2021 Blayne Chard.
 
-`tools/map/src/D2Dotnet.Map/Binary` replaces the parts of `binparse` used by the ported readers (same license
-text as above).
+`tools/map/src/D2Dotnet.Map/Binary/Hex.cs` replaces binparse's `toHex` (same license text as above).
 
-## implode-decoder
+## libd2
 
-<https://www.npmjs.com/package/implode-decoder> (v1.0.1), MIT, Copyright (c) 2014 Travis Collins.
+<https://github.com/jaenster/libd2>, MIT, Copyright (c) 2026 jaenster.
 
-`tools/map/src/D2Dotnet.Map/Mpq/Compression/PkWareExplode.cs` is a port of its PKWARE DCL explode decoder, and
-`tools/map/tests/D2Dotnet.Map.Tests/Fixtures/implode` contains its test fixtures and full license text.
+`tools/map/src/D2Dotnet.Map.Drlg` is a C# port of libd2's Diablo II map generator (DRLG, `packages/drlg`) and of its
+DS1/DT1 parsers (`packages/formats`), pinned at commit `00004e6383890d895507ab4d12dfbb1a857c3bdf`. A copy of this
+license is also kept in `tools/map/src/D2Dotnet.Map.Drlg/LICENSE-libd2`. The tests download that commit into the
+gitignored `.cache/libd2/` at build time; none of it is committed.
 
 ```
-The MIT License (MIT)
+MIT License
 
-Copyright (c) 2014 Travis Collins
+Copyright (c) 2026 jaenster
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -85,8 +86,9 @@ These are not redistributed in this repository; they are restored from NuGet at 
 | Microsoft.AspNetCore (shared framework), Microsoft.NET.Test.Sdk | MIT, Copyright (c) .NET Foundation and Contributors |
 | xunit, xunit.runner.visualstudio | Apache-2.0, Copyright (c) .NET Foundation and Contributors |
 | coverlet.collector | MIT, Copyright (c) Toni Solarin-Sodara |
+| [LibD2](https://www.nuget.org/packages/LibD2) (test-only oracle in `D2Dotnet.Map.Drlg.Tests`) | MIT, Copyright (c) 2026 jaenster |
 
 ## Diablo II
 
-Diablo II is a trademark of Blizzard Entertainment, Inc. This project contains no game files; the map server
-requires a legitimate Diablo II installation supplied by the user.
+Diablo II and Diablo II: Resurrected are trademarks of Blizzard Entertainment, Inc. This project contains no game
+files; the map server requires a legitimate Diablo II: Resurrected installation supplied by the user.

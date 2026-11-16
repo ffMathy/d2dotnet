@@ -7,7 +7,12 @@
     <ProjectReference Include="../../src/D2Dotnet.Map/D2Dotnet.Map.csproj" />
   </ItemGroup>
 
+  <!-- The end-to-end tests run the real generator over libd2's baked game data (gitignored .cache/libd2/, never
+       committed), read with the Drlg test project's data source. -->
   <ItemGroup>
-    <None Include="Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../D2Dotnet.Map.Drlg.Tests/LibD2Fixtures.cs" Link="LibD2/LibD2Fixtures.cs" />
+    <Compile Include="../D2Dotnet.Map.Drlg.Tests/LibD2BakedDataSource.cs" Link="LibD2/LibD2BakedDataSource.cs" />
   </ItemGroup>
+
+  <Import Project="../LibD2Fixtures.targets" />
 </Project>

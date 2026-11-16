@@ -1,6 +1,6 @@
 using D2Dotnet.Map.Binary;
 using D2Dotnet.Map.Data;
-using D2Dotnet.Map.Process;
+using D2Dotnet.Map.Generation;
 using Microsoft.Extensions.Logging;
 
 namespace D2Dotnet.Map.Server.Routes;
