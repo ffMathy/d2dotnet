@@ -31,12 +31,12 @@
     <MakeDir Directories="$(LibD2CacheDir)" />
     <Message Importance="high" Condition="!Exists('$(LibD2Tarball)')" Text="Downloading libd2 test fixtures from $(LibD2Url) ..." />
     <Exec Condition="!Exists('$(LibD2Tarball)')"
-          Command="curl -fsSL --retry 2 -o &quot;$(LibD2Tarball).part&quot; &quot;$(LibD2Url)&quot;"
+          Command="curl -fsSL --retry 2 -o &quot;$(LibD2Tarball).$(MSBuildProjectName).part&quot; &quot;$(LibD2Url)&quot;"
           IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardErrorImportance="low" StandardOutputImportance="low">
       <Output TaskParameter="ExitCode" PropertyName="_LibD2CurlExit" />
     </Exec>
-    <Copy Condition="'$(_LibD2CurlExit)' == '0'" SourceFiles="$(LibD2Tarball).part" DestinationFiles="$(LibD2Tarball)" />
-    <Delete Files="$(LibD2Tarball).part" />
+    <Copy Condition="'$(_LibD2CurlExit)' == '0'" SourceFiles="$(LibD2Tarball).$(MSBuildProjectName).part" DestinationFiles="$(LibD2Tarball)" />
+    <Delete Files="$(LibD2Tarball).$(MSBuildProjectName).part" />
     <Exec Condition="Exists('$(LibD2Tarball)')"
           Command="tar -xzf &quot;$(LibD2Tarball)&quot; -C &quot;$(LibD2CacheDir)&quot;"
           IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardErrorImportance="low">

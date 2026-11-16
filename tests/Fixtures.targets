@@ -33,12 +33,12 @@
     <MakeDir Directories="$(LibD2CacheDir)" />
     <Message Importance="high" Condition="!Exists('$(LibD2Tarball)')" Text="Downloading libd2 test fixtures from $(LibD2Url) ..." />
     <Exec Condition="!Exists('$(LibD2Tarball)')"
-          Command="curl -fsSL --retry 2 -o &quot;$(LibD2Tarball).part&quot; &quot;$(LibD2Url)&quot;"
+          Command="curl -fsSL --retry 2 -o &quot;$(LibD2Tarball).$(MSBuildProjectName).part&quot; &quot;$(LibD2Url)&quot;"
           IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardErrorImportance="low" StandardOutputImportance="low">
       <Output TaskParameter="ExitCode" PropertyName="_LibD2CurlExit" />
     </Exec>
-    <Copy Condition="'$(_LibD2CurlExit)' == '0'" SourceFiles="$(LibD2Tarball).part" DestinationFiles="$(LibD2Tarball)" />
-    <Delete Files="$(LibD2Tarball).part" />
+    <Copy Condition="'$(_LibD2CurlExit)' == '0'" SourceFiles="$(LibD2Tarball).$(MSBuildProjectName).part" DestinationFiles="$(LibD2Tarball)" />
+    <Delete Files="$(LibD2Tarball).$(MSBuildProjectName).part" />
     <Exec Condition="Exists('$(LibD2Tarball)')"
           Command="tar -xzf &quot;$(LibD2Tarball)&quot; -C &quot;$(LibD2CacheDir)&quot;"
           IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardErrorImportance="low">
@@ -73,12 +73,12 @@
     <MakeDir Directories="$(D2GoCacheDir)" />
     <Message Importance="high" Condition="!Exists('$(D2GoTarball)')" Text="Downloading d2go test fixtures from $(D2GoUrl) ..." />
     <Exec Condition="!Exists('$(D2GoTarball)')"
-          Command="curl -fsSL --retry 2 -o &quot;$(D2GoTarball).part&quot; &quot;$(D2GoUrl)&quot;"
+          Command="curl -fsSL --retry 2 -o &quot;$(D2GoTarball).$(MSBuildProjectName).part&quot; &quot;$(D2GoUrl)&quot;"
           IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardErrorImportance="low" StandardOutputImportance="low">
       <Output TaskParameter="ExitCode" PropertyName="_D2GoCurlExit" />
     </Exec>
-    <Copy Condition="'$(_D2GoCurlExit)' == '0'" SourceFiles="$(D2GoTarball).part" DestinationFiles="$(D2GoTarball)" />
-    <Delete Files="$(D2GoTarball).part" />
+    <Copy Condition="'$(_D2GoCurlExit)' == '0'" SourceFiles="$(D2GoTarball).$(MSBuildProjectName).part" DestinationFiles="$(D2GoTarball)" />
+    <Delete Files="$(D2GoTarball).$(MSBuildProjectName).part" />
     <Exec Condition="Exists('$(D2GoTarball)')"
           Command="tar -xzf &quot;$(D2GoTarball)&quot; -C &quot;$(D2GoCacheDir)&quot;"
           IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardErrorImportance="low">
