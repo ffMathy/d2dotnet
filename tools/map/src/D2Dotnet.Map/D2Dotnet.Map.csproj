@@ -12,6 +12,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../D2Dotnet.Map.Drlg/D2Dotnet.Map.Drlg.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="D2Dotnet.Map.Tests" />
   </ItemGroup>
 </Project>

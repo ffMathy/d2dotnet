@@ -1,5 +1,5 @@
 using D2Dotnet.Map.Data;
-using D2Dotnet.Map.Process;
+using D2Dotnet.Map.Generation;
 using D2Dotnet.Map.Render;
 
 namespace D2Dotnet.Map.Server.Routes;

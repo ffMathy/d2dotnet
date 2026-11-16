@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Text.Encodings.Web;
 using System.Text.Json;
-using D2Dotnet.Map.Process;
+using System.Text.Json.Serialization;
+using D2Dotnet.Map.Generation;
 using D2Dotnet.Map.Server.Routes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -20,16 +22,24 @@ public static class MapServer
     /// <summary>Logger category used for request logs.</summary>
     public const string LogCategory = "D2Dotnet.Map.Server";
 
-    /// <summary>JSON settings of every response: camelCase, enums as numbers.</summary>
-    public static JsonSerializerOptions JsonOptions => MapGenMessage.JsonOptions;
+    /// <summary>JSON settings of every response: camelCase like upstream, enums as numbers.</summary>
+    /// <remarks>
+    /// The relaxed encoder writes <c>'</c>, <c>&lt;</c>, <c>&gt;</c>, <c>&amp;</c>, <c>+</c> and non-ASCII text as-is,
+    /// like express's <c>res.json</c> (<c>JSON.stringify</c>), instead of <c>\uXXXX</c> escapes.
+    /// </remarks>
+    public static JsonSerializerOptions JsonOptions { get; } = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
-    /// <summary>Register the map generator cluster and the routes.</summary>
+    /// <summary>Register the map generator, the map service and the routes.</summary>
     public static IServiceCollection AddMapServer(this IServiceCollection services, IConfiguration configuration)
     {
-        services.Configure<MapProcessOptions>(configuration.GetSection(MapProcessOptions.Section));
-        services.AddSingleton<IMpqDataSource, MpqFileDataSource>();
-        services.AddSingleton<MapCluster>();
-        services.AddSingleton<IMapProvider>(sp => sp.GetRequiredService<MapCluster>());
+        services.Configure<MapOptions>(configuration.GetSection(MapOptions.Section));
+        services.AddSingleton<IMapGenerator, DrlgMapGenerator>();
+        services.AddSingleton<MapService>();
+        services.AddSingleton<IMapProvider>(sp => sp.GetRequiredService<MapService>());
 
         // Bound in the same order as upstream
         services.AddSingleton<IRoute, HealthRoute>();
@@ -51,9 +61,6 @@ public static class MapServer
 
         var log = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(LogCategory);
         foreach (var route in app.Services.GetServices<IRoute>()) Bind(app, route, log);
-
-        // Stop the generators when the server stops
-        app.Lifetime.ApplicationStopping.Register(() => app.Services.GetRequiredService<MapCluster>().StopAll());
         return app;
     }
 

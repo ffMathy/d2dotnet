@@ -161,7 +161,7 @@ public sealed class DrlgGenerator
                 Collision = w.Collision,
             });
         }
-        return new Act { Number = actNo, Seed = seed, Difficulty = difficulty, Levels = levels };
+        return new Act { Number = actNo, Seed = seed, Difficulty = difficulty, StaffTombLevelId = pDrlg->nStaffTombLevel, Levels = levels };
     }
 
     /// <summary>A room's DS1/theme selector: a preset room (nPresetType==2) reports its picked DS1

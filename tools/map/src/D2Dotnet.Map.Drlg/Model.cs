@@ -95,7 +95,9 @@ public sealed class CollisionGrid
 /// <summary>One generated level.</summary>
 public sealed class Level
 {
-    internal Level() { }
+    /// <summary>Creates an empty level; <see cref="DrlgGenerator"/> fills every property (public
+    /// so consumers can build levels for tests).</summary>
+    public Level() { }
 
     /// <summary>Levels.txt Id.</summary>
     public int Id { get; init; }
@@ -142,7 +144,9 @@ public sealed class Level
 /// <summary>Every level of one act for one seed and difficulty.</summary>
 public sealed class Act
 {
-    internal Act() { }
+    /// <summary>Creates an empty act; <see cref="DrlgGenerator"/> fills every property (public
+    /// so consumers can build acts for tests).</summary>
+    public Act() { }
 
     /// <summary>0-based act number (Act I = 0 … Act V = 4).</summary>
     public int Number { get; init; }
@@ -150,6 +154,10 @@ public sealed class Act
     public uint Seed { get; init; }
 
     public Difficulty Difficulty { get; init; }
+
+    /// <summary>Act II only: the level id (66..72) of the true Tal Rasha's Tomb holding the
+    /// Horadric staff orifice (D2DrlgStrc.nStaffTombLevel); 0 in the other acts.</summary>
+    public int StaffTombLevelId { get; init; }
 
     /// <summary>The act's levels in Levels.txt id order.</summary>
     public IReadOnlyList<Level> Levels { get; init; } = Array.Empty<Level>();

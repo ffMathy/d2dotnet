@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace D2Dotnet.Map.Data;
@@ -11,13 +10,13 @@ public sealed record LevelSize(int Width, int Height);
 
 /// <summary>
 /// Specific diablo 2 level @see levels.txt (upstream <c>Diablo2Level</c>).
-/// Property order follows the JSON emitted by the native generator.
+/// Property order follows the JSON the upstream native generator emitted (see <c>Generation/LevelConverter.cs</c>).
 /// </summary>
 public sealed class Diablo2Level
 {
     /// <summary>
-    /// Message type from the generator (always <c>"map"</c>). Upstream keeps the raw generator message,
-    /// so the field is part of the HTTP output.
+    /// Always <c>"map"</c>: upstream returned the generator's raw <c>map</c> message, so the field is part of the
+    /// HTTP output.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Type { get; set; }
@@ -39,10 +38,6 @@ public sealed class Diablo2Level
 
     /// <summary>Collision map for the level, one run length encoded row per y offset.</summary>
     public List<List<int>> Map { get; set; } = [];
-
-    /// <summary>Any extra fields the generator emits, passed through untouched.</summary>
-    [JsonExtensionData]
-    public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 
 /// <summary>Values of <see cref="Diablo2LevelObject.Type"/>.</summary>
@@ -96,10 +91,6 @@ public sealed class Diablo2LevelObject
     /// <summary>Super unique id (Diablo2LevelNpcSuper).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? SuperId { get; set; }
-
-    /// <summary>Any extra fields the generator emits, passed through untouched.</summary>
-    [JsonExtensionData]
-    public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 
 /// <summary>Object classes (upstream type <c>Diablo2ItemClasses</c>).</summary>

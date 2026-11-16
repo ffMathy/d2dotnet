@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using D2Dotnet.Map.Data;
-using D2Dotnet.Map.Process;
+using D2Dotnet.Map.Generation;
 using D2Dotnet.Map.Server;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -12,34 +12,18 @@ using SkiaSharp;
 
 namespace D2Dotnet.Map.Tests.Server;
 
-/// <summary>Runs the real server (routes, cluster, process pool) against the fake generator script.</summary>
+/// <summary>Runs the real server (routes, map service, cache, model to JSON conversion) over the fake generator.</summary>
 public sealed class MapServerFactory : WebApplicationFactory<Program>
 {
-    public FakeGame Game { get; } = new();
-    public FakeMpqDataSource MpqSource { get; } = new();
+    public FakeMapGenerator Generator { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureTestServices(services =>
         {
-            services.RemoveAll<IMpqDataSource>();
-            services.AddSingleton<IMpqDataSource>(MpqSource);
-            services.PostConfigure<MapProcessOptions>(o =>
-            {
-                var fake = Game.Options();
-                o.WineCommand = fake.WineCommand;
-                o.MapCommand = fake.MapCommand;
-                o.Diablo2Path = fake.Diablo2Path;
-                o.RegistryPath = fake.RegistryPath;
-                o.ProcessTimeout = fake.ProcessTimeout;
-            });
+            services.RemoveAll<IMapGenerator>();
+            services.AddSingleton<IMapGenerator>(Generator);
         });
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-        if (disposing) Game.Dispose();
     }
 }
 
@@ -123,6 +107,7 @@ public sealed class MapServerTests(MapServerFactory factory) : IClassFixture<Map
         Assert.Equal(0, json.GetProperty("difficulty").GetInt32());
 
         var levels = json.GetProperty("levels").EnumerateArray().ToList();
+        // level 3 has no rooms and is skipped, as upstream skipped levels whose rooms failed to load
         Assert.Equal([1, 2, 40], levels.Select(l => l.GetProperty("id").GetInt32()));
 
         var level = levels[0];
@@ -131,15 +116,28 @@ public sealed class MapServerTests(MapServerFactory factory) : IClassFixture<Map
         Assert.Equal("Rogue Encampment", level.GetProperty("name").GetString());
         Assert.Equal("{\"x\":100,\"y\":200}", level.GetProperty("offset").GetRawText());
         Assert.Equal("{\"width\":40,\"height\":30}", level.GetProperty("size").GetRawText());
-        Assert.Equal("[[1,5,1],[2,3,2],[1,5,1],[]]", level.GetProperty("map").GetRawText());
+        Assert.Equal("[[1,5,1],[2,3,2],[],[1,5,1]]", level.GetProperty("map").GetRawText());
 
-        var objects = level.GetProperty("objects").EnumerateArray().ToList();
-        Assert.Equal("{\"id\":119,\"type\":\"object\",\"x\":20,\"y\":20,\"name\":\"Waypoint\",\"op\":23,\"class\":\"waypoint\"}", objects[0].GetRawText());
-        Assert.Equal("{\"id\":2,\"type\":\"exit\",\"x\":35,\"y\":10,\"name\":\"Blood Moor\",\"isGoodExit\":true}", objects[1].GetRawText());
-        Assert.Equal("{\"id\":0,\"type\":\"npc\",\"x\":3,\"y\":3,\"name\":\"Zombie\"}", objects[2].GetRawText());
-        Assert.Equal("{\"id\":5,\"type\":\"npc\",\"x\":4,\"y\":4,\"name\":\"Coldcrow\",\"isSuperUnique\":true,\"superId\":2}", objects[3].GetRawText());
-        Assert.Equal("{\"id\":999,\"type\":\"npc\",\"x\":5,\"y\":5}", objects[4].GetRawText());
-        Assert.Equal("{\"id\":580,\"type\":\"object\",\"x\":6,\"y\":6,\"class\":\"chest-super\"}", objects[5].GetRawText());
+        Assert.Equal(
+        [
+            "{\"id\":119,\"type\":\"object\",\"x\":20,\"y\":20,\"name\":\"Waypoint\",\"op\":23,\"class\":\"waypoint\"}",
+            "{\"id\":0,\"type\":\"npc\",\"x\":3,\"y\":3,\"name\":\"Zombie\"}",
+            "{\"id\":5,\"type\":\"npc\",\"x\":4,\"y\":4,\"name\":\"Coldcrow\",\"isSuperUnique\":true,\"superId\":2}",
+            "{\"id\":999,\"type\":\"npc\",\"x\":5,\"y\":5}",
+            "{\"id\":580,\"type\":\"object\",\"x\":6,\"y\":6,\"class\":\"chest-super\"}",
+            "{\"id\":2,\"type\":\"object\",\"x\":30,\"y\":25,\"name\":\"Shrine\",\"op\":2,\"class\":\"shrine\"}",
+            "{\"id\":2,\"type\":\"exit\",\"x\":35,\"y\":10,\"name\":\"Blood Moor\"}",
+        ], level.GetProperty("objects").EnumerateArray().Select(o => o.GetRawText()));
+
+        var bloodMoor = levels[1];
+        Assert.Equal("{\"x\":140,\"y\":200}", bloodMoor.GetProperty("offset").GetRawText());
+        Assert.Equal("{\"width\":10,\"height\":10}", bloodMoor.GetProperty("size").GetRawText());
+        Assert.Equal("[" + string.Join(",", Enumerable.Repeat("[0]", 10)) + "]", bloodMoor.GetProperty("map").GetRawText());
+        Assert.Equal("[{\"id\":8,\"type\":\"exit\",\"x\":5,\"y\":5,\"name\":\"Den of Evil\",\"isGoodExit\":true}]",
+            bloodMoor.GetProperty("objects").GetRawText());
+
+        // the true staff tomb is a good exit; level 66 is not in the level table, so the exit has no name
+        Assert.Equal("[{\"id\":66,\"type\":\"exit\",\"x\":0,\"y\":0,\"isGoodExit\":true}]", levels[2].GetProperty("objects").GetRawText());
     }
 
     [Fact]
@@ -207,7 +205,7 @@ public sealed class MapServerTests(MapServerFactory factory) : IClassFixture<Map
     [Fact]
     public async Task FractionalSeedFailsLikeUpstream()
     {
-        // isInSeedRange(1.5) passes, but the generator (scanf %u) echoes 1 so setting the seed fails
+        // isInSeedRange(1.5) passes, but upstream's generator (scanf %u) echoed 1 so setting the seed failed
         var res = await _client.GetAsync("/v1/map/1.5/Normal/ActII.json");
         Assert.Equal(HttpStatusCode.InternalServerError, res.StatusCode);
         var json = await Json(res);
@@ -253,28 +251,66 @@ public sealed class MapServerTests(MapServerFactory factory) : IClassFixture<Map
     }
 
     [Fact]
-    public async Task ConcurrentRequestsShareOneGenerator()
+    public async Task ConcurrentRequestsAreGeneratedOneAtATime()
     {
-        var urls = Enumerable.Range(100, 6).Select(seed => $"/v1/map/{seed}/Nightmare/ActI.json");
-        var responses = await Task.WhenAll(urls.Select(u => _client.GetAsync(u)));
-        Assert.All(responses, r => Assert.Equal(HttpStatusCode.OK, r.StatusCode));
-        Assert.Equal(1, factory.Game.Starts);
-        Assert.Equal(1, factory.MpqSource.Loads);
+        // the default MaxConcurrency is 1, like upstream's single generator process
+        var generator = factory.Generator;
+        generator.Delay = TimeSpan.FromMilliseconds(20);
+        try
+        {
+            var before = generator.Calls;
+            var urls = Enumerable.Range(100, 6).Select(seed => $"/v1/map/{seed}/Nightmare/ActI.json");
+            var responses = await Task.WhenAll(urls.Select(u => _client.GetAsync(u)));
+            Assert.All(responses, r => Assert.Equal(HttpStatusCode.OK, r.StatusCode));
+            Assert.Equal(before + 6, generator.Calls);
+            Assert.Equal(1, generator.MaxRunning);
+        }
+        finally
+        {
+            generator.Delay = TimeSpan.Zero;
+        }
+    }
+
+    [Fact]
+    public async Task RequestsAreCached()
+    {
+        var generator = factory.Generator;
+        var first = await (await _client.GetAsync("/v1/map/4242/Hell/ActII.json")).Content.ReadAsStringAsync();
+        var calls = generator.Calls;
+        var second = await (await _client.GetAsync("/v1/map/0x1092/2/1.json")).Content.ReadAsStringAsync();
+        var level = await _client.GetAsync("/v1/map/4242/Hell/ActII/40.json");
+        var image = await _client.GetAsync("/v1/map/4242/Hell/40.png");
+        Assert.Equal(HttpStatusCode.OK, level.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, image.StatusCode);
+        Assert.Equal(calls, generator.Calls);
+        // only the request id differs
+        Assert.Equal(first[first.IndexOf(",\"seed\"", StringComparison.Ordinal)..], second[second.IndexOf(",\"seed\"", StringComparison.Ordinal)..]);
+        Assert.Contains(generator.Requests, r => r == (4242u, Drlg.Difficulty.Hell, 1));
+    }
+
+    [Fact]
+    public async Task WholeWorldGeneratesEveryAct()
+    {
+        var generator = factory.Generator;
+        Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync("/v1/map/777/Nightmare.json")).StatusCode);
+        List<(uint Seed, Drlg.Difficulty Difficulty, int Act)> requests;
+        lock (generator.Requests) requests = generator.Requests.Where(r => r.Seed == 777).ToList();
+        Assert.Equal([0, 1, 2, 3, 4], requests.Select(r => r.Act).Order());
+        Assert.All(requests, r => Assert.Equal(Drlg.Difficulty.Nightmare, r.Difficulty));
     }
 }
 
 public sealed class MapServerFailureTests
 {
-    [Fact]
-    public async Task MissingGameDataIsAnInternalError()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task MissingGameDataIsAnInternalError(bool folderExists)
     {
-        using var game = new FakeGame();
+        var dir = Directory.CreateTempSubdirectory("d2map-test-");
+        var path = folderExists ? dir.FullName : Path.Join(dir.FullName, "missing"); // no game files in here
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b => b.ConfigureTestServices(services =>
-            services.PostConfigure<MapProcessOptions>(o =>
-            {
-                o.Diablo2Path = game.GamePath; // no MPQ files in here
-                o.WineCommand = "/bin/sh";
-            })));
+            services.PostConfigure<MapOptions>(o => o.Diablo2Path = path)));
         var client = factory.CreateClient();
         var res = await client.GetAsync("/v1/map/10/Normal.json");
         Assert.Equal(HttpStatusCode.InternalServerError, res.StatusCode);
@@ -283,5 +319,23 @@ public sealed class MapServerFailureTests
         Assert.Equal(26, json.GetProperty("id").GetString()!.Length);
 
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health")).StatusCode);
+        // the failure is kept, like upstream's cluster creation
+        Assert.Equal(HttpStatusCode.InternalServerError, (await client.GetAsync("/v1/map/11/Normal/ActI.json")).StatusCode);
+        dir.Delete(true);
+    }
+
+    [Fact]
+    public async Task GeneratorErrorsAreInternalErrorsAndNotCached()
+    {
+        var generator = new FakeMapGenerator { Failure = new InvalidOperationException("boom") };
+        await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b => b.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IMapGenerator>();
+            services.AddSingleton<IMapGenerator>(generator);
+        }));
+        var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.InternalServerError, (await client.GetAsync("/v1/map/10/Normal/ActI.json")).StatusCode);
+        generator.Failure = null;
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/v1/map/10/Normal/ActI.json")).StatusCode);
     }
 }

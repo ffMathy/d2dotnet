@@ -1,6 +1,6 @@
 using System.Globalization;
 using D2Dotnet.Map.Data;
-using D2Dotnet.Map.Process;
+using D2Dotnet.Map.Generation;
 
 namespace D2Dotnet.Map;
 
@@ -16,11 +16,9 @@ public sealed class CliOptions
 
         Options:
             --port <port>             HTTP port to listen on (env PORT, default 8899)
-            --cluster-size <n>        Number of map generator processes (env DIABLO2_CLUSTER_SIZE, default 1)
-            --game-path <path>        Diablo 2 game folder with the MPQ files (default /app/game)
-            --registry-path <path>    Registry file imported with "wine regedit" (default /app/d2.install.reg)
-            --wine <command>          Command used to run the generator (default wine)
-            --map-exe <path>          Generator executable, may be repeated (default ./bin/d2-map.exe ../bin/d2-map.exe)
+            --concurrency <n>         Maximum number of maps generated at the same time (env DIABLO2_CONCURRENCY, default 1)
+            --game-path <path>        Diablo II: Resurrected install folder, or a folder of extracted game files (default /app/game)
+            --language <code>         Language of level/npc/object names: enUS, deDE, frFR, ... (default enUS)
             --help [-h]               Show this help
 
         Any other argument is passed to ASP.NET Core configuration (e.g. --Logging:LogLevel:Default=Information).
@@ -31,7 +29,7 @@ public sealed class CliOptions
 
     public bool ShowHelp { get; private set; }
 
-    /// <summary>Configuration overrides for the <see cref="MapProcessOptions.Section"/> section.</summary>
+    /// <summary>Configuration overrides for the <see cref="MapOptions.Section"/> section.</summary>
     public Dictionary<string, string?> Configuration { get; } = [];
 
     /// <summary>Arguments not understood here, forwarded to the ASP.NET Core host.</summary>
@@ -41,18 +39,19 @@ public sealed class CliOptions
     public static CliOptions Parse(IReadOnlyList<string> args, Func<string, string?> getEnv)
     {
         var o = new CliOptions();
-        const string section = MapProcessOptions.Section;
+        const string section = MapOptions.Section;
 
         if (getEnv("PORT") is { } envPort) o.Port = ParseIntPrefix(envPort) ?? throw new ArgumentException($"Invalid PORT: {envPort}");
 
-        if (getEnv("DIABLO2_CLUSTER_SIZE") is { Length: > 0 } envCluster)
+        // DIABLO2_CLUSTER_SIZE (upstream's generator process count) still works as the older name
+        foreach (var name in new[] { "DIABLO2_CLUSTER_SIZE", "DIABLO2_CONCURRENCY" })
         {
+            if (getEnv(name) is not { Length: > 0 } envConcurrency) continue;
             // upstream: if (!isNaN(Number(value))) MapCluster.ProcessCount = value
-            var clusterSize = JsNumber.Parse(envCluster);
-            if (!double.IsNaN(clusterSize)) o.SetClusterSize(clusterSize);
+            var concurrency = JsNumber.Parse(envConcurrency);
+            if (!double.IsNaN(concurrency)) o.SetConcurrency(concurrency);
         }
 
-        var mapExes = new List<string>();
         for (var i = 0; i < args.Count; i++)
         {
             var arg = args[i];
@@ -66,23 +65,19 @@ public sealed class CliOptions
                     var port = Value();
                     o.Port = ParseIntPrefix(port) ?? throw new ArgumentException($"Invalid --port: {port}");
                     break;
-                case "--cluster-size":
+                case "--concurrency" or "--cluster-size":
                     var size = Value();
                     var parsed = JsNumber.Parse(size);
-                    if (double.IsNaN(parsed)) throw new ArgumentException($"Invalid --cluster-size: {size}");
-                    o.SetClusterSize(parsed);
+                    if (double.IsNaN(parsed)) throw new ArgumentException($"Invalid {arg}: {size}");
+                    o.SetConcurrency(parsed);
                     break;
                 case "--game-path":
-                    o.Configuration[$"{section}:{nameof(MapProcessOptions.Diablo2Path)}"] = Value();
+                    o.Configuration[$"{section}:{nameof(MapOptions.Diablo2Path)}"] = Value();
                     break;
-                case "--registry-path":
-                    o.Configuration[$"{section}:{nameof(MapProcessOptions.RegistryPath)}"] = Value();
-                    break;
-                case "--wine":
-                    o.Configuration[$"{section}:{nameof(MapProcessOptions.WineCommand)}"] = Value();
-                    break;
-                case "--map-exe":
-                    mapExes.Add(Value());
+                case "--language":
+                    var language = Value();
+                    if (string.IsNullOrWhiteSpace(language)) throw new ArgumentException("Invalid --language: a language code is required");
+                    o.Configuration[$"{section}:{nameof(MapOptions.Language)}"] = GameStrings.ResolveLanguage(language);
                     break;
                 default:
                     o.Remaining.Add(arg);
@@ -90,20 +85,17 @@ public sealed class CliOptions
             }
         }
 
-        for (var i = 0; i < mapExes.Count; i++)
-            o.Configuration[$"{section}:{nameof(MapProcessOptions.MapCommand)}:{i}"] = mapExes[i];
-
         return o;
     }
 
     /// <summary>
-    /// Upstream loops <c>for (i = 0; i &lt; ProcessCount; i++)</c>, so fractional sizes round up. Sizes below one
-    /// would leave upstream without any process; at least one process is always started here.
+    /// Like upstream's process count (<c>for (i = 0; i &lt; ProcessCount; i++)</c>) fractional values round up, and
+    /// values below one (which would leave upstream without any generator) allow one generation at a time.
     /// </summary>
-    private void SetClusterSize(double value)
+    private void SetConcurrency(double value)
     {
         var count = double.IsPositiveInfinity(value) ? 1 : Math.Max(1, (int)Math.Min(Math.Ceiling(value), 1024));
-        Configuration[$"{MapProcessOptions.Section}:{nameof(MapProcessOptions.ProcessCount)}"] = count.ToString(CultureInfo.InvariantCulture);
+        Configuration[$"{MapOptions.Section}:{nameof(MapOptions.MaxConcurrency)}"] = count.ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>JavaScript <c>parseInt(value, 10)</c>: leading digits only.</summary>

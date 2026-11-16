@@ -1,5 +1,5 @@
 using D2Dotnet.Map;
-using D2Dotnet.Map.Process;
+using D2Dotnet.Map.Generation;
 using D2Dotnet.Map.Server;
 using Microsoft.Extensions.Options;
 
@@ -52,7 +52,7 @@ builder.Services.AddMapServer(builder.Configuration);
 
 var app = builder.Build();
 var log = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(MapServer.LogCategory);
-var options = app.Services.GetRequiredService<IOptions<MapProcessOptions>>().Value;
+var options = app.Services.GetRequiredService<IOptions<MapOptions>>().Value;
 
 if (!Directory.Exists(options.Diablo2Path) && !File.Exists(options.Diablo2Path))
     log.LogWarning("Diablo2Path:Missing {Path}", options.Diablo2Path);
@@ -60,11 +60,11 @@ if (!Directory.Exists(options.Diablo2Path) && !File.Exists(options.Diablo2Path))
 app.UseMapServer();
 
 app.Lifetime.ApplicationStarted.Register(() => log.LogInformation(
-    "Server started... {Id} {Port} {Url} {Processes} {Version} {Hash}",
+    "Server started... {Id} {Port} {Url} {Concurrency} {Version} {Hash}",
     Ulid.NewUlid().ToLowerInvariant(),
     cli.Port,
     "http://localhost:" + cli.Port,
-    app.Services.GetRequiredService<MapCluster>().ProcessCount,
+    app.Services.GetRequiredService<MapService>().MaxConcurrency,
     Environment.GetEnvironmentVariable("GIT_VERSION"),
     Environment.GetEnvironmentVariable("GIT_HASH")));
 
