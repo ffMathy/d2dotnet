@@ -1,0 +1,91 @@
+<Project>
+  <!--
+    Oracle fixtures of the library tests, downloaded at build time into <repo root>/.cache/ (gitignored):
+    - libd2 (jaenster/libd2) at the pinned commit: excel tables, baked DS1/DT1 blobs, raw .ds1/.dt1 files;
+    - d2go (Farmith/d2go) at the pinned commit: its generated Go tables (pkg/data/**) and the excel tables they were
+      generated from (cmd/txttocode/txt/*.txt).
+    Both contain Blizzard-derived data and are NEVER committed. A failed download does not break the build; the tests
+    that need the fixtures then fail with a clear message (see tests/D2Dotnet.Tests/Fixtures.cs). A checkout already in
+    .cache/libd2 or .cache/d2go is reused.
+  -->
+  <PropertyGroup>
+    <LibD2Commit>00004e6383890d895507ab4d12dfbb1a857c3bdf</LibD2Commit>
+    <LibD2Url>https://codeload.github.com/jaenster/libd2/tar.gz/$(LibD2Commit)</LibD2Url>
+    <D2RepoRoot>$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildProjectDirectory), D2Dotnet.slnx))</D2RepoRoot>
+    <LibD2CacheDir>$(D2RepoRoot)/.cache/libd2</LibD2CacheDir>
+    <LibD2Tarball>$(LibD2CacheDir)/libd2-$(LibD2Commit).tar.gz</LibD2Tarball>
+    <LibD2SourceDir>$(LibD2CacheDir)/libd2-$(LibD2Commit)</LibD2SourceDir>
+    <LibD2Marker>$(LibD2SourceDir)/.extracted</LibD2Marker>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>LibD2SourceDir</_Parameter1>
+      <_Parameter2>$(LibD2SourceDir)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>LibD2Url</_Parameter1>
+      <_Parameter2>$(LibD2Url)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <Target Name="FetchLibD2Fixtures" BeforeTargets="CoreCompile" Condition="!Exists('$(LibD2Marker)')">
+    <MakeDir Directories="$(LibD2CacheDir)" />
+    <Message Importance="high" Condition="!Exists('$(LibD2Tarball)')" Text="Downloading libd2 test fixtures from $(LibD2Url) ..." />
+    <Exec Condition="!Exists('$(LibD2Tarball)')"
+          Command="curl -fsSL --retry 2 -o &quot;$(LibD2Tarball).$(MSBuildProjectName).part&quot; &quot;$(LibD2Url)&quot;"
+          IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardErrorImportance="low" StandardOutputImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="_LibD2CurlExit" />
+    </Exec>
+    <Copy Condition="'$(_LibD2CurlExit)' == '0'" SourceFiles="$(LibD2Tarball).$(MSBuildProjectName).part" DestinationFiles="$(LibD2Tarball)" />
+    <Delete Files="$(LibD2Tarball).$(MSBuildProjectName).part" />
+    <Exec Condition="Exists('$(LibD2Tarball)')"
+          Command="tar -xzf &quot;$(LibD2Tarball)&quot; -C &quot;$(LibD2CacheDir)&quot;"
+          IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardErrorImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="_LibD2TarExit" />
+    </Exec>
+    <Touch Condition="'$(_LibD2TarExit)' == '0' And Exists('$(LibD2SourceDir)')" Files="$(LibD2Marker)" AlwaysCreate="true" />
+    <Message Importance="high" Condition="!Exists('$(LibD2Marker)')"
+             Text="libd2 test fixtures are NOT available (download of $(LibD2Url) or extraction failed); the fixture tests will fail." />
+  </Target>
+
+  <PropertyGroup>
+    <D2GoCommit>1072577f86e79cb68cd74295666041f6010e07a7</D2GoCommit>
+    <D2GoUrl>https://codeload.github.com/Farmith/d2go/tar.gz/$(D2GoCommit)</D2GoUrl>
+    <D2GoCacheDir>$(D2RepoRoot)/.cache/d2go</D2GoCacheDir>
+    <D2GoTarball>$(D2GoCacheDir)/d2go-$(D2GoCommit).tar.gz</D2GoTarball>
+    <D2GoSourceDir>$(D2GoCacheDir)/d2go-$(D2GoCommit)</D2GoSourceDir>
+    <D2GoMarker>$(D2GoSourceDir)/.extracted</D2GoMarker>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>D2GoSourceDir</_Parameter1>
+      <_Parameter2>$(D2GoSourceDir)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>D2GoUrl</_Parameter1>
+      <_Parameter2>$(D2GoUrl)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <Target Name="FetchD2GoFixtures" BeforeTargets="CoreCompile" Condition="!Exists('$(D2GoMarker)')">
+    <MakeDir Directories="$(D2GoCacheDir)" />
+    <Message Importance="high" Condition="!Exists('$(D2GoTarball)')" Text="Downloading d2go test fixtures from $(D2GoUrl) ..." />
+    <Exec Condition="!Exists('$(D2GoTarball)')"
+          Command="curl -fsSL --retry 2 -o &quot;$(D2GoTarball).$(MSBuildProjectName).part&quot; &quot;$(D2GoUrl)&quot;"
+          IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardErrorImportance="low" StandardOutputImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="_D2GoCurlExit" />
+    </Exec>
+    <Copy Condition="'$(_D2GoCurlExit)' == '0'" SourceFiles="$(D2GoTarball).$(MSBuildProjectName).part" DestinationFiles="$(D2GoTarball)" />
+    <Delete Files="$(D2GoTarball).$(MSBuildProjectName).part" />
+    <Exec Condition="Exists('$(D2GoTarball)')"
+          Command="tar -xzf &quot;$(D2GoTarball)&quot; -C &quot;$(D2GoCacheDir)&quot;"
+          IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardErrorImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="_D2GoTarExit" />
+    </Exec>
+    <Touch Condition="'$(_D2GoTarExit)' == '0' And Exists('$(D2GoSourceDir)')" Files="$(D2GoMarker)" AlwaysCreate="true" />
+    <Message Importance="high" Condition="!Exists('$(D2GoMarker)')"
+             Text="d2go test fixtures are NOT available (download of $(D2GoUrl) or extraction failed); the fixture tests will fail." />
+  </Target>
+</Project>

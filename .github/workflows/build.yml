@@ -19,3 +19,4 @@ jobs:
 
       - name: Test
         run: dotnet test D2Dotnet.slnx --configuration Release --no-build --verbosity normal
+
