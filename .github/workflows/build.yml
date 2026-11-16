@@ -19,3 +19,27 @@ jobs:
 
       - name: Test
         run: dotnet test D2Dotnet.slnx --configuration Release --no-build --verbosity normal
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: tools/map/build.docker.sh
+
+      - name: Smoke test
+        run: |
+          docker run -d --name d2map -p 8899:8899 d2dotnet/map
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8899/health; then
+              echo
+              docker rm -f d2map
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "The server did not answer /health within 30 seconds"
+          docker logs d2map
+          docker rm -f d2map
+          exit 1
