@@ -39,7 +39,6 @@ tables), into the gitignored `.cache/` folder on their first build; nothing deri
 
 | Tool | Description |
 | --- | --- |
-| [`tools/d2go`](tools/d2go/README.md) | Port of [d2go](https://github.com/hectorgimenez/d2go) (as forked at [Farmith/d2go](https://github.com/Farmith/d2go)): the game state model (`pkg/data`: ids of areas, NPCs, objects, skills, stats, states and quests, items, monsters, inventory, belt and key bindings, with the excel tables d2go compiles in loaded from a D2R install at run time instead) and the memory reader (`pkg/memory`, `pkg/utils`) that fills it from a running D2R process on Windows, behind a process-memory interface so everything but the Win32 calls is platform independent. |
 | [`tools/map`](tools/map/README.md) | Diablo II: Resurrected map server: port of the [`map` package](https://github.com/blacha/diablo2/tree/master/packages/map) of [github.com/blacha/diablo2](https://github.com/blacha/diablo2) that generates maps in-process with a pure C# port of the map generator (DRLG) of [libd2](https://github.com/jaenster/libd2), reading a D2R install directly (no wine, no game DLLs), and serves level data as JSON and PNG. D2R only. |
 
 ## License

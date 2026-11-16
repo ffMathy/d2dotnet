@@ -2,8 +2,10 @@
   <PropertyGroup>
     <AssemblyName>D2Dotnet</AssemblyName>
     <RootNamespace>D2Dotnet</RootNamespace>
-    <Description>Diablo II: Resurrected for .NET: game file access (CASC or extracted folders), the excel tables and string tables, and the shared ids.</Description>
+    <Description>Diablo II: Resurrected for .NET: game file access (CASC or extracted folders), the excel tables and string tables, the shared ids, and the snapshot of a running game read from its memory.</Description>
     <IsAotCompatible>true</IsAotCompatible>
+    <!-- LibraryImport (source-generated P/Invoke) of WindowsProcessMemory passes pointers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
