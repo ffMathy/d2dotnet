@@ -80,9 +80,11 @@ SOFTWARE.
 
 <https://github.com/hectorgimenez/d2go>, MIT, Copyright (c) 2023 Héctor Giménez.
 
-`tools/d2go` is a C# port of d2go's `pkg/data`, from the fork <https://github.com/Farmith/d2go> pinned at commit
-`1072577f86e79cb68cd74295666041f6010e07a7`. The tables d2go generates from the game's excel files
-(`cmd/txttocode`) are not ported: they are read from the user's game files at run time. A copy of this license is
+`tools/d2go` is a C# port of d2go's `pkg/data`, `pkg/memory` and `pkg/utils`, from the fork
+<https://github.com/Farmith/d2go> pinned at commit `1072577f86e79cb68cd74295666041f6010e07a7`. The tables d2go
+generates from the game's excel files (`cmd/txttocode`) are not ported: they are read from the user's game files at
+run time. d2go credits [MapAssist](https://github.com/OneXDeveloper/MapAssist) for the map seed reversal of
+`pkg/utils/map_seed_hash.go`. A copy of this license is
 also kept in `tools/d2go/LICENSE-d2go`. The tests download that commit into the gitignored `.cache/d2go/` at build
 time; none of it is committed.
 

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../src/D2Dotnet.D2Go.Memory/D2Dotnet.D2Go.Memory.csproj" />
+  </ItemGroup>
+
+  <!-- The d2go checkout locator and the Go source reader of the Data tests, shared rather than copied. -->
+  <ItemGroup>
+    <Compile Include="../D2Dotnet.D2Go.Data.Tests/D2GoFixtures.cs" Link="Shared/D2GoFixtures.cs" />
+    <Compile Include="../D2Dotnet.D2Go.Data.Tests/GoSource.cs" Link="Shared/GoSource.cs" />
+  </ItemGroup>
+
+  <Import Project="../D2GoFixtures.targets" />
+</Project>

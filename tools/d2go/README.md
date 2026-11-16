@@ -7,7 +7,9 @@ commit `1072577f86e79cb68cd74295666041f6010e07a7`.
 | Folder | Namespace | Go source |
 | --- | --- | --- |
 | `src/D2Dotnet.D2Go.Data` | `D2Dotnet.D2Go.Data` (+ `.Area`, `.Difficulty`, `.Item`, `.Npc`, `.Object`, `.Quest`, `.Skill`, `.Stat`, `.State`) | `pkg/data` and its subpackages: the game state model |
+| `src/D2Dotnet.D2Go.Memory` | `D2Dotnet.D2Go.Memory` | `pkg/memory` and `pkg/utils`: reads the game state from a running D2R process into the model, see [Memory](#memory) |
 | `tests/D2Dotnet.D2Go.Data.Tests` | | unit tests, plus oracle tests against the Go source |
+| `tests/D2Dotnet.D2Go.Memory.Tests` | | tests over synthetic memory images, plus oracle tests against the Go source |
 
 Only `pkg/data`, `pkg/memory` and `pkg/utils` are in scope; `pkg/nip` and `cmd/` are not ported.
 
@@ -209,10 +211,137 @@ where the generator would crash or write code that does not compile:
   `<no value>`), except the columns the generator itself defaults: `name` (empty), `minac`/`maxac` (0) and
   `normcode`/`ubercode`/`ultracode` (all empty when `normcode` is absent).
 
+## Memory
+
+`D2Dotnet.D2Go.Memory` ports d2go's `pkg/memory` (the reader) and `pkg/utils` (map seed and distance). **Reading a
+game needs Windows and a running Diablo II: Resurrected** (`d2r.exe`); the fixed addresses and structure offsets are
+those of the D2R build d2go `1072577` targets, and a different game build reads garbage, as d2go does.
+
+```csharp
+using D2Dotnet.D2Go.Data;
+using D2Dotnet.D2Go.Memory;
+using D2Dotnet.Map.GameData;
+
+GameTables tables = GameTables.Load(GameFileProviders.Open(@"C:\Program Files (x86)\Diablo II Resurrected"));
+using var reader = new GameReader(GameProcess.Open(), tables);   // Go: memory.NewGameReader(memory.NewProcess())
+GameData data = reader.GetData();
+Console.WriteLine($"{data.PlayerUnit.Name} in {data.PlayerUnit.Area}, {data.Monsters.Count} monsters");
+```
+
+All Win32 access (`EnumProcesses`, `EnumProcessModules`, `GetModuleInformation`, `GetModuleFileNameExW`,
+`OpenProcess`, `ReadProcessMemory`, `CloseHandle`) is in `WindowsProcessMemory` (`[SupportedOSPlatform("windows")]`,
+`LibraryImport`), behind the `IProcessMemory` interface: process id, module base and size, and `ReadMemory(address,
+buffer)`. Everything else (pattern scan, offsets, units, stats, items, roster, quests, widgets, key bindings, terror
+zones, map seed) is platform independent and reads through `IProcessMemory`, so it can run over any memory source,
+such as a dump or the in-memory images of the tests. Addresses are 64-bit (`nuint`).
+
+### Files
+
+| Go (`pkg/...`) | C# (`src/D2Dotnet.D2Go.Memory/...`) |
+| --- | --- |
+| `memory/process.go` | `IProcessMemory.cs`; `GameProcess.cs` (`GameProcess`, `IntType`): reads, strings, pattern scan, widgets; `WindowsProcessMemory.cs` (`WindowsProcessMemory`, `ModuleInfo`): `NewProcess`, `NewProcessForPID`, `GetProcessModules`, `getMainModule`, `Close` |
+| `memory/offset.go`, `memory/addresses.go` | `Offset.cs` (`Offset`; internal `Offsets.Calculate` and the patterns) |
+| `memory/game_reader.go` | `GameReader.cs` (`GameReader`: `GetData`, `InGame`, menus, hover, stats lists, screens, widgets, fixed addresses) |
+| `memory/player_unit.go` | `RawPlayerUnit.cs` (`RawPlayerUnit`, `RawPlayerUnits`) |
+| `memory/player.go` | `GameReader.Player.cs` (`GetRawPlayerUnits`, `GetPlayerUnit`, skills, states) |
+| `memory/monsters.go` | `GameReader.Monsters.cs` (`Monsters`, `Corpses`) |
+| `memory/item.go` | `GameReader.Items.cs` (`Inventory`, item stats) |
+| `memory/object.go` | `GameReader.Objects.cs` (`Objects`) |
+| `memory/roster.go` | `GameReader.Roster.cs` |
+| `memory/quests.go` | `GameReader.Quests.cs` |
+| `memory/keybindings.go` | `GameReader.KeyBindings.cs` (`GetKeyBindings`) |
+| `memory/terrorzones.go` | `GameReader.TerrorZones.cs` (`TerrorZones`) |
+| `utils/map_seed_hash.go` | `Utils/MapSeed.cs` (`MapSeed.TryGetMapSeed`) |
+| `utils/utils.go` | `Utils/Geometry.cs` (`Geometry.DistanceFromPoint`) |
+| `memory/game_reader_test.go` | not ported: its two benchmarks (`BenchmarkDataReader`, `BenchmarkPF`) need a running game |
+
+Every structure offset, pointer chain, read size, pattern and fixed address is d2go's, byte for byte; each C# file
+cites its Go file, and the tests check them against the Go source (see below).
+
+### API
+
+| Go | C# |
+| --- | --- |
+| `memory.Process` | `GameProcess` (renamed: `Process` is also `System.Diagnostics.Process`); wraps an `IProcessMemory` |
+| `NewProcess()`, `NewProcessForPID(pid)` | `GameProcess.Open()`, `GameProcess.OpenForPid(pid)` (Windows), or `new GameProcess(memory)` |
+| `Process.Close()` | `Dispose()` |
+| `GetPID`, `ReadBytesFromMemory`, `ReadUInt`, `ReadUIntFromBuffer`, `ReadStringFromMemory`, `FindPattern`, `FindPatternByOperand`, `ReadPointer` | same names (`GetPid`) |
+| `ReadWidgetContainer`, `ReadWidgetList` (`(map, error)`) | `TryReadWidgetContainer`, `TryReadWidgetList` (`out` map; false on Go's error) |
+| `GetProcessModules`, `ModuleInfo` | `WindowsProcessMemory.GetProcessModules`, `ModuleInfo` (`ModuleInfo.TryFindGameModule` is `getMainModule`'s match) |
+| `IntType`, `Uint8` ... `Uint64` | `IntType.Uint8` ... `IntType.Uint64` |
+| `memory.Offset` | `Offset` (record struct); the reader's current offsets are `GameReader.Offset` |
+| `GameReader` (embeds `Process`), `NewGameReader(process)` | `GameReader : GameProcess`, `new GameReader(process, tables)` |
+| `GetData`, `InGame`, `InCharacterSelectionScreen`, `GetSelectedCharacterName`, `LegacyGraphics`, `IsOnline`, `IsIngame`, `IsInLobby`, `IsInCharacterSelectionScreen`, `IsInCharacterCreationScreen`, `LastGameName`, `LastGamePass`, `FPS`, `UpdateWidgets`, `GetRawPlayerUnits`, `GetPlayerUnit`, `Monsters`, `Corpses`, `Inventory`, `Objects`, `GetKeyBindings`, `TerrorZones` | same names (`Fps`) |
+| `IsWidgetVisible(name) (bool, error)` | `IsWidgetVisible(name)` (Go's error is always nil) |
+| `RawPlayerUnit`, `RawPlayerUnits` (`GetMainPlayer`, `GetCorpse`) | same |
+| `utils.GetMapSeed(init, end) (uint, bool)` | `MapSeed.TryGetMapSeed(init, end, out seed)` |
+| `utils.DistanceFromPoint` | `Geometry.DistanceFromPoint` |
+
+Go's unexported functions (`calculateOffsets`, `getProcessMemory`, `findPattern`, `hoveredData`, `openMenus`,
+`getStatsList`, `getStates`, `calculateStates`, `getSkills`, `getRoster`, `getQuests`, `getQuestStatus`,
+`getMonsterType`, `getMonsterStats`, `shouldBeIgnored`, `getItemStats`, `setProperties`, `reverseMapSeedHash`) are
+`internal`.
+
+### Differences from Go
+
+Behaviour is Go's. Where it differs, and why:
+
+* **Game tables.** `GameReader` takes a `GameTables`, because `Inventory` checks whether an equipped item is a belt
+  (`itm.Type().Code == item.TypeBelt`), which needs the item tables Go compiles in (see
+  [No game data](#no-game-data-in-this-repository)).
+* **Integers.** Values read from memory are `ulong` (Go `uint`) and addresses `nuint` (Go `uintptr`), with Go's
+  wrapping arithmetic (`unchecked`). Results that Go keeps in its 64-bit `int` (stat values, ids, coordinates,
+  pages, FPS, widget counts, distances) are computed as Go computes them and then narrowed to the model's 32-bit
+  `int` by keeping the low 32 bits. Only 32-bit fields of 2^31 or more change: Go reads them as large positive
+  numbers, the port as negative ones (which is how the game stores negative stats, for example a resistance of -10
+  read from a `uint32` is 4294967286 in Go and -10 here). Typed ids keep Go's conversions (`stat.ID` and `skill.ID`
+  are 16-bit, so a `uint16` id of 0xFFFF is -1 in both).
+* **Strings.** Bytes are decoded as UTF-8 (Go strings hold raw bytes); invalid sequences become U+FFFD. With a size
+  of 0, `ReadStringFromMemory` reads one byte at a time up to the first NUL instead of re-reading 1, 2, 3... bytes as
+  Go does; the result is the same.
+* **Errors and panics.** Read errors are ignored as in Go: unreadable bytes are 0. Where Go panics, the port throws:
+  a read of 0 bytes and a module size of 0 (`IndexOutOfRangeException`, Go takes the address of an empty buffer's
+  first byte), a pattern scan over an image that could not be read or a mask shorter than the pattern
+  (`IndexOutOfRangeException`), `ReadUIntFromBuffer` outside its buffer, an inventory item with no known owner when
+  there are fewer than three shared stash units (`ArgumentOutOfRangeException`), a replenish stat of 0
+  (`DivideByZeroException`, Go divides 2 by it), more than 1024 modules (`IndexOutOfRangeException`). A read larger
+  than an array can be throws `ArgumentOutOfRangeException`, and `ReadPointer` with a size under 8 throws instead of
+  reading past its buffer as Go's `unsafe` code does.
+* **Opening the process.** When no process has loaded `d2r.exe`, `OpenGameProcess` throws
+  `InvalidOperationException`; Go returns the error of `OpenProcess` on process id 0. Only the process ids
+  `EnumProcesses` returns are tried (Go also tries the zero entries after them, which always fail). Failures are
+  `Win32Exception`s. Reading through a disposed `WindowsProcessMemory` throws `ObjectDisposedException` (Go reads
+  zeros through the closed handle).
+* **`(T, error)` results.** `ReadPointer` returns the pointer (its error can not happen), `IsWidgetVisible` the bool
+  (its error is always nil), and the widget readers use the `Try` pattern.
+* **Map seed.** `TryGetMapSeed` takes `uint` hashes, the game's width. Go takes 64-bit `uint`s, and for a hash of
+  2^32 or more its search never ends.
+* **Distance.** `DistanceFromPoint` squares with `x * x`, which is what Go's `math.Pow(x, 2)` returns.
+* **Immutable model.** Go mutates an item while reading it (`setProperties(&itm, ...)`, `itm.Location = ...`); the
+  port builds new `GameItem`s with `with`.
+
+### Go behaviour kept on purpose
+
+* `findPattern` returns 0 for "not found", so a match at offset 0 is not found; it scans up to the module size minus
+  the pattern length, excluding that last position. The offsets of patterns that are not found are computed anyway
+  (wrapping), not reported.
+* `FindPatternByOperand` and the offset decoding read 32-bit operands as unsigned: negative `rip` displacements are
+  not sign-extended. The roster operand is read at pattern - 3 and so includes the pattern's first byte.
+* `Objects` decides "shrine" from the 8 bytes at unit `+0x0A`, which overlap the unit id, the mode and the unit data
+  pointer: nearly every object reads as a shrine, and its `InteractType` is then 0.
+* In `getItemStats`, updating an existing stat assigns to a copy, so it never changes: only missing stats are added.
+  The stats of the first `0x40` list are compared with the full stats before any is added, so a stat listed twice
+  there is added twice.
+* `TerrorZones` reads the online address; the offline one (`tzOffline`) is unused.
+* `LastGameName`/`LastGamePass` are marked outdated upstream and read the same addresses.
+* `GetData` calls `UpdateWidgets` four times, and rescans the offsets when the unit table offset is 0;
+  `UpdateWidgets` rescans when the panel manager offset is 0.
+
 ## Tests
 
 ```bash
 dotnet test tools/d2go/tests/D2Dotnet.D2Go.Data.Tests
+dotnet test tools/d2go/tests/D2Dotnet.D2Go.Memory.Tests
 ```
 
 The tests use d2go itself as an oracle. `tests/D2GoFixtures.targets` downloads the pinned commit
@@ -231,3 +360,15 @@ To work offline, put the codeload tarball `d2go-<sha>.tar.gz`, or its extracted 
 * The other tests cover every method with a branch. Expected numbers of `CastingFrames`, `HPPercent`, `MPPercent`,
   `MercHPPercent` and `Act` were produced by running d2go's Go code. Loader rules are tested with small synthetic
   tables (no game data).
+
+Memory tests (`D2Dotnet.D2Go.Memory.Tests`) run on any OS. They build synthetic memory images in a fake
+`IProcessMemory` (a sparse 64-bit address space): a module whose code holds the seven offset patterns, and the unit
+tables, units, paths, stat lists, inventories, party list, widgets, quest buffer and key binding blobs laid out at
+d2go's offsets, then check every reader against them, including Go's edge cases and panics. Map seeds are checked
+with seed/hash pairs worked out from the formula. Against d2go's Go source (`.cache/d2go/`), they check that the
+patterns and addresses are the same, read every key binding through the offsets parsed from `keybindings.go`, compare
+the ignored NPC list with `shouldBeIgnored`, the stat rescaling of every stat id with `getStatsList`'s switch, the
+state bits with `calculateStates`, the quest byte ranges with `getQuests`, and that every hex constant of each Go
+file appears in its C# port. `WindowsProcessMemory` itself needs Windows and a running game; off Windows the tests
+check that it refuses to run, its `MODULEINFO` layout and the module name match. The Go benchmarks are not ported
+(they need a running game).
