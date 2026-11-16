@@ -1,12 +1,23 @@
-// Port of d2go pkg/utils/map_seed_hash.go (github.com/hectorgimenez/d2go, MIT, (c) 2023 Héctor Giménez), whose logic
-// comes from MapAssist.
+// Port of d2go pkg/utils/map_seed_hash.go (github.com/hectorgimenez/d2go, MIT, (c) 2023 Héctor Giménez): same inputs and
+// results. The reversal itself is written here from the hash formula (an odd multiplier is invertible modulo 2^32)
+// instead of porting d2go's search loop, which d2go credits to MapAssist.
 
 namespace D2Dotnet.D2Go.Memory;
 
 /// <summary>Recovers the map seed from the game's seed hashes (Go <c>utils.GetMapSeed</c>).</summary>
 public static class MapSeed
 {
-    private const ulong MapHashDivisor = 1 << 16;
+    /// <summary>The game's seed hash multiplier: <c>hash = seed * Multiplier + Increment (mod 2^32)</c>.</summary>
+    internal const uint Multiplier = 0x6AC690C5;
+
+    /// <summary>The game's seed hash increment.</summary>
+    internal const uint Increment = 666;
+
+    /// <summary>The hash is taken modulo 2^32 (Go masks with <c>&amp; 0xFFFFFFFF</c>).</summary>
+    internal const ulong HashMask = 0xFFFFFFFF;
+
+    /// <summary>The inverse of <see cref="Multiplier"/> modulo 2^32.</summary>
+    internal static readonly uint MultiplierInverse = Invert(Multiplier);
 
     /// <summary>
     /// The map seed whose hash is <paramref name="endHashSeed"/>: the <c>seed</c> with
@@ -20,44 +31,30 @@ public static class MapSeed
     /// </remarks>
     public static bool TryGetMapSeed(uint initHashSeed, uint endHashSeed, out uint seed)
     {
-        ulong gameSeedXor = 0;
-        var found = TryReverseMapSeedHash(endHashSeed, out var reversed);
-        if (found)
-            gameSeedXor = initHashSeed ^ reversed;
-
-        if (gameSeedXor == 0)
+        var reversed = ReverseMapSeedHash(endHashSeed);
+        if ((initHashSeed ^ reversed) == 0)
         {
             seed = 0;
             return false;
         }
 
-        seed = (uint)reversed;
+        seed = reversed;
         return true;
     }
 
     /// <summary>
-    /// The smallest seed whose hash is <paramref name="hash"/> (Go <c>reverseMapSeedHash</c>): tries every value until
-    /// one has the hash's low 16 bits, then only values 2^16 apart, which keep them.
+    /// The seed whose hash is <paramref name="hash"/> (Go <c>reverseMapSeedHash</c>). The multiplier is odd, so every
+    /// 32-bit hash has exactly one 32-bit seed; Go's search returns that same seed, as it is the smallest match.
     /// </summary>
-    internal static bool TryReverseMapSeedHash(ulong hash, out ulong seed)
+    internal static uint ReverseMapSeedHash(uint hash) =>
+        (uint)(unchecked(((ulong)hash - Increment) * MultiplierInverse) & HashMask);
+
+    /// <summary>Inverse of an odd <paramref name="value"/> modulo 2^32 (Newton's iteration).</summary>
+    private static uint Invert(uint value)
     {
-        var incrementalValue = 1UL;
-
-        for (var startValue = 0UL; startValue < ulong.MaxValue; startValue = unchecked(startValue + incrementalValue))
-        {
-            var seedResult = unchecked((startValue * 0x6AC690C5) + 666) & 0xFFFFFFFF;
-
-            if (seedResult == hash)
-            {
-                seed = startValue;
-                return true;
-            }
-
-            if (incrementalValue == 1 && (seedResult % MapHashDivisor) == (hash % MapHashDivisor))
-                incrementalValue = MapHashDivisor;
-        }
-
-        seed = 0;
-        return false;
+        var inverse = value; // correct to 3 bits for any odd value
+        for (var i = 0; i < 5; i++)
+            inverse = unchecked(inverse * (2 - (value * inverse)));
+        return inverse;
     }
 }

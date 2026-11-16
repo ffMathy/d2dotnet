@@ -16,8 +16,7 @@ public sealed class UtilsTests
     [InlineData(1234567890u, 0x24724E34u)]
     public void ReverseMapSeedHash_FindsTheSeed(uint seed, uint hash)
     {
-        Assert.True(MapSeed.TryReverseMapSeedHash(hash, out var found));
-        Assert.Equal(seed, found);
+        Assert.Equal(seed, MapSeed.ReverseMapSeedHash(hash));
 
         Assert.True(MapSeed.TryGetMapSeed(0xA5A5A5A5, hash, out var mapSeed));
         Assert.Equal(seed, mapSeed);
@@ -31,9 +30,32 @@ public sealed class UtilsTests
         {
             var seed = (uint)random.NextInt64(0, 1L << 32);
             var hash = unchecked((seed * 0x6AC690C5u) + 666u);
-            Assert.True(MapSeed.TryReverseMapSeedHash(hash, out var found));
-            Assert.Equal(seed, found);
+            Assert.Equal(seed, MapSeed.ReverseMapSeedHash(hash));
         }
+    }
+
+    [Fact]
+    public void MultiplierInverse_IsTheInverseModulo2To32() =>
+        Assert.Equal(1u, unchecked(MapSeed.Multiplier * MapSeed.MultiplierInverse));
+
+    [Theory]
+    [InlineData(0x0u)]
+    [InlineData(0x29Au)]
+    [InlineData(0x1234u)]
+    [InlineData(0x90C5029Au)]
+    [InlineData(0xFFFFFFFFu)]
+    public void ReverseMapSeedHash_MatchesGosSearch(uint hash)
+    {
+        // Go reverseMapSeedHash: try every value until the low 16 bits of the hash match, then step by 2^16.
+        ulong increment = 1, expected = 0;
+        for (ulong start = 0; ; start += increment)
+        {
+            var result = ((start * 0x6AC690C5) + 666) & 0xFFFFFFFF;
+            if (result == hash) { expected = start; break; }
+            if (increment == 1 && result % 65536 == hash % 65536) increment = 65536;
+        }
+
+        Assert.Equal(expected, MapSeed.ReverseMapSeedHash(hash));
     }
 
     [Fact]

@@ -328,7 +328,9 @@ Behaviour is Go's. Where it differs, and why:
 * **`(T, error)` results.** `ReadPointer` returns the pointer (its error can not happen), `IsWidgetVisible` the bool
   (its error is always nil), and the widget readers use the `Try` pattern.
 * **Map seed.** `TryGetMapSeed` takes `uint` hashes, the game's width. Go takes 64-bit `uint`s, and for a hash of
-  2^32 or more its search never ends.
+  2^32 or more its search never ends. The hash `seed * 0x6AC690C5 + 666 (mod 2^32)` is reversed directly with the
+  multiplier's inverse modulo 2^32 instead of Go's search loop (which d2go credits to MapAssist). Every 32-bit hash
+  has exactly one 32-bit seed, which is also the one Go's search finds; a test runs Go's loop to confirm it.
 * **Distance.** `DistanceFromPoint` squares with `x * x`, which is what Go's `math.Pow(x, 2)` returns.
 * **Immutable model.** Go mutates an item while reading it (`setProperties(&itm, ...)`, `itm.Location = ...`); the
   port builds new `GameItem`s with `with`.
@@ -378,7 +380,7 @@ Memory tests (`D2Dotnet.D2Go.Memory.Tests`) run on any OS. They build synthetic 
 `IProcessMemory` (a sparse 64-bit address space): a module whose code holds the seven offset patterns, and the unit
 tables, units, paths, stat lists, inventories, party list, widgets, quest buffer and key binding blobs laid out at
 d2go's offsets, then check every reader against them, including Go's edge cases and panics. Map seeds are checked
-with seed/hash pairs worked out from the formula. Against d2go's Go source (`.cache/d2go/`), they check that the
+with seed/hash pairs worked out from the formula and against Go's search loop. Against d2go's Go source (`.cache/d2go/`), they check that the
 patterns and addresses are the same, read every key binding through the offsets parsed from `keybindings.go`, compare
 the ignored NPC list with `shouldBeIgnored`, the stat rescaling of every stat id with `getStatsList`'s switch, the
 state bits with `calculateStates`, the quest byte ranges with `getQuests`, and that every hex constant of each Go

@@ -84,7 +84,8 @@ SOFTWARE.
 <https://github.com/Farmith/d2go> pinned at commit `1072577f86e79cb68cd74295666041f6010e07a7`. The tables d2go
 generates from the game's excel files (`cmd/txttocode`) are not ported: they are read from the user's game files at
 run time. d2go credits [MapAssist](https://github.com/OneXDeveloper/MapAssist) for the map seed reversal of
-`pkg/utils/map_seed_hash.go`. A copy of this license is
+`pkg/utils/map_seed_hash.go`; that search loop is not ported: `MapSeed` computes the same result directly from the
+hash formula. A copy of this license is
 also kept in `tools/d2go/LICENSE-d2go`. The tests download that commit into the gitignored `.cache/d2go/` at build
 time; none of it is committed.
 
