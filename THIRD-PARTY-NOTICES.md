@@ -7,11 +7,11 @@ own license, reproduced here.
 
 <https://github.com/blacha/diablo2>, MIT, Copyright (c) 2021 Blayne Chard.
 
-`tools/map` is a port of the `packages/map` package and of the parts of `packages/data` and `packages/viewer` it
-uses. The never-exported object and npc lists of `tools/map/src/D2Dotnet.Map/Generation/UselessPresets.cs` and the
+`src/D2Dotnet.MapServer` is a port of the `packages/map` package and of the parts of `packages/data` and `packages/viewer` it
+uses. The never-exported object and npc lists of `src/D2Dotnet.MapServer/Generation/UselessPresets.cs` and the
 object classes and quest exits of `LevelConverter.cs` come from its native generator (`packages/map/map`).
-`tools/map/src/D2Dotnet.Map/wwwroot/index.html` is copied unchanged. A copy of this license is also kept in
-`tools/map/LICENSE`.
+`src/D2Dotnet.MapServer/wwwroot/index.html` is copied unchanged. A copy of this license is also kept in
+`src/D2Dotnet.MapServer/LICENSE`.
 
 ```
 MIT License
@@ -41,15 +41,15 @@ SOFTWARE.
 
 <https://github.com/blacha/binparse>, MIT, Copyright (c) 2021 Blayne Chard.
 
-`tools/map/src/D2Dotnet.Map/Binary/Hex.cs` replaces binparse's `toHex` (same license text as above).
+`src/D2Dotnet.MapServer/Binary/Hex.cs` replaces binparse's `toHex` (same license text as above).
 
 ## libd2
 
 <https://github.com/jaenster/libd2>, MIT, Copyright (c) 2026 jaenster.
 
-`tools/map/src/D2Dotnet.Map.Drlg` is a C# port of libd2's Diablo II map generator (DRLG, `packages/drlg`) and of its
+`src/D2Dotnet/Maps` (the map generator of the library) is a C# port of libd2's Diablo II map generator (DRLG, `packages/drlg`) and of its
 DS1/DT1 parsers (`packages/formats`), pinned at commit `00004e6383890d895507ab4d12dfbb1a857c3bdf`. A copy of this
-license is also kept in `tools/map/src/D2Dotnet.Map.Drlg/LICENSE-libd2`. The excel reader of the library,
+license is also kept in `src/D2Dotnet/Maps/LICENSE-libd2`. The excel reader of the library,
 `src/D2Dotnet/Data/ExcelTable.cs`, follows libd2's `packages/drlg/src/txt.zig` (line, header and integer rules). The
 tests download that commit into the gitignored `.cache/libd2/` at build time; none of it is committed.
 
@@ -125,7 +125,7 @@ These are not redistributed in this repository; they are restored from NuGet at 
 | Microsoft.AspNetCore (shared framework), Microsoft.NET.Test.Sdk | MIT, Copyright (c) .NET Foundation and Contributors |
 | xunit, xunit.runner.visualstudio | Apache-2.0, Copyright (c) .NET Foundation and Contributors |
 | coverlet.collector | MIT, Copyright (c) Toni Solarin-Sodara |
-| [LibD2](https://www.nuget.org/packages/LibD2) (test-only oracle in `D2Dotnet.Map.Drlg.Tests`) | MIT, Copyright (c) 2026 jaenster |
+| [LibD2](https://www.nuget.org/packages/LibD2) (test-only oracle in `D2Dotnet.Tests`) | MIT, Copyright (c) 2026 jaenster |
 
 ## Diablo II
 

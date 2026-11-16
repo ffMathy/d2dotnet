@@ -2,11 +2,20 @@
   <PropertyGroup>
     <AssemblyName>D2Dotnet</AssemblyName>
     <RootNamespace>D2Dotnet</RootNamespace>
-    <Description>Diablo II: Resurrected for .NET: game file access (CASC or extracted folders), the excel tables and string tables, and the shared ids.</Description>
+    <Description>Diablo II: Resurrected for .NET: game file access (CASC or extracted folders), the excel tables and string tables, the shared ids, and the map generator.</Description>
     <IsAotCompatible>true</IsAotCompatible>
+    <!-- The map generator's engine (Maps/Engine) mirrors libd2's pointer-faithful port of the 1.14d DRLG, including its
+         pointer punning, so it runs on unsafe structs in native memory. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="D2Dotnet.Tests" />
+    <!-- The map server's end-to-end tests run the generator over libd2's baked data (an internal data source). -->
+    <InternalsVisibleTo Include="D2Dotnet.MapServer.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Maps/LICENSE-libd2" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>
