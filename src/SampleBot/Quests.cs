@@ -63,19 +63,25 @@ internal sealed class QuestRunner(Bot bot)
 
     public void Run()
     {
+        var tries = 0;
+        IQuest? last = null;
         while (Next() is { } quest)
         {
+            tries = quest == last ? tries + 1 : 1;
+            last = quest;
+            if (tries > 3)
+                throw new BotStopped($"{quest.Id} is still not done after three tries.");
+
+            bot.HealInTown();
             try
             {
                 quest.Run(bot);
             }
             catch (LowLife low)
             {
+                // Back to town, healed there, and the quest is tried again.
                 bot.Retreat(low.Message);
             }
-
-            if (!quest.IsDone(bot))
-                throw new BotStopped($"{quest.Id} is not done after running it.");
         }
 
         Bot.Log($"Every quest the bot knows is done ({string.Join(", ", Quests.Select(q => q.Id))}).");

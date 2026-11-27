@@ -6,7 +6,7 @@ namespace D2Dotnet.Tests.Maps;
 public sealed class MapGridTests
 {
     // A level whose top-left tile is (tileX, tileY), its collision map drawn row by row: '.' walkable, '#' blocked,
-    // ' ' uncovered.
+    // 'm' a missile barrier (walkable), ' ' uncovered.
     private static MapLevel Level(AreaId id, int tileX, int tileY, params string[] rows)
     {
         var width = rows[0].Length;
@@ -14,6 +14,7 @@ public sealed class MapGridTests
         {
             '.' => (ushort)0,
             '#' => CollisionMap.BlockPlayer,
+            'm' => CollisionMap.MissileBarrier,
             _ => CollisionMap.Uncovered,
         })).ToArray();
         return new MapLevel
@@ -102,6 +103,30 @@ public sealed class MapGridTests
             "....."));
         Assert.Null(island.FindPath(new Point(0, 0), new Point(4, 4)));
         Assert.Null(island.NearestWalkable(new Point(100, 100), radius: 3));
+    }
+
+    [Fact]
+    public void IsLineClear_StopsAtWallsAndBarriers_NotAtTheEnds()
+    {
+        var grid = new MapGrid(Town, Moor);
+        Assert.False(grid.IsLineClear(new Point(52, 100), new Point(52, 102))); // the town wall at (52,101)
+        Assert.True(grid.IsLineClear(new Point(54, 100), new Point(54, 104)));  // the town's open right column
+        Assert.True(grid.IsLineClear(new Point(50, 100), new Point(60, 100)));  // along the top row, into the moor
+        Assert.False(grid.IsLineClear(new Point(57, 100), new Point(57, 103))); // the moor's wall
+        Assert.True(grid.IsLineClear(new Point(51, 101), new Point(51, 101)));  // the same cell: nothing between
+        Assert.True(grid.IsLineClear(new Point(52, 100), new Point(52, 101)));  // next to each other: nothing between
+        Assert.False(grid.IsLineClear(new Point(56, 103), new Point(56, 106))); // off the levels
+
+        var barrier = new MapGrid(Level(AreaId.DenOfEvil, 0, 0,
+            ".....",
+            "..m..",
+            ".....",
+            ".....",
+            "....."));
+        Assert.True(barrier.IsWalkable(new Point(2, 1)));
+        Assert.False(barrier.IsLineClear(new Point(2, 0), new Point(2, 3)));                         // a missile stops
+        Assert.True(barrier.IsLineClear(new Point(2, 0), new Point(2, 3), CollisionMap.BlockPlayer)); // a walker does not
+        Assert.False(barrier.IsLineClear(new Point(0, 0), new Point(4, 2)));                          // a diagonal through it
     }
 
     [Fact]

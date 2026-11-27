@@ -49,7 +49,8 @@ internal sealed class ForegroundInput : IGameInput
 /// Window messages sent to the game, which acts on them while another window is in front. The game aims at the real
 /// cursor, not at the position a message carries, so for each click or key the cursor is borrowed: moved to the aim,
 /// the messages sent (each waits until the game has handled it), and put back where it was. Measured in a running
-/// game: about 80 ms per click or key; giving the cursor back after the button-down alone is too early.
+/// game: about 80 ms per click or key, plus a 50 ms rest so the game sees the unit under the cursor before an attack
+/// (without it, clicks on monsters walked to them); giving the cursor back after the button-down alone is too early.
 /// </summary>
 internal sealed class BackgroundInput(GameWindow window) : IGameInput
 {
@@ -75,6 +76,7 @@ internal sealed class BackgroundInput(GameWindow window) : IGameInput
     public void PressKey(int virtualKey) => Borrowed(_aim, () =>
     {
         Send(MouseMove, 0, window.CursorInClient());
+        Thread.Sleep(SettleMs);
         Key(virtualKey, down: true);
         Key(virtualKey, down: false);
     });
@@ -110,9 +112,13 @@ internal sealed class BackgroundInput(GameWindow window) : IGameInput
     {
         var at = window.CursorInClient();
         Send(MouseMove, modifiers, at);
+        Thread.Sleep(SettleMs); // the game updates what is hovered on its next frame; a click before that misses the unit
         Send(down, button | modifiers, at);
         Send(up, modifiers, at);
     }
+
+    // How long the cursor rests on the aim before a click or key: about three frames at 60 frames a second.
+    private const int SettleMs = 50;
 
     // lParam: repeat count 1, the scan code at bit 16, and for a release the previous-state and transition bits.
     private void Key(int virtualKey, bool down)

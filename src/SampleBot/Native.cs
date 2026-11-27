@@ -5,6 +5,7 @@ internal static partial class Native
 {
     public const int VkShift = 0x10;
     public const int VkEnd = 0x23;
+    public const int VkEscape = 0x1B;
 
     private const uint InputMouse = 0;
     private const uint InputKeyboard = 1;

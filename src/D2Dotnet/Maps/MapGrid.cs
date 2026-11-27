@@ -65,6 +65,61 @@ public sealed class MapGrid
     public bool IsWalkable(Point world) => LevelAt(world) is { } level && level.Collision!.IsWalkable(level.ToLocal(world));
 
     /// <summary>
+    /// True when nothing <paramref name="blocking"/> lies on the line from <paramref name="from"/> to
+    /// <paramref name="to"/> (world subtiles): a missile cast from one reaches the other. The line is traced cell by cell
+    /// as the engine traces it (Bresenham, along the major axis); the two end cells are not tested, so a unit standing
+    /// against a wall can still be hit. A cell no level covers blocks.
+    /// </summary>
+    /// <param name="from">One end, such as the caster.</param>
+    /// <param name="to">The other end, such as the target.</param>
+    /// <param name="blocking">The collision flags that stop the line; <see cref="CollisionMap.MissileFlight"/> for a missile.</param>
+    public bool IsLineClear(Point from, Point to, ushort blocking = CollisionMap.MissileFlight)
+    {
+        int dx = Math.Abs(to.X - from.X), dy = Math.Abs(to.Y - from.Y);
+        int stepX = to.X >= from.X ? 1 : -1, stepY = to.Y >= from.Y ? 1 : -1;
+        int x = from.X, y = from.Y, error = 0;
+        var major = Math.Max(dx, dy);
+        for (var i = 1; i < major; i++)
+        {
+            // Advance along the major axis; the minor one follows the error term.
+            if (dx >= dy)
+            {
+                x += stepX;
+                error += dy;
+                if (2 * error >= dx)
+                {
+                    y += stepY;
+                    error -= dx;
+                }
+            }
+            else
+            {
+                y += stepY;
+                error += dx;
+                if (2 * error >= dy)
+                {
+                    x += stepX;
+                    error -= dy;
+                }
+            }
+
+            if (IsBlocked(new Point(x, y), blocking))
+                return false;
+        }
+
+        return true;
+    }
+
+    // True when a cell holds one of the flags, or no level covers it.
+    private bool IsBlocked(Point world, ushort flags)
+    {
+        if (LevelAt(world) is not { } level)
+            return true;
+        var local = level.ToLocal(world);
+        return (level.Collision![local.X, local.Y] & flags) != 0;
+    }
+
+    /// <summary>
     /// The walkable subtile nearest to <paramref name="world"/>, searching outwards up to <paramref name="radius"/>
     /// subtiles (Chebyshev distance); null when there is none.
     /// </summary>

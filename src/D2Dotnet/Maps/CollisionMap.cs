@@ -14,8 +14,20 @@ public sealed class CollisionMap
     /// <summary>The value of a subtile no room covers.</summary>
     public const ushort Uncovered = 0xFFFF;
 
-    /// <summary>The flag that blocks walking (<c>COLLIDE_BLOCK_PLAYER</c>).</summary>
+    /// <summary>The flag that blocks walking (<c>COLLIDE_BLOCK_PLAYER</c>; the engine's <c>COLBIT_WALL</c>).</summary>
     public const ushort BlockPlayer = 0x01;
+
+    /// <summary>The flag that blocks line of sight and light (<c>COLBIT_VISIBLE</c>).</summary>
+    public const ushort BlockSight = 0x02;
+
+    /// <summary>The flag that blocks missiles but not walking (<c>COLBIT_MISSILE_BARRIER</c>).</summary>
+    public const ushort MissileBarrier = 0x04;
+
+    /// <summary>
+    /// What stops a missile in flight: <see cref="BlockPlayer"/> and <see cref="MissileBarrier"/> (the engine's
+    /// <c>SKILL_CheckMissileCollisionAtTarget</c> tests a missile's cell with this mask, as libd2 documents it).
+    /// </summary>
+    public const ushort MissileFlight = BlockPlayer | MissileBarrier;
 
     private readonly ushort[] _cells;
 

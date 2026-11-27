@@ -231,11 +231,41 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
     // ---- Fighting ----
 
-    /// <summary>Fights the enemies within <paramref name="range"/> until none is left.</summary>
+    /// <summary>The walkable grid of the player's level, made once per level.</summary>
+    public MapGrid GridHere()
+    {
+        var level = Act[Player().Area];
+        if (_grid?.Levels[0] != level)
+            _grid = new MapGrid(level);
+        return _grid;
+    }
+
+    private MapGrid? _grid;
+
+    /// <summary>
+    /// Fights the enemies within <paramref name="range"/> until none is left: first those a missile can reach in a
+    /// straight line, then the others the player can walk to within twice the range.
+    /// </summary>
     public void FightNearby(int range)
     {
-        while (Enemies(Player().Position, range).FirstOrDefault() is { } target)
+        var skipped = new HashSet<UnitId>();
+        while (true)
+        {
+            var player = Player();
+            var grid = GridHere();
+            var enemies = Enemies(player.Position, range).Where(m => !skipped.Contains(m.Id)).ToList();
+            var target = enemies.FirstOrDefault(m => grid.IsLineClear(player.Position, m.Position)) ?? enemies.FirstOrDefault();
+            if (target is null)
+                return;
+            if (!grid.IsLineClear(player.Position, target.Position)
+                && grid.FindPath(player.Position, target.Position) is not { Count: <= 2 * FightRange })
+            {
+                skipped.Add(target.Id); // behind walls and far round (or no way at all): leave it
+                continue;
+            }
+
             Fight(target.Id);
+        }
     }
 
     /// <summary>Attacks one monster with the class's combat until it dies, leaves, or <paramref name="seconds"/> pass.</summary>
@@ -248,21 +278,35 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             DrinkIfNeeded(player);
             if (reader.ReadMonsters().FirstOrDefault(m => m.Id == id) is not { IsEnemy: true } monster)
                 return;
+
+            // A wall between them: walk round it towards the monster instead of casting into the wall.
+            var grid = GridHere();
+            if (!grid.IsLineClear(player.Position, monster.Position))
+            {
+                if (grid.FindPath(player.Position, monster.Position) is not { Count: > 1 } path)
+                    return;
+                MoveTo(path[Math.Min(4, path.Count - 1)]);
+                continue;
+            }
+
             Combat.Attack(this, player, monster);
         }
 
         Log($"Gave up on monster {id.Value} after {seconds} s.");
     }
 
-    /// <summary>True when the player has the skill and the mana for it at its current level (mana is in whole points).</summary>
+    /// <summary>
+    /// True when the player has the skill and the mana for it at its current level (mana is in whole points). A skill
+    /// the player has at level 0 counts as level 1: a new Sorceress's Fire Bolt reads 0 and is cast.
+    /// </summary>
     public bool CanCast(MainPlayer player, SkillId skill)
     {
         if (skill is SkillId.AttackSkill or SkillId.None)
             return true;
-        if (!player.Skills.TryGetValue(skill, out var points) || points.Level == 0)
+        if (!player.Skills.TryGetValue(skill, out var points))
             return false;
         var mana = player.GetStat(StatId.Mana) ?? 0;
-        return data.Skills.Find(skill) is not { } info || mana >= info.ManaCost(points.Level);
+        return data.Skills.Find(skill) is not { } info || mana >= info.ManaCost(Math.Max(1, (int)points.Level));
     }
 
     // ---- Potions ----
@@ -281,7 +325,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var potion = belt.FindPotion(need.Value) ?? (need == PotionType.Rejuvenation ? belt.FindPotion(PotionType.Healing) : null);
         if (potion is null)
         {
-            if (life < 30 && !_retreating)
+            // In town there is nothing to flee: the healer is the way out.
+            if (life < 30 && !_retreating && !Healers.ContainsKey(player.Area))
                 throw new LowLife($"Life is at {life}% and the belt has no healing potion left.");
             return;
         }
@@ -291,14 +336,78 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         _lastPotion = DateTime.UtcNow;
     }
 
-    /// <summary>Runs back to the act's town without fighting (low life and nothing to drink), then stops the bot.</summary>
+    // The healer of each act's town: talking to them heals.
+    private static readonly Dictionary<AreaId, MonsterId> Healers = new()
+    {
+        [AreaId.RogueEncampment] = MonsterId.Akara,
+        [AreaId.LutGholein] = MonsterId.Fara,
+        [AreaId.KurastDocks] = MonsterId.Ormus,
+        [AreaId.PandemoniumFortress] = MonsterId.Jamella,
+        [AreaId.Harrogath] = MonsterId.Malah,
+    };
+
+    /// <summary>The act's town.</summary>
+    public AreaId Town => Act.Levels.First(l => Healers.ContainsKey(l.Id)).Id;
+
+    /// <summary>
+    /// In town, talks to the healer when life or mana is below <paramref name="below"/> percent: walks up to them, clicks
+    /// them (talking heals), and closes the dialog with Esc.
+    /// </summary>
+    public void HealInTown(int below = 90)
+    {
+        var player = Player();
+        if (!Healers.TryGetValue(player.Area, out var healerClass) || (player.LifePercent >= below && player.ManaPercent >= below))
+            return;
+
+        var level = Act[player.Area];
+        var grid = new MapGrid(level);
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            if (reader.ReadMonsters().FirstOrDefault(m => m.Class == healerClass) is not { } healer)
+            {
+                // Out of sight: walk towards where the town's NPCs stand, its centre.
+                WalkTo(grid, level.ToWorld(new Point(level.Collision!.Width / 2, level.Collision.Height / 2)), arriveWithin: 10, fight: false,
+                    until: () => reader.ReadMonsters().Any(m => m.Class == healerClass));
+                continue;
+            }
+
+            if (Distance(Player().Position, healer.Position) > 5)
+                WalkTo(grid, healer.Position, arriveWithin: 4, fight: false);
+            var now = reader.ReadMonsters().FirstOrDefault(m => m.Id == healer.Id) ?? healer;
+            Aim(Player().Position, now.Position, Window.AimHeight);
+            input.LeftClick();
+            var deadline = DateTime.UtcNow.AddSeconds(4);
+            while (DateTime.UtcNow < deadline && !reader.ReadMenus().NpcInteract)
+                Thread.Sleep(150);
+            if (reader.ReadMenus().NpcInteract)
+            {
+                Thread.Sleep(300);
+                input.PressKey(Native.VkEscape);
+                Thread.Sleep(300);
+                var after = Player();
+                Log($"Talked to {healerClass}: life {after.LifePercent}%, mana {after.ManaPercent}%.");
+                return;
+            }
+        }
+
+        Log($"Could not talk to {healerClass}; going on with life {Player().LifePercent}%.");
+    }
+
+    /// <summary>Runs back to the act's town without fighting (low life and nothing to drink), and heals there.</summary>
     public void Retreat(string reason)
     {
         Log($"{reason} Running back to town.");
         _retreating = true;
-        var town = Act.Levels.First(l => l.Id is AreaId.RogueEncampment or AreaId.LutGholein or AreaId.KurastDocks or AreaId.PandemoniumFortress or AreaId.Harrogath).Id;
-        TravelTo(town, fight: false);
-        throw new BotStopped($"{reason} The character is back in {town}.");
+        try
+        {
+            TravelTo(Town, fight: false);
+        }
+        finally
+        {
+            _retreating = false;
+        }
+
+        HealInTown();
     }
 
     // ---- Calibration ----

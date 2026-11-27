@@ -82,3 +82,8 @@ catch (BotStopped stopped)
     Console.WriteLine($"Stopped: {stopped.Message}");
     return 2;
 }
+catch (LowLife low)
+{
+    Console.WriteLine($"Stopped: {low.Message}");
+    return 2;
+}
