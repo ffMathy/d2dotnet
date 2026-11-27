@@ -461,10 +461,21 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     }
 
     /// <summary>
-    /// Walks up to the NPC and talks to them: clicks them, lets any quest speech run for up to <paramref name="speech"/>
-    /// seconds, and closes the dialog with Esc. False when the NPC is not in sight or the dialog did not open.
+    /// Walks up to the NPC and talks to them: opens their dialog, lets any quest speech run for up to
+    /// <paramref name="speech"/> seconds, and closes it with Esc. False when the NPC is not in sight or the dialog did
+    /// not open.
     /// </summary>
     public bool TalkTo(MonsterId npc, int speech = 2)
+    {
+        if (!OpenDialog(npc))
+            return false;
+        Thread.Sleep(speech * 1000);
+        CloseDialog();
+        return true;
+    }
+
+    /// <summary>Walks up to the NPC and clicks them, leaving their dialog open; false when it did not open.</summary>
+    public bool OpenDialog(MonsterId npc)
     {
         var level = Act[Player().Area];
         for (var attempt = 0; attempt < 4; attempt++)
@@ -485,22 +496,21 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             var deadline = DateTime.UtcNow.AddSeconds(4);
             while (DateTime.UtcNow < deadline && !reader.ReadMenus().NpcInteract)
                 Thread.Sleep(150);
-            if (!reader.ReadMenus().NpcInteract)
-                continue;
-
-            Thread.Sleep(speech * 1000);
-            input.PressKey(Native.VkEscape);
-            Thread.Sleep(300);
             if (reader.ReadMenus().NpcInteract)
-            {
-                input.PressKey(Native.VkEscape); // a speech is closed first, then the menu
-                Thread.Sleep(300);
-            }
-
-            return true;
+                return true;
         }
 
         return false;
+    }
+
+    /// <summary>Closes an NPC dialog and anything it opened (a speech, a shop) with Esc.</summary>
+    public void CloseDialog()
+    {
+        for (var i = 0; i < 3 && (reader.ReadMenus() is { NpcInteract: true } or { NpcShop: true }); i++)
+        {
+            input.PressKey(Native.VkEscape);
+            Thread.Sleep(300);
+        }
     }
 
     /// <summary>True when the player carries an item of the class (inventory, belt or cursor).</summary>
@@ -569,6 +579,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         PotionType? need = life < 30 ? PotionType.Rejuvenation : life < 50 ? PotionType.Healing : mana < 15 ? PotionType.Mana : null;
         if (need is null)
             return;
+        // Out of mana with nothing to drink for it: a caster cannot fight, so back to town (the healer restores mana).
+        if (need == PotionType.Mana && belt.FindPotion(PotionType.Mana) is null && belt.FindPotion(PotionType.Rejuvenation) is null
+            && mana < 5 && !_retreating && !Healers.ContainsKey(player.Area) && player.Class == CharacterClass.Sorceress)
+            throw new LowLife($"Mana is at {mana}% and the belt has no mana potion left.");
         var potion = belt.FindPotion(need.Value) ?? (need == PotionType.Rejuvenation ? belt.FindPotion(PotionType.Healing) : null);
         if (potion is null)
         {

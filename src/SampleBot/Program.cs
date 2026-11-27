@@ -17,7 +17,8 @@ var planOnly = args.Contains("--plan");
 var foreground = args.Contains("--foreground");
 var checkInput = args.Contains("--check-input");
 var spendPoints = args.Contains("--spend-points");
-args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points"))];
+var probeTrade = args.Contains("--probe-trade");
+args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points" or "--probe-trade"))];
 var installPath = args.Length > 0 ? args[0] : @"C:\Program Files (x86)\Diablo II Resurrected";
 using var game = GameInstall.Open(installPath);
 
@@ -70,6 +71,10 @@ try
     if (checkInput)
     {
         InputCheck.Run(bot);
+    }
+    else if (probeTrade)
+    {
+        Shop.ListGoods(bot);
     }
     else if (spendPoints)
     {

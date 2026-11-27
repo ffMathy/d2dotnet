@@ -9,6 +9,8 @@ internal interface IGameInput
 
     void LeftClick();
 
+    void RightClick();
+
     /// <summary>A right click while standing still (shift held), so a cast does not walk the player.</summary>
     void RightClickStandingStill();
 
@@ -27,6 +29,8 @@ internal sealed class ForegroundInput : IGameInput
     public void AimAt((int X, int Y) screen) => Native.SetCursorPos(screen.X, screen.Y);
 
     public void LeftClick() => Native.LeftClick();
+
+    public void RightClick() => Native.RightClick();
 
     public void RightClickStandingStill()
     {
@@ -65,6 +69,8 @@ internal sealed class BackgroundInput(GameWindow window) : IGameInput
     public void AimAt((int X, int Y) screen) => _aim = screen;
 
     public void LeftClick() => Borrowed(_aim, () => Click(LeftDown, LeftUp, LeftButton, 0));
+
+    public void RightClick() => Borrowed(_aim, () => Click(RightDown, RightUp, RightButton, 0));
 
     public void RightClickStandingStill() => Borrowed(_aim, () =>
     {

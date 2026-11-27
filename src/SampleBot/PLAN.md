@@ -19,26 +19,36 @@ as parts land.
    background (`BackgroundInput`; the game aims at the real cursor, which is borrowed for about 80 ms per click or
    key), or `SendInput` with the game in front (`ForegroundInput`). Moving, clicking and casting standing still work
    in the background. The player's stats are in whole points (mana 35 for a new Sorceress).
-2. **Survival** (done for potions): drink from the belt; leave the game (save and exit) when life is low and
-   nothing can be drunk, instead of dying.
-3. **Travel across levels**: a route from the current area to any area of the act through exits (walk across
-   seams, click warps) and waypoints; take the waypoint when the route through it is shorter.
-4. **Combat by class**: choose skills by what the character has and can pay for, from a table per class (the
-   Sorceress first: a bolt early, then the skills it learns; the other classes after); keep distance for casters;
-   target the dangerous monsters first; follow the boss fights.
-5. **Town**: walk to an NPC, talk, pick a dialog option; heal, buy potions and scrolls, repair, identify, sell,
-   revive the mercenary; use the stash.
-6. **The character**: spend stat and skill points by a build table per class; equip better items with simple rules.
+2. **Survival** (done): drink from the belt; pick up potions and gold; with low life (or no mana for a caster) and
+   nothing to drink, run back to town and heal at the act's healer; after a death, press Esc to come back in town and
+   go back for the corpse.
+3. **Travel across levels** (done for exits): `GeneratedAct.FindRoute` and `MapGrid` paths; seams are walked
+   across into the next level's first reachable subtiles, warps clicked once the game says they are hovered, red
+   portals taken where no exit leads; obstacles the map does not show are blocked and gone round. Waypoints: to do.
+4. **Combat by class** (started): the best skill the character has, can pay for and has selected or bound to a key,
+   from a table per class (the Sorceress so far); casts only along a clear line (`MapGrid.IsLineClear`).
+5. **Town** (started): talking to NPCs heals; their dialog's options are clicked above them (the keyboard does not
+   pick them; Akara's Trade is 166 pixels above her feet at a height of 720, other NPCs are measured the first time);
+   potions are bought at Akara. To do: repair, sell, identify, the mercenary, the stash.
+6. **The character** (started): stat and skill points are spent through the panels by a build per class (the
+   Sorceress so far), each click checked through memory. To do: equipment.
 7. **Quests**: one script per quest, driven by the quest's status flags, for the 27 quests of the five acts,
    moving to the next act when the act's last quest is done.
 
 ## Interface positions
 
-The game does not tell where its panels' buttons are (widgets have names and a shown flag, no position), so every
-click on a panel needs a position measured in the game window: NPC dialog options, shop tabs and items, the
-waypoint panel's tabs and entries, the skill tree and its tabs, the character panel's stat buttons, inventory and
-stash grids, the Horadric Cube and its Transmute button, the quit menu. They are measured once per window size, in
-the same way as the world mapping (720 pixels of client height as the reference), with the player at the keyboard.
+The game's HD layout files (data/global/ui/layouts/*hd.json) give the panels' widgets: a 2160-pixel-high reference,
+panels anchored to the window (left panels at (0, 0.397) plus (236, -651), right ones at (1, 0.397) plus (-1394,
+-651)), widgets by offsets within them. The skill tree, the stat buttons and the shop's tabs and grid come from
+there; every click is checked through memory, and the first one calibrates the scale (kept per window size). The
+skill tree's tabs run from skilldesc page 3 to page 1. NPC dialogs float above the NPC and are found by clicking
+upwards until the wanted panel opens.
+
+## State of the quests
+
+- Den of Evil: done in a running game.
+- Sisters' Burial Grounds, The Search for Cain: written, not finished in a game yet.
+- The others: to do.
 
 ## Order of work
 

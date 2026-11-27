@@ -126,6 +126,24 @@ internal sealed class GameUi(Bot bot)
         return done;
     }
 
+    /// <summary>
+    /// Clicks a point of a left panel (the shop, the stash, the character stats), in the layout's reference pixels
+    /// from the panel's corner; with the calibration the stat buttons found (by height, when none is kept yet).
+    /// </summary>
+    public void ClickLeftPanel((int X, int Y) point, bool right = false)
+    {
+        LoadCalibration();
+        var (left, top, width, height) = bot.Window.ClientArea();
+        var s = _calibration?.Scale() ?? height / ReferenceHeight;
+        var x = left + width * LeftAnchor.X + (LeftPanel.X + point.X) * s;
+        var y = top + height * LeftAnchor.Y + (LeftPanel.Y + point.Y) * s;
+        bot.Input.AimAt(((int)Math.Round(x), (int)Math.Round(y)));
+        if (right)
+            bot.Input.RightClick();
+        else
+            bot.Input.LeftClick();
+    }
+
     /// <summary>Closes the open panels with Esc.</summary>
     public void ClosePanels()
     {

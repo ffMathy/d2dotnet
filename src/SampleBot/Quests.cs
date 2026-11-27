@@ -168,16 +168,25 @@ internal sealed class QuestRunner(Bot bot)
         [ActId.Act1] = [AreaId.BloodMoor, AreaId.ColdPlains, AreaId.StonyField],
     };
 
+    // The level a character needs before it levels in each area (the Blood Moor's monsters are the weakest).
+    private static readonly Dictionary<AreaId, int> AreaLevels = new()
+    {
+        [AreaId.BloodMoor] = 1,
+        [AreaId.ColdPlains] = 6,
+        [AreaId.StonyField] = 9,
+    };
+
     // Explores the act's levelling areas, one after the other, until the character reaches the level; points are
     // spent as it levels.
     private void LevelUp(int level)
     {
         var areas = LevellingAreas.GetValueOrDefault(bot.Act.Act) ?? throw new BotStopped($"No levelling areas for {bot.Act.Act}.");
         Bot.Log($"Level {bot.Player().Level}: levelling to {level} in {string.Join(" and ", areas)}.");
-        foreach (var area in areas)
+        // The hardest area the character is ready for, again and again until the level is reached.
+        for (var round = 0; round < 10 && bot.Player().Level < level; round++)
         {
-            if (bot.Player().Level >= level)
-                return;
+            var characterLevel = bot.Player().Level;
+            var area = areas.Where(x => characterLevel >= AreaLevels.GetValueOrDefault(x)).DefaultIfEmpty(areas[0]).Last();
             bot.TravelTo(area);
             bot.ExploreLevel(until: () => bot.Player().Level >= level);
             CharacterBuild.SpendPoints(bot, ui);
@@ -205,6 +214,7 @@ internal sealed class QuestRunner(Bot bot)
             {
                 if (!calibrated)
                 {
+                    bot.CloseDialog(); // a dialog or shop left open by an earlier run
                     bot.Calibrate();
                     calibrated = true;
                 }
@@ -214,6 +224,7 @@ internal sealed class QuestRunner(Bot bot)
                     bot.Retreat($"Life is at {hurt.LifePercent}%.");
                 bot.HealInTown();
                 CharacterBuild.SpendPoints(bot, ui);
+                Shop.BuyPotions(bot, ui);
                 if (bot.Player().Level < quest.MinimumLevel)
                     LevelUp(quest.MinimumLevel);
                 else
@@ -254,6 +265,18 @@ internal sealed class QuestRunner(Bot bot)
                 catch (Died again)
                 {
                     died = again;
+                }
+                catch (LowLife low)
+                {
+                    // Hurt again on the way to the corpse: back to town; the corpse waits for the next try.
+                    try
+                    {
+                        bot.Retreat(low.Message);
+                    }
+                    catch (Died again)
+                    {
+                        died = again;
+                    }
                 }
             }
         }
