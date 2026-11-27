@@ -66,7 +66,7 @@ internal sealed class LocalIndex
 
         var entries = new Dictionary<EKey9, IndexEntry>();
         foreach (var (bucket, (_, path)) in newest.OrderBy(kv => kv.Key))
-            Parse(File.ReadAllBytes(path), bucket, entries, Path.GetFileName(path));
+            Parse(SharedFile.ReadAllBytes(path), bucket, entries, Path.GetFileName(path));
         return new LocalIndex(entries);
     }
 

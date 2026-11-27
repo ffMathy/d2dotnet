@@ -75,11 +75,14 @@ public sealed class OffsetTests
     }
 
     [Fact]
-    public void GameReader_NeedsAReadableModule()
+    public void GameReader_ScansAPartlyReadableModule()
     {
+        // The running game keeps some pages of its image unreadable: they read as zeros, and the patterns in the
+        // readable pages are still found.
         var image = new GameImage();
+        var expected = image.Reader().Offsets;
         image.Memory.ModuleSize = 0x10_0000; // past the mapped code
-        Assert.Throws<InvalidOperationException>(() => image.Reader());
+        Assert.Equal(expected, image.Reader().Offsets);
     }
 
     [Fact]

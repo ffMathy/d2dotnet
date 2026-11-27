@@ -116,9 +116,23 @@ public sealed class GameProcessTests
         Assert.Equal(0x20, image.Length);
         Assert.Equal(9, image[1]);
 
-        memory.ModuleSize = 0x2000; // runs past the mapped bytes
-        Assert.Throws<InvalidOperationException>(() => p.ReadModule());
+        memory.ModuleSize = 0x3000; // the second and third pages are not mapped: they read as zeros
+        memory.Write(Base + 0x2000 + 5, [7]); // ...unless they are
+        image = p.ReadModule();
+        Assert.Equal(0x3000, image.Length);
+        Assert.Equal(9, image[1]);
+        Assert.Equal(0, image[0x1000]);
+        Assert.Equal(7, image[0x2005]);
+
         memory.ModuleSize = 0;
+        Assert.Throws<InvalidOperationException>(() => p.ReadModule());
+    }
+
+    [Fact]
+    public void ReadModule_ThrowsWhenNoPageIsReadable()
+    {
+        var memory = new FakeProcessMemory(unchecked((nuint)Base), 0x2000);
+        using var p = new GameProcess(memory);
         Assert.Throws<InvalidOperationException>(() => p.ReadModule());
     }
 

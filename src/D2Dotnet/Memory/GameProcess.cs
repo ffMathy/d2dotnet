@@ -17,6 +17,7 @@ public sealed class GameProcess : IDisposable
     public const int MaxStringLength = 4096;
 
     private const int StringChunk = 64;
+    private const int PageSize = 0x1000;
     private readonly bool _ownsMemory;
 
     /// <summary>A process over <paramref name="memory"/>.</summary>
@@ -141,14 +142,28 @@ public sealed class GameProcess : IDisposable
         return Encoding.UTF8.GetString(bytes.ToArray());
     }
 
-    /// <summary>The whole <c>d2r.exe</c> image.</summary>
-    /// <exception cref="InvalidOperationException">The module size is 0, or the image could not be read.</exception>
+    /// <summary>
+    /// The whole <c>d2r.exe</c> image. Pages that cannot be read (the running game protects some of its image) read
+    /// as zero bytes.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The module size is 0, or no page of the image could be read.</exception>
     public byte[] ReadModule()
     {
         if (ModuleSize == 0)
             throw new InvalidOperationException("The game module has a size of 0.");
         var image = new byte[ModuleSize];
-        if (!TryRead(ModuleBaseAddress, image))
+        if (TryRead(ModuleBaseAddress, image))
+            return image;
+
+        // One unreadable page fails a whole read: read the image a page at a time instead.
+        var anyRead = false;
+        for (var offset = 0; offset < image.Length; offset += PageSize)
+        {
+            var page = image.AsSpan(offset, Math.Min(PageSize, image.Length - offset));
+            anyRead |= TryRead(unchecked(ModuleBaseAddress + (nuint)offset), page);
+        }
+
+        if (!anyRead)
             throw new InvalidOperationException($"The game module image ({ModuleSize} bytes at 0x{ModuleBaseAddress:X}) could not be read.");
         return image;
     }

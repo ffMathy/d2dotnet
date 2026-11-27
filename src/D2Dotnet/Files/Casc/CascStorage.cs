@@ -58,7 +58,7 @@ internal sealed partial class CascStorage : IDisposable
         if (!File.Exists(buildInfoPath))
             throw new FileNotFoundException($"'{installDirectory}' is not a CASC install: no .build.info.", buildInfoPath);
 
-        var row = BuildInfo.Parse(File.ReadAllText(buildInfoPath)).SelectRow(product);
+        var row = BuildInfo.Parse(SharedFile.ReadAllText(buildInfoPath)).SelectRow(product);
         var dataRoot = FindChild(installDirectory, "Data")
             ?? throw new DirectoryNotFoundException($"'{installDirectory}' has a .build.info but no Data folder.");
         var configDir = FindChild(dataRoot, "config")
@@ -69,7 +69,7 @@ internal sealed partial class CascStorage : IDisposable
         var buildKey = row["Build Key"].ToLowerInvariant();
         var configPath = FindConfig(configDir, buildKey)
             ?? throw new FileNotFoundException($"Build config {buildKey} is missing from '{configDir}'.");
-        var buildConfig = ConfigFile.Parse(File.ReadAllText(configPath));
+        var buildConfig = ConfigFile.Parse(SharedFile.ReadAllText(configPath));
 
         var storage = new CascStorage(installDirectory, dataDir, row, buildConfig, LocalIndex.Load(dataDir));
         try
