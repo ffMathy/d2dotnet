@@ -60,7 +60,7 @@ internal sealed class GameDataSource : IMapDataSource
         {
             var table = GetTable(name);
             if (table == null) continue;
-            var built = BuildPresetObjectTable(table);
+            var built = BuildPresetObjectTable(table, GetTable("objects"));
             if (built != null) return built;
         }
         throw new InvalidDataException(
@@ -69,9 +69,21 @@ internal sealed class GameDataSource : IMapDataSource
     }
 
     /// <summary>Build the act*150+id table from an objpreset/obj.txt-style table: one row per
-    /// (act, DS1 object id) naming the objects.txt row it places.</summary>
-    internal static int[]? BuildPresetObjectTable(ExcelTable t)
+    /// (act, DS1 object id) naming the objects.txt row it places, by number or (D2R's objpreset.txt) by the
+    /// <c>Class</c> of the objects.txt row, which <paramref name="objects"/> resolves to its <c>*ID</c>.</summary>
+    internal static int[]? BuildPresetObjectTable(ExcelTable t, ExcelTable? objects = null)
     {
+        var byClass = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        if (objects != null && objects.FindColumn("Class") is var classCol and >= 0 && objects.FindColumn("*ID", "Id") is var rowIdCol and >= 0)
+        {
+            for (int r = 0; r < objects.RowCount; r++)
+            {
+                var name = objects.GetString(r, classCol);
+                if (name.Length > 0 && !objects.IsEmpty(r, rowIdCol))
+                    byClass.TryAdd(name, objects.GetInt64(r, rowIdCol));
+            }
+        }
+
         var actCol = t.FindColumn("Act");
         var idCol = t.FindColumn("Index", "Id", "Preset", "PresetId");
         var objCol = t.FindColumn("ObjectClass", "Object Class", "ObjectId", "Object");
@@ -82,7 +94,11 @@ internal sealed class GameDataSource : IMapDataSource
         {
             if (t.IsEmpty(r, actCol) || t.IsEmpty(r, idCol)) continue;
             long act = t.GetInt64(r, actCol);
-            rows.Add((act, t.GetInt64(r, idCol), t.GetInt64(r, objCol)));
+            var cell = t.GetString(r, objCol).Trim();
+            long obj = long.TryParse(cell, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var number)
+                ? number
+                : byClass.TryGetValue(cell, out var row) ? row : 0;
+            rows.Add((act, t.GetInt64(r, idCol), obj));
             if (act < minAct) minAct = act;
         }
         if (rows.Count == 0) return null;

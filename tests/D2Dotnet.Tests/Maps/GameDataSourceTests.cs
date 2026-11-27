@@ -17,6 +17,22 @@ public sealed class GameDataSourceTests
     }
 
     [Fact]
+    public void PresetObjectTable_TakesNumbers_OrD2RClassNamesThroughObjectsTxt()
+    {
+        // D2R's objpreset.txt names the objects.txt Class; older tables give the row number.
+        var objects = ExcelTable.Parse("Class\tName\t*ID\nFountain\tDummy\t12\nTikiTorch1\tDummy\t37\nWaypointPortal\tWaypoint\t119\n", "objects");
+        var named = ExcelTable.Parse("Index\tAct\tObjectClass\n0\t1\tFountain\n1\t1\ttikitorch1\n5\t2\tWaypointPortal\n6\t2\tNoSuchClass\n", "objpreset");
+        var table = GameDataSource.BuildPresetObjectTable(named, objects)!;
+        Assert.Equal(12, table[0]);
+        Assert.Equal(37, table[1]);        // the class is matched ignoring case
+        Assert.Equal(119, table[150 + 5]); // act 2
+        Assert.Equal(0, table[150 + 6]);   // an unknown class places nothing
+
+        var numbered = ExcelTable.Parse("Act\tId\tObject\n1\t0\t12\n1\t1\t37\n", "obj");
+        Assert.Equal([12, 37], GameDataSource.BuildPresetObjectTable(numbered)![..2]);
+    }
+
+    [Fact]
     public void ReadsTablesByNameAndTilesByRelativePath()
     {
         var src = new GameDataSource(new GameDatabase(LibD2Tree()), LibD2Fixtures.Source.GetPresetObjectTable());

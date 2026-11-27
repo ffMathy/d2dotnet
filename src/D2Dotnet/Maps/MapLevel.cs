@@ -123,6 +123,13 @@ public sealed class MapLevel
     public override string ToString() => $"{Id} {Bounds}";
 }
 
+/// <summary>One level crossed on a route (see <see cref="GeneratedAct.FindRoute"/>).</summary>
+/// <param name="From">The level the step starts in.</param>
+/// <param name="To">The next level.</param>
+/// <param name="Exits">The exits of <paramref name="From"/> to <paramref name="To"/>: one warp, or the points along a
+/// shared border.</param>
+public readonly record struct RouteStep(MapLevel From, MapLevel To, IReadOnlyList<LevelExit> Exits);
+
 /// <summary>Every level of one act, generated for a seed and a difficulty.</summary>
 /// <remarks><see cref="MapGenerator"/> fills every property; the type can be built directly for tests.</remarks>
 public sealed class GeneratedAct
@@ -158,6 +165,46 @@ public sealed class GeneratedAct
     /// <summary>The level with this id.</summary>
     /// <exception cref="KeyNotFoundException">The act has no such level.</exception>
     public MapLevel this[AreaId id] => Find(id) ?? throw new KeyNotFoundException($"{Act} has no level {id}.");
+
+    /// <summary>
+    /// The levels to cross from <paramref name="from"/> to <paramref name="to"/>, through the levels' exits: the
+    /// fewest levels, and among those the steps in the act's level order. Empty when the two are the same level; null
+    /// when either is not in the act or no chain of exits joins them.
+    /// </summary>
+    public IReadOnlyList<RouteStep>? FindRoute(AreaId from, AreaId to)
+    {
+        if (Find(from) is null || Find(to) is null)
+            return null;
+        if (from == to)
+            return [];
+
+        var cameFrom = new Dictionary<AreaId, AreaId> { [from] = from };
+        var queue = new Queue<AreaId>([from]);
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (current == to)
+                break;
+            foreach (var next in this[current].Exits.Select(e => e.Destination).Distinct())
+            {
+                if (Find(next) is not null && cameFrom.TryAdd(next, current))
+                    queue.Enqueue(next);
+            }
+        }
+
+        if (!cameFrom.ContainsKey(to))
+            return null;
+
+        var steps = new List<RouteStep>();
+        for (var level = to; level != from; level = cameFrom[level])
+        {
+            var previous = this[cameFrom[level]];
+            steps.Add(new RouteStep(previous, this[level], [.. previous.Exits.Where(e => e.Destination == level)]));
+        }
+
+        steps.Reverse();
+        return steps;
+    }
 
     /// <inheritdoc/>
     public override string ToString() => $"{Act} {Difficulty} seed {Seed} ({Levels.Count} levels)";

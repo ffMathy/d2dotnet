@@ -111,3 +111,49 @@ public sealed class MapGridTests
         Assert.Throws<ArgumentException>(() => new MapGrid(new MapLevel { Id = AreaId.BloodMoor }));
     }
 }
+
+/// <summary>Routes across an act's levels, on hand-made levels.</summary>
+public sealed class RouteTests
+{
+    private static MapLevel L(AreaId id, params (AreaId To, ExitKind Kind)[] exits) => new()
+    {
+        Id = id,
+        Exits = [.. exits.Select((e, i) => new LevelExit(e.To, new Point(i, i), e.Kind))],
+    };
+
+    private static readonly GeneratedAct Act = new()
+    {
+        Act = ActId.Act1,
+        Levels =
+        [
+            L(AreaId.RogueEncampment, (AreaId.BloodMoor, ExitKind.Seam), (AreaId.BloodMoor, ExitKind.Seam)),
+            L(AreaId.BloodMoor, (AreaId.RogueEncampment, ExitKind.Seam), (AreaId.ColdPlains, ExitKind.Seam), (AreaId.DenOfEvil, ExitKind.Warp)),
+            L(AreaId.ColdPlains, (AreaId.BloodMoor, ExitKind.Seam), (AreaId.BurialGrounds, ExitKind.Seam), (AreaId.CaveLevel1, ExitKind.Warp)),
+            L(AreaId.DenOfEvil, (AreaId.BloodMoor, ExitKind.Warp)),
+            L(AreaId.BurialGrounds, (AreaId.ColdPlains, ExitKind.Seam)),
+            L(AreaId.CaveLevel1),
+            L(AreaId.StonyField),
+        ],
+    };
+
+    [Fact]
+    public void FindRoute_CrossesTheFewestLevels_WithEveryExitOfEachStep()
+    {
+        var route = Act.FindRoute(AreaId.RogueEncampment, AreaId.BurialGrounds)!;
+        Assert.Equal([AreaId.BloodMoor, AreaId.ColdPlains, AreaId.BurialGrounds], route.Select(s => s.To.Id));
+        Assert.Equal([AreaId.RogueEncampment, AreaId.BloodMoor, AreaId.ColdPlains], route.Select(s => s.From.Id));
+        Assert.Equal(2, route[0].Exits.Count); // both points of the town's border with the moor
+        Assert.All(route, s => Assert.All(s.Exits, e => Assert.Equal(s.To.Id, e.Destination)));
+
+        Assert.Equal([AreaId.BloodMoor, AreaId.RogueEncampment], Act.FindRoute(AreaId.DenOfEvil, AreaId.RogueEncampment)!.Select(s => s.To.Id));
+    }
+
+    [Fact]
+    public void FindRoute_IsEmptyForTheSameLevel_AndNullWithoutAWay()
+    {
+        Assert.Empty(Act.FindRoute(AreaId.BloodMoor, AreaId.BloodMoor)!);
+        Assert.Null(Act.FindRoute(AreaId.CaveLevel1, AreaId.RogueEncampment)); // the cave has no exit back
+        Assert.Null(Act.FindRoute(AreaId.RogueEncampment, AreaId.StonyField)); // nothing leads there
+        Assert.Null(Act.FindRoute(AreaId.RogueEncampment, AreaId.LutGholein)); // not in the act
+    }
+}
