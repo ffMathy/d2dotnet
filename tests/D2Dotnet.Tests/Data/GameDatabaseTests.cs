@@ -239,6 +239,22 @@ public class GameDatabaseTests
     }
 
     [Fact]
+    public void Skills_ReadTheRequiredLevelAndSkills_ByName()
+    {
+        var db = new GameDatabase(new MemoryFiles().Add("data/global/excel/skills.txt",
+            "skill\t*Id\treqlevel\treqskill1\treqskill2\treqskill3\n" +
+            "Fire Bolt\t36\t1\t\t\t\n" +
+            "Fire Ball\t47\t12\tFire Bolt\t\t\n" +
+            "Meteor\t56\t24\tfire ball\tNo Such Skill\t\n"));
+        Assert.Equal(1, db.Skills.Find(SkillId.FireBolt)!.RequiredLevel);
+        Assert.Empty(db.Skills.Find(SkillId.FireBolt)!.RequiredSkills);
+        Assert.Equal([SkillId.FireBolt], db.Skills.Find(SkillId.FireBall)!.RequiredSkills);
+        Assert.Equal([SkillId.FireBall], db.Skills.Find(SkillId.Meteor)!.RequiredSkills); // names match ignoring case; unknown ones are left out
+        Assert.Equal(24, db.Skills.Find(SkillId.Meteor)!.RequiredLevel);
+        Assert.Empty(Db.Skills.Find(SkillId.Teleport)!.RequiredSkills); // no such columns
+    }
+
+    [Fact]
     public void Skills_AreKeyedByTheIdColumn()
     {
         Assert.Equal([SkillId.AttackSkill, SkillId.Kick, SkillId.Teleport], Db.Skills.Select(s => s.Id));

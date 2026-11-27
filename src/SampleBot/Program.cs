@@ -2,6 +2,7 @@
 // and Sisters' Burial Grounds so far). Usage: dotnet run [-- [--plan | --check-input] [--foreground] [<D2R folder>]].
 //   --plan         prints the quests the bot knows and their state, and sends no input.
 //   --check-input  checks moving, clicking and casting from the Rogue Encampment or the Blood Moor.
+//   --spend-points spends the unspent stat and skill points by the class's build, and stops.
 //   --foreground   synthesizes input (SendInput), which needs the game in front. By default the clicks and keys are
 //                  sent to the game window, which works with the game in the background; the game aims at the real
 //                  cursor, so the bot borrows it for about 80 ms per click or key and puts it back.
@@ -15,7 +16,8 @@ using D2Dotnet.Memory;
 var planOnly = args.Contains("--plan");
 var foreground = args.Contains("--foreground");
 var checkInput = args.Contains("--check-input");
-args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input"))];
+var spendPoints = args.Contains("--spend-points");
+args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points"))];
 var installPath = args.Length > 0 ? args[0] : @"C:\Program Files (x86)\Diablo II Resurrected";
 using var game = GameInstall.Open(installPath);
 
@@ -68,6 +70,10 @@ try
     if (checkInput)
     {
         InputCheck.Run(bot);
+    }
+    else if (spendPoints)
+    {
+        CharacterBuild.SpendPoints(bot, new GameUi(bot));
     }
     else
     {

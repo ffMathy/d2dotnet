@@ -52,6 +52,8 @@ internal sealed class ClearAreaQuest(QuestId id, AreaId area, MonsterId? boss = 
 /// <summary>The quests in the order the bot does them; it runs the first one that is not done.</summary>
 internal sealed class QuestRunner(Bot bot)
 {
+    private readonly GameUi ui = new(bot);
+
     public static IReadOnlyList<IQuest> Quests { get; } =
     [
         new ClearAreaQuest(QuestId.Act1DenOfEvil, AreaId.DenOfEvil),
@@ -73,6 +75,7 @@ internal sealed class QuestRunner(Bot bot)
                 throw new BotStopped($"{quest.Id} is still not done after three tries.");
 
             bot.HealInTown();
+            CharacterBuild.SpendPoints(bot, ui);
             try
             {
                 quest.Run(bot);

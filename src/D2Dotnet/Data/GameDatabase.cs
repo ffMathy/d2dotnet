@@ -225,7 +225,14 @@ public sealed class GameDatabase
         int name = t.GetRequiredColumnIndex("skill"), left = t.GetColumnIndex("leftskill"), right = t.GetColumnIndex("rightskill"); // rightskill is D2R only
         int charClass = t.GetColumnIndex("charclass"), desc = t.GetColumnIndex("skilldesc");
         int mana = t.GetColumnIndex("mana"), lvlMana = t.GetColumnIndex("lvlmana"), shift = t.GetColumnIndex("manashift"), minMana = t.GetColumnIndex("minmana");
-        var records = GameRows(t, name).Select(r => new SkillInfo(
+        int reqLevel = t.GetColumnIndex("reqlevel");
+        int[] reqSkill = [t.GetColumnIndex("reqskill1"), t.GetColumnIndex("reqskill2"), t.GetColumnIndex("reqskill3")];
+        var rows = GameRows(t, name).ToArray();
+        // reqskill columns name the skill column: resolve them once every row's id is known.
+        var idsByName = new Dictionary<string, SkillId>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in rows)
+            idsByName.TryAdd(t.GetString(r, name), SkillIdOf(t, r, id));
+        var records = rows.Select(r => new SkillInfo(
             SkillIdOf(t, r, id), t.GetString(r, name), t.GetString(r, charClass), t.GetString(r, desc),
             Flag(t, r, left), Flag(t, r, right))
         {
@@ -233,8 +240,19 @@ public sealed class GameDatabase
             ManaPerLevel = Optional(t, r, lvlMana),
             ManaShift = Optional(t, r, shift),
             MinimumMana = Optional(t, r, minMana),
+            RequiredLevel = Optional(t, r, reqLevel),
+            RequiredSkills = RequiredSkillsOf(t, r, reqSkill, idsByName),
         });
         return new GameTable<SkillId, SkillInfo>(records, s => s.Id);
+    }
+
+    // The skills a row's reqskill columns name; the shared empty array when there are none, so records with no
+    // requirement stay equal to records built without the property.
+    private static IReadOnlyList<SkillId> RequiredSkillsOf(ExcelTable t, int row, int[] columns, Dictionary<string, SkillId> idsByName)
+    {
+        var ids = columns.Where(c => c >= 0).Select(c => t.GetString(row, c).Trim())
+            .Where(n => n.Length > 0 && idsByName.ContainsKey(n)).Select(n => idsByName[n]).ToArray();
+        return ids.Length == 0 ? Array.Empty<SkillId>() : ids;
     }
 
     // The game keeps skill ids in 16 bits: a larger id is malformed for this column.

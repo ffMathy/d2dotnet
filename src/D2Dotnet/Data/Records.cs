@@ -110,6 +110,15 @@ public sealed record SkillInfo(SkillId Id, string Name, string CharacterClass, s
     /// <summary>The <c>minmana</c> column: the least the skill costs.</summary>
     public int MinimumMana { get; init; }
 
+    /// <summary>The <c>reqlevel</c> column: the character level the first point needs; 0 when the table has no such column.</summary>
+    public int RequiredLevel { get; init; }
+
+    /// <summary>
+    /// The skills a point needs first: the <c>reqskill1</c> to <c>reqskill3</c> columns (skill names), resolved to ids;
+    /// names no row has are left out.
+    /// </summary>
+    public IReadOnlyList<SkillId> RequiredSkills { get; init; } = Array.Empty<SkillId>();
+
     /// <summary>
     /// The mana the skill costs at <paramref name="level"/> (hard points plus bonuses; 1 when below 1), in mana points:
     /// <c>(Mana + ManaPerLevel * (level - 1)) * 2^ManaShift / 256</c>, at least <see cref="MinimumMana"/>.
