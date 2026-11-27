@@ -77,7 +77,6 @@ try
     }
     else
     {
-        bot.Calibrate();
         quests.Run();
     }
 

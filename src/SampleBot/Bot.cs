@@ -58,7 +58,67 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         WaitWhileNotForeground();
         if (Native.IsKeyDown(Native.VkEnd))
             throw new BotStopped("End pressed.");
-        return reader.ReadMainPlayer() ?? throw new BotStopped("Not in a game any more.");
+        var player = reader.ReadMainPlayer() ?? throw new BotStopped("Not in a game any more.");
+        if (!_respawning && player.GetStat(StatId.Life) is 0)
+            throw new Died(player.Area, player.Position);
+        return player;
+    }
+
+    private bool _respawning;
+
+    /// <summary>
+    /// After a death: presses Esc to come back to life in the act's town, heals, and goes back for the corpse (clicking
+    /// it gives the character's items back).
+    /// </summary>
+    public void Respawn(Died death)
+    {
+        Log($"Died in {death.Area}. Pressing Esc to come back in town.");
+        _respawning = true;
+        try
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+            while (DateTime.UtcNow < deadline && reader.ReadMainPlayer() is { } p && p.GetStat(StatId.Life) is 0)
+            {
+                input.PressKey(Native.VkEscape);
+                Thread.Sleep(1500);
+            }
+        }
+        finally
+        {
+            _respawning = false;
+        }
+
+        if (reader.ReadMainPlayer() is not { } back || back.GetStat(StatId.Life) is 0)
+            throw new BotStopped("Pressing Esc did not bring the character back.");
+        WaitForArea(back.Area, seconds: 10);
+        HealInTown(below: 100);
+
+        Log($"Going back to {death.Area} for the corpse.");
+        TravelTo(death.Area, fight: true);
+        var grid = GridHere();
+        WalkTo(grid, death.Position, arriveWithin: 6, fight: true);
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            if (reader.ReadPlayers().FirstOrDefault(p => p.IsCorpse) is not { } corpse)
+            {
+                Log("The corpse is picked up.");
+                return;
+            }
+
+            WalkTo(grid, corpse.Position, arriveWithin: 2, fight: true);
+            foreach (var height in new[] { 10, 25, 0, 40 })
+            {
+                var aim = Aim(Player().Position, corpse.Position, height);
+                if (input.Peek(aim, reader.ReadHover) is { Type: UnitType.Player } hover && hover.Id == corpse.Id)
+                {
+                    input.LeftClick();
+                    Thread.Sleep(1000);
+                    break;
+                }
+            }
+        }
+
+        Log(reader.ReadPlayers().Any(p => p.IsCorpse) ? "Could not pick up the corpse." : "The corpse is picked up.");
     }
 
     public IEnumerable<Monster> Enemies(Point from, int range) =>
@@ -75,7 +135,20 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             if (++hops > 40)
                 throw new BotStopped($"Travelling to {area} takes too many steps.");
             var here = Player().Area;
-            var route = Act.FindRoute(here, area) ?? throw new BotStopped($"No route from {here} to {area}.");
+            if (Act.FindRoute(here, area) is not { } route)
+            {
+                // Tristram and other levels a portal leads to have no exits: take the red portal back.
+                if (reader.ReadObjects().FirstOrDefault(o => o.IsRedPortal) is { } portal)
+                {
+                    Log($"No way from {here} to {area} on foot: taking the red portal.");
+                    UseObject(portal.Class, until: () => Player().Area != here);
+                    WaitForArea(Player().Area, seconds: 8);
+                    continue;
+                }
+
+                throw new BotStopped($"No route from {here} to {area}.");
+            }
+
             var step = route[0];
             Log($"{here} -> {step.To.Id}{(route.Count > 1 ? $" (then {string.Join(", ", route.Skip(1).Select(s => s.To.Id))})" : "")}.");
             if (step.Exits[0].Kind == ExitKind.Warp)
@@ -353,6 +426,98 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         return data.Skills.Find(skill) is not { } info || mana >= info.ManaCost(Math.Max(1, (int)points.Level));
     }
 
+    // ---- Objects and NPCs ----
+
+    /// <summary>Where the player's level places an object (its first preset of that class), in world subtiles; null when it has none.</summary>
+    public Point? PresetPosition(ObjectId objectClass, AreaId? area = null)
+    {
+        var level = Act[area ?? Player().Area];
+        return level.Presets.FirstOrDefault(p => p.Kind == PresetKind.Object && p.ClassId == (int)objectClass) is { } preset && preset != default
+            ? level.ToWorld(preset.Position)
+            : null;
+    }
+
+    /// <summary>
+    /// Walks up to the nearest object of the class (it must be in sight), and clicks it once the game says it is under
+    /// the cursor; then waits up to 3 seconds for <paramref name="until"/>. False when there is no such object or it
+    /// could not be clicked.
+    /// </summary>
+    public bool UseObject(ObjectId objectClass, Func<bool>? until = null)
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var player = Player();
+            if (reader.ReadObjects().Where(o => o.Class == objectClass).MinBy(o => Distance(player.Position, o.Position)) is not { } target)
+                return false;
+            if (Distance(player.Position, target.Position) > 5)
+                WalkTo(GridHere(), target.Position, arriveWithin: 4, fight: true);
+
+            foreach (var height in new[] { 40, 20, 60, 5, 80 })
+            {
+                var aim = Aim(Player().Position, target.Position, height);
+                if (input.Peek(aim, reader.ReadHover) is { Type: UnitType.Object } hover && hover.Id == target.Id)
+                {
+                    input.LeftClick();
+                    var deadline = DateTime.UtcNow.AddSeconds(3);
+                    while (until is not null && !until() && DateTime.UtcNow < deadline)
+                        Thread.Sleep(150);
+                    if (until is null || until())
+                        return true;
+                    break;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Walks up to the NPC and talks to them: clicks them, lets any quest speech run for up to <paramref name="speech"/>
+    /// seconds, and closes the dialog with Esc. False when the NPC is not in sight or the dialog did not open.
+    /// </summary>
+    public bool TalkTo(MonsterId npc, int speech = 2)
+    {
+        var level = Act[Player().Area];
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            if (reader.ReadMonsters().FirstOrDefault(m => m.Class == npc) is not { } who)
+            {
+                // Out of sight: walk towards the town's centre, where the NPCs stand.
+                WalkTo(GridHere(), level.ToWorld(new Point(level.Collision!.Width / 2, level.Collision.Height / 2)), arriveWithin: 10, fight: false,
+                    until: () => reader.ReadMonsters().Any(m => m.Class == npc));
+                continue;
+            }
+
+            if (Distance(Player().Position, who.Position) > 5)
+                WalkTo(GridHere(), who.Position, arriveWithin: 4, fight: false);
+            var now = reader.ReadMonsters().FirstOrDefault(m => m.Id == who.Id) ?? who;
+            Aim(Player().Position, now.Position, Window.AimHeight);
+            input.LeftClick();
+            var deadline = DateTime.UtcNow.AddSeconds(4);
+            while (DateTime.UtcNow < deadline && !reader.ReadMenus().NpcInteract)
+                Thread.Sleep(150);
+            if (!reader.ReadMenus().NpcInteract)
+                continue;
+
+            Thread.Sleep(speech * 1000);
+            input.PressKey(Native.VkEscape);
+            Thread.Sleep(300);
+            if (reader.ReadMenus().NpcInteract)
+            {
+                input.PressKey(Native.VkEscape); // a speech is closed first, then the menu
+                Thread.Sleep(300);
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>True when the player carries an item of the class (inventory, belt or cursor).</summary>
+    public bool HasItem(ItemId item) =>
+        reader.ReadInventory().Items.Any(i => i.Class == item && i.Location is ItemLocation.Inventory or ItemLocation.Cursor or ItemLocation.Equipped);
+
     // ---- Picking up ----
 
     private readonly HashSet<UnitId> _unreachableItems = [];
@@ -361,14 +526,17 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     private static bool IsWanted(Item item) =>
         item.Class == ItemId.Gold || item.IsPotionOf(PotionType.Healing) || item.IsPotionOf(PotionType.Mana) || item.IsPotionOf(PotionType.Rejuvenation);
 
-    /// <summary>Picks up the potions and gold on the ground within <paramref name="range"/>, nearest first.</summary>
+    /// <summary>Quest items the bot picks up too (the Scroll of Inifuss, the Horadric Malus...).</summary>
+    public HashSet<ItemId> QuestItems { get; } = [];
+
+    /// <summary>Picks up the potions, gold and quest items on the ground within <paramref name="range"/>, nearest first.</summary>
     public void PickUpNearby(int range = 15)
     {
         for (var picked = 0; picked < 12; picked++)
         {
             var player = Player();
             var item = reader.ReadInventory().Items
-                .Where(i => i.Location == ItemLocation.Ground && IsWanted(i) && !_unreachableItems.Contains(i.Id) && Distance(player.Position, i.Position) <= range)
+                .Where(i => i.Location == ItemLocation.Ground && (IsWanted(i) || QuestItems.Contains(i.Class)) && !_unreachableItems.Contains(i.Id) && Distance(player.Position, i.Position) <= range)
                 .MinBy(i => Distance(player.Position, i.Position));
             if (item is null)
                 return;
@@ -446,41 +614,12 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     public void HealInTown(int below = 90)
     {
         var player = Player();
-        if (!Healers.TryGetValue(player.Area, out var healerClass) || (player.LifePercent >= below && player.ManaPercent >= below))
+        if (!Healers.TryGetValue(player.Area, out var healer) || (player.LifePercent >= below && player.ManaPercent >= below))
             return;
-
-        var level = Act[player.Area];
-        var grid = new MapGrid(level);
-        for (var attempt = 0; attempt < 4; attempt++)
-        {
-            if (reader.ReadMonsters().FirstOrDefault(m => m.Class == healerClass) is not { } healer)
-            {
-                // Out of sight: walk towards where the town's NPCs stand, its centre.
-                WalkTo(grid, level.ToWorld(new Point(level.Collision!.Width / 2, level.Collision.Height / 2)), arriveWithin: 10, fight: false,
-                    until: () => reader.ReadMonsters().Any(m => m.Class == healerClass));
-                continue;
-            }
-
-            if (Distance(Player().Position, healer.Position) > 5)
-                WalkTo(grid, healer.Position, arriveWithin: 4, fight: false);
-            var now = reader.ReadMonsters().FirstOrDefault(m => m.Id == healer.Id) ?? healer;
-            Aim(Player().Position, now.Position, Window.AimHeight);
-            input.LeftClick();
-            var deadline = DateTime.UtcNow.AddSeconds(4);
-            while (DateTime.UtcNow < deadline && !reader.ReadMenus().NpcInteract)
-                Thread.Sleep(150);
-            if (reader.ReadMenus().NpcInteract)
-            {
-                Thread.Sleep(300);
-                input.PressKey(Native.VkEscape);
-                Thread.Sleep(300);
-                var after = Player();
-                Log($"Talked to {healerClass}: life {after.LifePercent}%, mana {after.ManaPercent}%.");
-                return;
-            }
-        }
-
-        Log($"Could not talk to {healerClass}; going on with life {Player().LifePercent}%.");
+        if (TalkTo(healer, speech: 0))
+            Log($"Talked to {healer}: life {Player().LifePercent}%, mana {Player().ManaPercent}%.");
+        else
+            Log($"Could not talk to {healer}; going on with life {Player().LifePercent}%.");
     }
 
     /// <summary>Runs back to the act's town without fighting (low life and nothing to drink), and heals there.</summary>
@@ -617,3 +756,11 @@ internal sealed class BotStopped(string reason) : Exception(reason);
 
 /// <summary>Life is low and nothing is left to drink: the bot retreats to town (see <see cref="Bot.Retreat"/>).</summary>
 internal sealed class LowLife(string reason) : Exception(reason);
+
+/// <summary>The character died, here (see <see cref="Bot.Respawn"/>).</summary>
+internal sealed class Died(AreaId area, Point position) : Exception($"Died in {area} at {position}.")
+{
+    public AreaId Area => area;
+
+    public Point Position => position;
+}
