@@ -8,8 +8,8 @@ D2Dotnet is one .NET 10 library for Diablo II: Resurrected (D2R). It has no thir
 - read a snapshot of a running game (player, monsters, items, objects, party, quests, key bindings and more) from
   its process memory.
 
-Game data always comes from the user's own install. Nothing derived from Blizzard's files is in this repository, and
-the repository ships no apps: programs reference the library.
+Game data always comes from the user's own install. Nothing derived from Blizzard's files is in this repository.
+Programs reference the library; `src/SampleBot` is one, a bot that clears the Den of Evil in an offline game.
 
 ## Reign of the Warlock
 
@@ -26,7 +26,8 @@ D2Dotnet supports the Reign of the Warlock expansion:
   the reader assumes an expansion character and reads a party of the main player only;
 - the game keeps part of its code unreadable, and which part changes while it runs, so a scan can miss a pattern that
   an earlier one found. Keep the offsets of a build (`GameProcess.ReadBuildTimestamp()` tells builds apart) and pass
-  them to `new GameReader(process, data, offsets)`; `src/SampleBot` shows a cache that does this.
+  them to `new GameReader(process, data, offsets)`; `GameOffsets.ToText()` and `GameOffsets.Parse` write and read
+  them, and `src/SampleBot` keeps one file per build.
 
 - the fixed addresses that moved were found again in a running game: the quests (whose buffer has a save file's
   layout: little-endian words), the waypoints, the key and skill key bindings, the selected character name, and the
@@ -147,6 +148,7 @@ src/D2Dotnet/                the library (no third-party dependencies)
                              Maps/Formats/ (DS1, DT1)
     Game/                    the snapshot model of a running game
     Memory/                  IProcessMemory, WindowsProcessMemory, GameProcess, GameReader, MapSeed
+src/SampleBot/               a sample program: a bot that clears the Den of Evil (Windows, offline games)
 tests/D2Dotnet.Tests/        xUnit tests of the library (files, data, maps, game, memory), oracles included
 tests/Fixtures.targets       downloads the pinned libd2 and d2go sources into .cache/ for the oracle tests
 docs/                        design.md, maps.md, memory.md

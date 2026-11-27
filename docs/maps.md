@@ -40,6 +40,12 @@ foreach (LevelExit exit in canyon.Exits)
 
 CollisionMap collision = canyon.Collision!;
 bool walkable = collision.IsWalkable(new Point(120, 80));
+
+// World subtiles, as a running game reports positions, and paths across levels that touch.
+MapLevel town = act[AreaId.LutGholein], desert = act[AreaId.RockyWaste];
+var grid = new MapGrid(town, desert);
+Point exit = desert.ToWorld(desert.Exits[0].Position);
+IReadOnlyList<Point>? path = grid.FindPath(town.ToWorld(new Point(100, 100)), exit);
 ```
 
 `game.Maps` is created the first time it is used and reads the level tables then; tile files are read the first time
@@ -59,16 +65,21 @@ native memory pool freed when the call returns), and the tables and parsed tile 
 | `MapGenerator` | `Generate(seed, Difficulty, ActId)` returns a `GeneratedAct`; `Generate(MapContext)` generates the act of a context's area (see below); `GetAreas(ActId)` lists an act's levels. Created by `GameInstall.Maps`, or from a `GameInstall` or a `GameDatabase`. |
 | `MapContext` | `Seed`, `Difficulty` and `Area` (with its `Act`): what is needed to rebuild a game's map. `GameReader.ReadMapContext()` and `GameSnapshot.Map` read one from a running game ([memory.md](memory.md)). |
 | `GeneratedAct` | `Act`, `Seed`, `Difficulty`, `StaffTomb` (Act II's true Tal Rasha's Tomb, null elsewhere) and `Levels`; `Find(AreaId)` and the `[AreaId]` indexer look a level up. |
-| `MapLevel` | `Id` (`AreaId`), `Layout` (maze, preset or wilderness), `IsPlaced`, `Bounds`, `Rooms`, `Presets`, `Waypoints`, `Exits`, `Shrines` and `Collision`. |
+| `MapLevel` | `Id` (`AreaId`), `Layout` (maze, preset or wilderness), `IsPlaced`, `Bounds`, `Origin`, `Rooms`, `Presets`, `Waypoints`, `Exits`, `Shrines` and `Collision`; `ToWorld` and `ToLocal` convert between level-local and world subtiles. |
 | `MapRoom` | A room's `Bounds` and the engine's room type, preset type and picked file. |
 | `PresetUnit` | `Kind` (object or NPC), `ClassId` and `Position`. |
 | `LevelExit` | `Destination` (`AreaId`), `Position` and `Kind` (warp or open border). |
 | `Shrine` | `Object` (`ObjectId`) and `Position`. |
 | `CollisionMap` | `Width`, `Height`, the raw flags by `[x, y]` or `[Point]`, `Cells`, `IsWalkable` and `IsCovered`. |
+| `MapGrid` | One or more levels in world subtiles: `IsWalkable`, `LevelAt`, `NearestWalkable` and `FindPath` (A* over eight directions, not cutting corners). |
 
 Units:
 
-- `MapLevel.Bounds` and `MapRoom.Bounds` are **world tiles**.
+- `MapLevel.Bounds` and `MapRoom.Bounds` are **world tiles**. A level's `Bounds` is where the game puts it, placed or
+  not (`IsPlaced` false: an interior laid out from the `Depend` chain); checked in a running Reign of the Warlock game
+  for the Rogue Encampment, the Blood Moor and the Den of Evil.
+- `MapLevel.Origin` is the level's top-left corner in **world subtiles**, the unit of the positions a running game
+  reports (`D2Dotnet.Game`); `MapGrid` works in them.
 - Everything inside a level (`PresetUnit.Position`, `LevelExit.Position`, `Shrine.Position`, the `CollisionMap`) is in
   **level-local subtiles**: a tile is `MapLevel.SubtilesPerTile` (5) subtiles across, and (0, 0) is the level's
   top-left corner. The collision map is the level's size in subtiles.

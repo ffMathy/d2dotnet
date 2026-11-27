@@ -9,6 +9,20 @@ public class MonsterTests
         new() { Class = id, Stats = new StatList(stats.Select(s => new Stat(s.Id, s.Value))) };
 
     [Fact]
+    public void Monster_LifePercent_IsAShareOfFullLife_OrOfMaxLife()
+    {
+        static Monster M(params (StatId Id, int Value)[] stats) => new() { Stats = new StatList(stats.Select(s => new Stat(s.Id, s.Value))) };
+
+        Assert.Equal(100, M((StatId.Life, Monster.FullLife)).LifePercent);
+        Assert.Equal(50, M((StatId.Life, Monster.FullLife / 2)).LifePercent);
+        Assert.Equal(0, M((StatId.Life, 0)).LifePercent);
+        Assert.Equal(25, M((StatId.Life, 50 * 256), (StatId.MaxLife, 200 * 256)).LifePercent);
+        Assert.Equal(100, M((StatId.Life, 300), (StatId.MaxLife, 200)).LifePercent); // clamped
+        Assert.Equal(100, M((StatId.Life, Monster.FullLife), (StatId.MaxLife, 0)).LifePercent); // no usable max life
+        Assert.Null(M().LifePercent);
+    }
+
+    [Fact]
     public void IsImmune_NeedsAResistanceOf100()
     {
         var m = With(MonsterId.Zombie, (StatId.FireResist, 100), (StatId.ColdResist, 99), (StatId.LightningResist, 150),

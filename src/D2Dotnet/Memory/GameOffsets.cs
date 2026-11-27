@@ -2,6 +2,8 @@
 // (c) 2023 Héctor Giménez).
 
 using System.Buffers.Binary;
+using System.Globalization;
+using System.Text;
 
 namespace D2Dotnet.Memory;
 
@@ -52,6 +54,58 @@ public readonly record struct GameOffsets(
     // addresses.go: the terror zone areas, relative to the module base.
     internal const nuint TerrorZonesOffline = 0x22D6D44;
     internal const nuint TerrorZonesOnline = 0x29BD4D8;
+
+    private static readonly string[] Names = ["GameData", "UnitTable", "UI", "Hover", "Expansion", "Roster", "PanelManager"];
+
+    /// <summary>
+    /// The offsets as text, to keep a build's offsets between runs (see <see cref="Parse"/>): one <c>Name=0x...</c>
+    /// line per offset, in the order of the constructor, with an empty value for a missing optional offset.
+    /// </summary>
+    public string ToText()
+    {
+        nuint?[] values = [GameData, UnitTable, UI, Hover, Expansion, Roster, PanelManager];
+        var text = new StringBuilder();
+        for (var i = 0; i < Names.Length; i++)
+            text.Append(Names[i]).Append('=').Append(values[i] is { } v ? string.Create(CultureInfo.InvariantCulture, $"0x{v:X}") : "").Append('\n');
+        return text.ToString();
+    }
+
+    /// <summary>Offsets from the text <see cref="ToText"/> writes. Blank lines are ignored; names are case-sensitive.</summary>
+    /// <exception cref="FormatException">A line is not <c>Name=value</c>, a name is unknown or repeated, a value is not
+    /// hexadecimal with a <c>0x</c> prefix, or a required offset (unit table, UI, hover, panel manager) is missing.</exception>
+    public static GameOffsets Parse(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var values = new Dictionary<string, nuint?>(StringComparer.Ordinal);
+        foreach (var raw in text.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0)
+                continue;
+            var equals = line.IndexOf('=', StringComparison.Ordinal);
+            if (equals < 0)
+                throw new FormatException($"'{line}' is not Name=value.");
+            var name = line[..equals].Trim();
+            var value = line[(equals + 1)..].Trim();
+            if (Array.IndexOf(Names, name) < 0)
+                throw new FormatException($"'{name}' is not an offset.");
+            if (!values.TryAdd(name, value.Length == 0 ? null : Hex(name, value)))
+                throw new FormatException($"'{name}' is given twice.");
+        }
+
+        nuint? Optional(string name) => values.GetValueOrDefault(name);
+        nuint Required(string name) => Optional(name) ?? throw new FormatException($"The required offset {name} is missing.");
+
+        return new GameOffsets(
+            Optional("GameData"), Required("UnitTable"), Required("UI"), Required("Hover"),
+            Optional("Expansion"), Optional("Roster"), Required("PanelManager"));
+
+        static nuint Hex(string name, string value) =>
+            value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            && ulong.TryParse(value.AsSpan(2), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var v)
+                ? (nuint)v
+                : throw new FormatException($"{name} has '{value}', which is not a 0x hexadecimal number.");
+    }
 
     /// <summary>
     /// Scans a module image for the patterns and decodes the offsets. <c>rip</c>-relative displacements are signed;

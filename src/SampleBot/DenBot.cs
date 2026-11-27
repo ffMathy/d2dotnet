@@ -32,21 +32,30 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
         ClearTheDen();
     }
 
-    /// <summary>Prints the route to the Den without sending any input.</summary>
+    /// <summary>Prints what the bot would do from where the player is, without sending any input.</summary>
     public void Plan()
     {
         var player = reader.ReadMainPlayer() ?? throw new BotStopped("Not in a game.");
+        var den = act[AreaId.DenOfEvil];
+        if (player.Area == AreaId.DenOfEvil)
+        {
+            var grid = new MapGrid(den);
+            var reachable = den.Rooms.Count(r => grid.NearestWalkable(den.ToWorld(RoomCentre(den, r)), 25) is { } c
+                && grid.FindPath(player.Position, c) is not null);
+            Log($"{player.Name} at {player.Position} in the Den of Evil; walkable here: {grid.IsWalkable(player.Position)}; " +
+                $"{reachable} of its {den.Rooms.Count} rooms can be reached.");
+            return;
+        }
+
         var town = act[AreaId.RogueEncampment];
         var moor = act[AreaId.BloodMoor];
-        var grid = new WorldGrid((town, WorldGrid.OriginOf(town)), (moor, WorldGrid.OriginOf(moor)));
-        var entrance = Add(WorldGrid.OriginOf(moor), moor.Exits.First(e => e.Destination == AreaId.DenOfEvil).Position);
-        Log($"{player.Name} at {player.Position} in {player.Area}; walkable here: {grid.IsWalkable(player.Position)}.");
-        var path = grid.FindPath(player.Position, entrance);
+        var route = new MapGrid(town, moor);
+        var entrance = moor.ToWorld(moor.Exits.First(e => e.Destination == AreaId.DenOfEvil).Position);
+        Log($"{player.Name} at {player.Position} in {player.Area}; walkable here: {route.IsWalkable(player.Position)}.");
+        var path = route.FindPath(player.Position, entrance);
         Log(path is null
             ? $"No path to the Den entrance at {entrance}."
-            : $"Path to the Den entrance at {entrance}: {path.Count} subtiles, about {path.Count / StepLength} moves.");
-        var den = act[AreaId.DenOfEvil];
-        Log($"The Den: {den.Rooms.Count} rooms, {den.Presets.Count(p => p.Kind == PresetKind.Object)} objects to place it by.");
+            : $"Path to the Den entrance at {entrance}: {path.Count} subtiles, about {path.Count / StepLength} moves; then {den.Rooms.Count} rooms.");
     }
 
     // ---- The route ----
@@ -55,9 +64,9 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
     {
         var town = act[AreaId.RogueEncampment];
         var moor = act[AreaId.BloodMoor];
-        var grid = new WorldGrid((town, WorldGrid.OriginOf(town)), (moor, WorldGrid.OriginOf(moor)));
+        var grid = new MapGrid(town, moor);
         var exit = moor.Exits.First(e => e.Destination == AreaId.DenOfEvil);
-        var entrance = Add(WorldGrid.OriginOf(moor), exit.Position);
+        var entrance = moor.ToWorld(exit.Position);
 
         Log($"Walking to the Den of Evil entrance at {entrance}.");
         WalkTo(grid, entrance, arriveWithin: 6, fight: true);
@@ -68,14 +77,14 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
     {
         var den = act[AreaId.DenOfEvil];
         // The Den keeps the fixed place levels.txt gives it (checked against the game's level structure: tile 1500,1000).
-        var origin = WorldGrid.OriginOf(den);
-        var grid = new WorldGrid((den, origin));
+        var origin = den.Origin;
+        var grid = new MapGrid(den);
         if (!grid.IsWalkable(Player().Position))
             throw new BotStopped($"The player at {Player().Position} is not on the generated Den: the map does not match the game.");
         Log($"In the Den of Evil; its top-left corner is at {origin}.");
 
         var rooms = den.Rooms
-            .Select(r => grid.NearestWalkable(Add(origin, RoomCentre(den, r)), 25))
+            .Select(r => grid.NearestWalkable(den.ToWorld(RoomCentre(den, r)), 25))
             .OfType<Point>()
             .ToList();
         var visited = new HashSet<int>();
@@ -102,7 +111,7 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
 
     // ---- Moving ----
 
-    private void WalkTo(WorldGrid grid, Point target, int arriveWithin, bool fight)
+    private void WalkTo(MapGrid grid, Point target, int arriveWithin, bool fight)
     {
         var failures = 0;
         while (Distance(Player().Position, target) > arriveWithin)
@@ -229,29 +238,14 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
         Log($"Gave up on monster {id.Value} after 12 s.");
     }
 
-    // True when the player has the mana for the skill at its current level. The game keeps mana in 1/256 points; a
-    // skill costs (mana + lvlmana * (level - 1)) * 2^manashift / 256, at least minmana (skills.txt).
+    // True when the player has the mana for the skill at its current level (the game keeps mana in 1/256 points).
     private bool CanCast(MainPlayer player, SkillId skill)
     {
         var mana = (player.GetStat(StatId.Mana) ?? 0) / 256.0;
-        return mana >= ManaCost(skill, player.Skills.TryGetValue(skill, out var points) ? Math.Max(1, (int)points.Level) : 1);
+        var level = player.Skills.TryGetValue(skill, out var points) ? points.Level : 1;
+        return data.Skills.Find(skill) is not { } info || mana >= info.ManaCost(level);
     }
 
-    private double ManaCost(SkillId skill, int level)
-    {
-        if (!_skillRows.TryGetValue(skill, out var found))
-        {
-            found = data.GetRequiredTable("skills").Rows.Where(r => r.GetInt64("*Id") == (long)skill).Cast<ExcelRow?>().FirstOrDefault();
-            _skillRows[skill] = found;
-        }
-
-        if (found is not { } row)
-            return 0;
-        var cost = (row.GetInt64("mana") + row.GetInt64("lvlmana") * (level - 1)) * Math.Pow(2, row.GetInt64("manashift")) / 256;
-        return Math.Max(cost, row.GetInt64("minmana"));
-    }
-
-    private readonly Dictionary<SkillId, ExcelRow?> _skillRows = [];
 
     private IEnumerable<Monster> Enemies(Point from, int range) =>
         reader.ReadMonsters().Where(m => m.IsEnemy && Distance(from, m.Position) <= range).OrderBy(m => Distance(from, m.Position));
@@ -398,8 +392,6 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
             }
         }
     }
-
-    private static Point Add(Point a, Point b) => new(a.X + b.X, a.Y + b.Y);
 
     private static double Distance(Point a, Point b) => Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2));
 

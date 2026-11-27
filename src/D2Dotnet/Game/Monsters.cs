@@ -67,13 +67,37 @@ public sealed record Monster
     public bool IsHovered { get; init; }
 
     /// <summary>
-    /// The monster's stats, as the game stores them (signed 32-bit values, not rescaled: life and max life are in
-    /// 1/256 points), in the game's order. A stat (id and layer) the game lists twice is listed once, with its last value.
+    /// The monster's stats, as the game stores them (signed 32-bit values, not rescaled), in the game's order. A stat
+    /// (id and layer) the game lists twice is listed once, with its last value. The game client does not know most
+    /// monsters' hit points: their life is a share of <see cref="FullLife"/> and they have no max life (see
+    /// <see cref="LifePercent"/>).
     /// </summary>
     public StatList Stats { get; init; } = StatList.Empty;
 
+    /// <summary>
+    /// The life of a monster at full health when the game only gives its share (128 in 1/256 units): every living
+    /// monster of a Reign of the Warlock game, mercenary included, read this before being hit.
+    /// </summary>
+    public const int FullLife = 128 * 256;
+
     /// <summary>The value of a stat from <see cref="Stats"/>; null when the monster does not have it.</summary>
     public int? GetStat(StatId id, ushort layer = 0) => Stats.GetValue(id, layer);
+
+    /// <summary>
+    /// The monster's life in percent (0 to 100): its life over its max life when it has one, else over
+    /// <see cref="FullLife"/>. Null when it has no life stat (a monster that has died). The share reading is how the
+    /// game sends monster health to the client; a wounded monster has not been checked against a running game.
+    /// </summary>
+    public int? LifePercent
+    {
+        get
+        {
+            if (GetStat(StatId.Life) is not { } life)
+                return null;
+            var max = GetStat(StatId.MaxLife) is { } m && m > 0 ? m : FullLife;
+            return (int)Math.Clamp(life * 100L / max, 0, 100);
+        }
+    }
 
     /// <summary>
     /// True when the monster's resistance to <paramref name="element"/> is 100 or more; false when it has no such

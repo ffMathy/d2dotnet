@@ -118,6 +118,29 @@ public sealed class OffsetTests
     }
 
     [Fact]
+    public void ToText_AndParse_RoundTrip()
+    {
+        var full = new GameOffsets(0x11, 0x1EBE5F0, 0x1ECE2EC, 0x1E12220, 0x22, 0x33, 0x1E28FE0);
+        var partial = full with { GameData = null, Expansion = null, Roster = null };
+        Assert.Equal(full, GameOffsets.Parse(full.ToText()));
+        Assert.Equal(partial, GameOffsets.Parse(partial.ToText()));
+        Assert.Equal(
+            "GameData=\nUnitTable=0x1EBE5F0\nUI=0x1ECE2EC\nHover=0x1E12220\nExpansion=\nRoster=\nPanelManager=0x1E28FE0\n",
+            partial.ToText());
+        // Windows line ends, blank lines, spaces and left-out optional lines are fine.
+        Assert.Equal(partial, GameOffsets.Parse("\r\n UnitTable = 0x1ebe5f0\r\nUI=0x1ECE2EC\r\n\r\nHover=0x1E12220\r\nPanelManager=0x1E28FE0"));
+    }
+
+    [Theory]
+    [InlineData("UnitTable=0x1\nUI=0x2\nHover=0x3")]                             // PanelManager missing
+    [InlineData("UnitTable=0x1\nUI=0x2\nHover=0x3\nPanelManager=")]              // required, empty
+    [InlineData("UnitTable=0x1\nUI=0x2\nHover=0x3\nPanelManager=12")]            // no 0x
+    [InlineData("UnitTable=0x1\nUI=0x2\nHover=0x3\nPanelManager=0x4\nUI=0x5")]   // twice
+    [InlineData("UnitTable=0x1\nUI=0x2\nHover=0x3\nPanelManager=0x4\nFps=0x5")]  // unknown name
+    [InlineData("UnitTable 0x1")]                                                 // no =
+    public void Parse_RejectsMalformedText(string text) => Assert.Throws<FormatException>(() => GameOffsets.Parse(text));
+
+    [Fact]
     public void GameReader_TakesKnownOffsetsWithoutScanning()
     {
         // A module whose code is unreadable: a scan would throw, the given offsets are used as they are.

@@ -99,7 +99,7 @@ Immutable records; lookups return `null` when there is nothing; numbers have the
 | `GameSnapshot` | Everything below, plus `Enemies`, `Mercenary`, `MercenaryLifePercent`, `FindMonster`, `FindObject`, `FindPartyMember`, `GetQuestStatus` |
 | `PlayerUnit`, `MainPlayer` | A unit of the player table (players, corpses, shared stash tabs); the controlled player with class, skills (`SkillPoints`), selected skills, waypoints, `Level`, `Experience`, `LifePercent`, `ManaPercent`, `MaxGold`, `TotalGold`, `CastingFrames`, `HasDebuff` |
 | `Stat`, `StatList` | A stat (signed 32-bit value, 16-bit layer) and an ordered stat list with `GetValue`/`TryGet`; players, monsters and items all use it, and their `GetStat(StatId, layer)` returns null when the stat is missing |
-| `Monster`, `MonsterType`, `Element` | A monster unit (class `MonsterId`, stats as the game stores them (life in 1/256 points), `IsImmune`, `IsMercenary`, `IsPet`, `IsFriendlyNpc`, `IsElite`, `IsMonsterRaiser`, `IsUntargetable`, `IsEnemy`) |
+| `Monster`, `MonsterType`, `Element` | A monster unit (class `MonsterId`, stats as the game stores them (life as a share of `FullLife`, see `LifePercent`), `IsImmune`, `IsMercenary`, `IsPet`, `IsFriendlyNpc`, `IsElite`, `IsMonsterRaiser`, `IsUntargetable`, `IsEnemy`) |
 | `GameObject`, `ShrineType`, `ShrineTypes`, `InteractType` | An object unit (class `ObjectId`, shrine kind, `IsWaypoint`, `IsPortal`, `IsChest`, `IsDoor`...) |
 | `Inventory`, `Item`, `Belt`, `ItemLocation`, `ItemQuality`, `ItemTier`, `PotionType` | Items with their base item (`ItemInfo` from the game data), location, flags and stats; gold; the belt |
 | `KeyBindings`, `KeyBinding`, `Key`, `SkillBinding` | The key binding table |
@@ -116,8 +116,8 @@ Immutable records; lookups return `null` when there is nothing; numbers have the
 | `WindowsProcessMemory` | `[SupportedOSPlatform("windows")]`: `OpenGame()`, `Open(pid)`, `GetModules(pid)` (`LibraryImport`, AOT-safe) |
 | `ProcessModuleInfo` | A loaded module |
 | `GameProcess` | `Attach()`, `Attach(pid)` (Windows) or `new GameProcess(memory)`; typed reads, `ReadString`, `ReadModule`, `FindPattern` |
-| `GameReader` | `new GameReader(process, database)`; `ReadSnapshot()` and the focused reads `ReadMapContext`, `ReadPlayers`, `ReadMainPlayer`, `ReadMonsters`, `ReadCorpses`, `ReadObjects`, `ReadInventory`, `ReadParty`, `ReadQuests`, `ReadKeyBindings`, `ReadTerrorZones`, `ReadMenus`, `ReadHover`, `ReadWidgets`, `ReadOnlineGame`, `ReadSelectedCharacterName`, `IsInGame`, `IsOnline`, `IsLegacyGraphics`, `IsInLobby`, `IsInCharacterSelection`, `IsInCharacterCreation`, `IsWidgetShown`, `IsPlayerInWorld` |
-| `GameOffsets` | The offsets found by the pattern scan (`GameOffsets.Find(image)`) |
+| `GameReader` | `new GameReader(process, database)` (scans for the offsets) or `new GameReader(process, database, offsets)`; `ReadSnapshot()` and the focused reads `ReadMapContext`, `ReadPlayers`, `ReadMainPlayer`, `ReadMonsters`, `ReadCorpses`, `ReadObjects`, `ReadInventory`, `ReadParty`, `ReadQuests`, `ReadKeyBindings`, `ReadTerrorZones`, `ReadMenus`, `ReadHover`, `ReadWidgets`, `ReadOnlineGame`, `ReadSelectedCharacterName`, `IsInGame`, `IsOnline`, `IsLegacyGraphics`, `IsInLobby`, `IsInCharacterSelection`, `IsInCharacterCreation`, `IsWidgetShown`, `IsPlayerInWorld` |
+| `GameOffsets` | The offsets found by the pattern scan (`GameOffsets.Find(image)`); `Missing` names the optional ones not found, and `ToText()` / `GameOffsets.Parse(text)` keep a build's offsets between runs |
 | `MapSeed` | `Hash`, `Reverse` (closed form: the multiplier's inverse modulo 2^32) and `TryGetMapSeed` |
 
 A `GameReader` keeps nothing but its offsets: it is thread-safe, and every read sees the game as it is at that moment.

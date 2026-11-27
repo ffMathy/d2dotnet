@@ -85,11 +85,21 @@ public sealed class MapLevel
     public LevelLayout Layout { get; init; }
 
     /// <summary>True when the act's placement graph positioned the level (the connected overworld); false for
-    /// interiors laid out from the <c>Depend</c> offset chain.</summary>
+    /// interiors laid out from the <c>Depend</c> offset chain. Either way <see cref="Bounds"/> is where the game puts the
+    /// level (checked in a running game for the Den of Evil, an interior).</summary>
     public bool IsPlaced { get; init; }
 
     /// <summary>Where the level is, in world tiles.</summary>
     public Rect Bounds { get; init; }
+
+    /// <summary>The level's top-left corner in world subtiles, the unit positions read from a running game use.</summary>
+    public Point Origin => new(Bounds.X * SubtilesPerTile, Bounds.Y * SubtilesPerTile);
+
+    /// <summary>A world subtile (as a running game reports positions) in level-local subtiles.</summary>
+    public Point ToLocal(Point world) => new(world.X - Origin.X, world.Y - Origin.Y);
+
+    /// <summary>A level-local subtile (as <see cref="Presets"/>, <see cref="Exits"/> and the collision map use) in world subtiles.</summary>
+    public Point ToWorld(Point local) => new(local.X + Origin.X, local.Y + Origin.Y);
 
     /// <summary>The rooms, in the engine's order.</summary>
     public IReadOnlyList<MapRoom> Rooms { get; init; } = [];

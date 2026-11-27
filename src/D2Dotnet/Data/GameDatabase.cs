@@ -224,9 +224,16 @@ public sealed class GameDatabase
             t.GetRequiredColumnIndex("*Id"); // throws, naming the D2R column
         int name = t.GetRequiredColumnIndex("skill"), left = t.GetColumnIndex("leftskill"), right = t.GetColumnIndex("rightskill"); // rightskill is D2R only
         int charClass = t.GetColumnIndex("charclass"), desc = t.GetColumnIndex("skilldesc");
+        int mana = t.GetColumnIndex("mana"), lvlMana = t.GetColumnIndex("lvlmana"), shift = t.GetColumnIndex("manashift"), minMana = t.GetColumnIndex("minmana");
         var records = GameRows(t, name).Select(r => new SkillInfo(
             SkillIdOf(t, r, id), t.GetString(r, name), t.GetString(r, charClass), t.GetString(r, desc),
-            Flag(t, r, left), Flag(t, r, right)));
+            Flag(t, r, left), Flag(t, r, right))
+        {
+            Mana = Optional(t, r, mana),
+            ManaPerLevel = Optional(t, r, lvlMana),
+            ManaShift = Optional(t, r, shift),
+            MinimumMana = Optional(t, r, minMana),
+        });
         return new GameTable<SkillId, SkillInfo>(records, s => s.Id);
     }
 

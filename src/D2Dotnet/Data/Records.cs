@@ -96,7 +96,32 @@ public sealed record ItemTypeInfo(int Index, string Name, string Code, string Eq
 /// <param name="Description">The <c>skilldesc</c> column (a <see cref="SkillDescriptionInfo.Name"/>).</param>
 /// <param name="LeftSkill">The <c>leftskill</c> column is set.</param>
 /// <param name="RightSkill">The <c>rightskill</c> column is set (it can be put on the right mouse button); D2R only, false in the classic tables.</param>
-public sealed record SkillInfo(SkillId Id, string Name, string CharacterClass, string Description, bool LeftSkill, bool RightSkill);
+public sealed record SkillInfo(SkillId Id, string Name, string CharacterClass, string Description, bool LeftSkill, bool RightSkill)
+{
+    /// <summary>The <c>mana</c> column: the cost at level 1, before <see cref="ManaShift"/>; 0 when the table has no such column.</summary>
+    public int Mana { get; init; }
+
+    /// <summary>The <c>lvlmana</c> column: what each level past the first adds to <see cref="Mana"/>.</summary>
+    public int ManaPerLevel { get; init; }
+
+    /// <summary>The <c>manashift</c> column: the cost is <c>(Mana + ManaPerLevel * (level - 1)) * 2^ManaShift / 256</c>.</summary>
+    public int ManaShift { get; init; }
+
+    /// <summary>The <c>minmana</c> column: the least the skill costs.</summary>
+    public int MinimumMana { get; init; }
+
+    /// <summary>
+    /// The mana the skill costs at <paramref name="level"/> (hard points plus bonuses; 1 when below 1), in mana points:
+    /// <c>(Mana + ManaPerLevel * (level - 1)) * 2^ManaShift / 256</c>, at least <see cref="MinimumMana"/>.
+    /// Ring of Fire (16, 1, 7, 1) costs 8 at level 1 and 8.5 at level 2.
+    /// </summary>
+    public double ManaCost(int level)
+    {
+        var levels = Math.Max(level, 1) - 1;
+        var cost = (Mana + (double)ManaPerLevel * levels) * Math.Pow(2, ManaShift) / 256;
+        return Math.Max(cost, MinimumMana);
+    }
+}
 
 /// <summary>How a skill is shown in the skill tree: a row of skilldesc.txt.</summary>
 /// <param name="Index">The game row index.</param>

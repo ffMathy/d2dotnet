@@ -218,6 +218,27 @@ public class GameDatabaseTests
     }
 
     [Fact]
+    public void Skills_ReadTheManaColumns_AndCostByLevel()
+    {
+        var db = new GameDatabase(new MemoryFiles().Add("data/global/excel/skills.txt",
+            "skill\t*Id\tmana\tlvlmana\tmanashift\tminmana\n" +
+            "Ring of Fire\t394\t16\t1\t7\t1\n" +
+            "Cleave\t391\t3\t0\t8\t1\n" +
+            "Free\t0\t\t\t\t\n"));
+        var ring = db.Skills.Find(SkillId.RingOfFire)!;
+        Assert.Equal((16, 1, 7, 1), (ring.Mana, ring.ManaPerLevel, ring.ManaShift, ring.MinimumMana));
+        Assert.Equal(8, ring.ManaCost(1));
+        Assert.Equal(8.5, ring.ManaCost(2));
+        Assert.Equal(8, ring.ManaCost(0)); // below 1 counts as 1
+        Assert.Equal(3, db.Skills.Find(SkillId.Cleave)!.ManaCost(20));
+        Assert.Equal(0, db.Skills.Find(SkillId.AttackSkill)!.ManaCost(1)); // empty cells
+
+        // Tables without the columns: no cost; the minimum still applies.
+        Assert.Equal(0, Db.Skills.Find(SkillId.Teleport)!.ManaCost(1));
+        Assert.Equal(1, new SkillInfo(SkillId.Teleport, "", "", "", false, true) { MinimumMana = 1 }.ManaCost(1));
+    }
+
+    [Fact]
     public void Skills_AreKeyedByTheIdColumn()
     {
         Assert.Equal([SkillId.AttackSkill, SkillId.Kick, SkillId.Teleport], Db.Skills.Select(s => s.Id));
