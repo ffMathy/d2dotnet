@@ -176,19 +176,34 @@ internal sealed class QuestRunner(Bot bot)
         [AreaId.StonyField] = 9,
     };
 
-    // Explores the act's levelling areas, one after the other, until the character reaches the level; points are
-    // spent as it levels.
+    // The areas explored in this game: their monsters stay dead until a new game. (The map seed does not tell games
+    // apart: a single-player character keeps its map from game to game.)
+    private readonly HashSet<AreaId> _explored = [];
+
+    // Explores the act's levelling areas until the character reaches the level: the hardest one it is ready for that
+    // this game has not been explored yet, else the next one up; points are spent as it levels.
     private void LevelUp(int level)
     {
         var areas = LevellingAreas.GetValueOrDefault(bot.Act.Act) ?? throw new BotStopped($"No levelling areas for {bot.Act.Act}.");
-        Bot.Log($"Level {bot.Player().Level}: levelling to {level} in {string.Join(" and ", areas)}.");
-        // The hardest area the character is ready for, again and again until the level is reached.
-        for (var round = 0; round < 10 && bot.Player().Level < level; round++)
+        Bot.Log($"Level {bot.Player().Level}: levelling to {level} in {string.Join(", ", areas)}.");
+        while (bot.Player().Level < level)
         {
             var characterLevel = bot.Player().Level;
-            var area = areas.Where(x => characterLevel >= AreaLevels.GetValueOrDefault(x)).DefaultIfEmpty(areas[0]).Last();
+            var fresh = areas.Where(a => !_explored.Contains(a)).ToList();
+            if (fresh.Count == 0)
+            {
+                // The monsters of every levelling area are dead in this game: a new one brings them back.
+                if (bot.Player().Area != bot.Town)
+                    bot.TravelTo(bot.Town, fight: false);
+                GameSession.NewGame(bot);
+                _explored.Clear();
+                continue;
+            }
+            var area = fresh.Where(a => characterLevel >= AreaLevels.GetValueOrDefault(a)).DefaultIfEmpty(fresh[0]).Last();
             bot.TravelTo(area);
             bot.ExploreLevel(until: () => bot.Player().Level >= level);
+            if (bot.Player().Level < level)
+                _explored.Add(area);
             CharacterBuild.SpendPoints(bot, ui);
         }
     }

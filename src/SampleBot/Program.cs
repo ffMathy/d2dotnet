@@ -3,6 +3,7 @@
 //   --plan         prints the quests the bot knows and their state, and sends no input.
 //   --check-input  checks moving, clicking and casting from the Rogue Encampment or the Blood Moor.
 //   --spend-points spends the unspent stat and skill points by the class's build, and stops.
+//   --new-game     saves and exits, and starts a new game on Normal with the same character.
 //   --foreground   synthesizes input (SendInput), which needs the game in front. By default the clicks and keys are
 //                  sent to the game window, which works with the game in the background; the game aims at the real
 //                  cursor, so the bot borrows it for about 80 ms per click or key and puts it back.
@@ -18,7 +19,8 @@ var foreground = args.Contains("--foreground");
 var checkInput = args.Contains("--check-input");
 var spendPoints = args.Contains("--spend-points");
 var probeTrade = args.Contains("--probe-trade");
-args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points" or "--probe-trade"))];
+var newGame = args.Contains("--new-game");
+args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points" or "--probe-trade" or "--new-game"))];
 var installPath = args.Length > 0 ? args[0] : @"C:\Program Files (x86)\Diablo II Resurrected";
 using var game = GameInstall.Open(installPath);
 
@@ -71,6 +73,10 @@ try
     if (checkInput)
     {
         InputCheck.Run(bot);
+    }
+    else if (newGame)
+    {
+        GameSession.NewGame(bot);
     }
     else if (probeTrade)
     {
