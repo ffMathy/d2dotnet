@@ -17,14 +17,17 @@ namespace D2Dotnet.Memory;
 /// </remarks>
 public sealed partial class GameReader
 {
-    // game_reader.go, relative to the module base.
-    internal const nuint QuestsAddress = 0x22E2978;
-    internal const nuint SelectedCharacterNameAddress = 0x2A01A50;
+    // Relative to the module base. Reign of the Warlock moved d2go's game_reader.go addresses; the quests and the selected
+    // character name were found again in a running game (see docs/memory.md). The others are d2go's, unchecked.
+    internal const nuint QuestsAddress = 0x1EDAF78; // d2go 0x22E2978
+    internal const nuint SelectedCharacterNameAddress = 0x1E15848; // d2go 0x2A01A50
     internal const nuint LegacyGraphicsAddress = 0x21E2308;
     internal const nuint IsOnlineAddress = 0x2140ED0;
-    internal const nuint IsIngameAddress = 0x22D5D78;
     internal const nuint LastGameAddress = 0x29DBD10;
     internal const nuint FpsAddress = 0x2140DF4;
+
+    // Where the panel flags start, before the UI offset.
+    internal const nuint UIFlagsBefore = 0x14;
 
     // The game keeps one hash table of 128 unit lists per unit type, 1024 bytes apart.
     internal const int UnitTableBuckets = 128;
@@ -40,10 +43,23 @@ public sealed partial class GameReader
     /// <exception cref="InvalidOperationException">The game module could not be read.</exception>
     /// <exception cref="InvalidDataException">A code pattern is not in the game module (an unsupported game build).</exception>
     public GameReader(GameProcess process, GameDatabase database)
+        : this(process, database, GameOffsets.Find((process ?? throw new ArgumentNullException(nameof(process))).ReadModule()))
+    {
+    }
+
+    /// <summary>
+    /// A reader of <paramref name="process"/> with offsets found before, for example by an earlier scan of the same game
+    /// build. The running game keeps some of its code unreadable, and which pages changes while it runs, so a scan can
+    /// miss a pattern that an earlier one found: keeping the offsets of a build avoids that.
+    /// </summary>
+    /// <param name="process">The game process; the reader does not dispose it.</param>
+    /// <param name="database">The game data, for item types and object classes.</param>
+    /// <param name="offsets">The offsets of the running game build.</param>
+    public GameReader(GameProcess process, GameDatabase database, GameOffsets offsets)
     {
         Process = process ?? throw new ArgumentNullException(nameof(process));
         Database = database ?? throw new ArgumentNullException(nameof(database));
-        Offsets = GameOffsets.Find(process.ReadModule());
+        Offsets = offsets;
     }
 
     /// <summary>The game process.</summary>
@@ -119,16 +135,19 @@ public sealed partial class GameReader
     /// <summary>The open panels.</summary>
     public OpenMenus ReadMenus()
     {
-        var buffer = Process.ReadBytes(unchecked(Module(Offsets.UI) - 0xA), 0x16D);
+        // The panel flags start 0x14 bytes before the UI offset since Reign of the Warlock (d2go: 0xA before, the automap
+        // flag at the offset itself); the panels kept their order. Observed in a running game: the inventory, automap and
+        // waypoint panels set bytes 0x01, 0x0A and 0x13, and the loading screen 0x168 (d2go 0x16C).
+        var buffer = Process.ReadBytes(unchecked(Module(Offsets.UI) - UIFlagsBefore), 0x16D);
         return new OpenMenus
         {
             Inventory = buffer[0x01] != 0,
-            LoadingScreen = buffer[0x16C] != 0,
+            LoadingScreen = buffer[0x168] != 0, // d2go 0x16C; set during the loading screens of a running game
             NpcInteract = buffer[0x08] != 0,
             NpcShop = buffer[0x0B] != 0,
             Stash = buffer[0x18] != 0,
             Waypoint = buffer[0x13] != 0,
-            MapShown = Process.ReadByte(Module(Offsets.UI)) != 0,
+            MapShown = buffer[0x0A] != 0,
             SkillTree = buffer[0x04] != 0,
             Character = buffer[0x02] != 0,
             QuitMenu = buffer[0x09] != 0,
@@ -147,8 +166,11 @@ public sealed partial class GameReader
     /// <summary>True when the Online tab of the character selection screen is selected.</summary>
     public bool IsOnline() => Process.ReadByte(Module(IsOnlineAddress)) == 1;
 
-    /// <summary>True in a game.</summary>
-    public bool IsInGame() => Process.ReadByte(Module(IsIngameAddress)) == 1;
+    /// <summary>
+    /// True in a game: the player unit table holds the main player. (d2go read a flag at a fixed address, which Reign of
+    /// the Warlock moved; the unit table is empty outside a game.)
+    /// </summary>
+    public bool IsInGame() => ReadPlayers(null).Any(p => p.IsMainPlayer); // d2go: the byte at 0x22D5D78
 
     /// <summary>The last game's name and password (marked outdated upstream), and the frame rate.</summary>
     public OnlineGameInfo ReadOnlineGame() => new(

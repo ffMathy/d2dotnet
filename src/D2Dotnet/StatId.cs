@@ -1,5 +1,6 @@
 // Values and names from d2go pkg/data/stat/stats.go (github.com/hectorgimenez/d2go, MIT, (c) 2023 Héctor Giménez).
 // The oracle tests check every value against the pinned d2go source.
+// The members from 361 up are not in d2go: Reign of the Warlock's new rows.
 
 namespace D2Dotnet;
 
@@ -370,4 +371,13 @@ public enum StatId : short
     PassiveMagicPierce = 358,
     SkillCooldown = 359,
     SkillMissileDamageScale = 360,
+
+    // Reign of the Warlock (itemstatcost.txt rows 361 and up; not in d2go).
+    PsychicWard = 361,
+    PsychicWardMax = 362,
+    SkillChannelingTick = 363,
+    CustomizationIndex = 364,
+    MagicDamageMaxPerLevel = 365,
+    PassiveDamagePierce = 366,
+    HeraldTier = 367,
 }

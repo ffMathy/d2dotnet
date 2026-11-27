@@ -1,5 +1,6 @@
 // Values and names from d2go pkg/data/object/ids.go (github.com/hectorgimenez/d2go, MIT, (c) 2023 Héctor Giménez).
 // The oracle tests check every value against the pinned d2go source.
+// The members from 582 up are not in d2go: rows of Reign of the Warlock's objects.txt.
 
 namespace D2Dotnet;
 
@@ -586,4 +587,11 @@ public enum ObjectId
     DoorBlocker2 = 572,
     GoodChest = 580,
     NotSoGoodChestName = 581,
+
+    // objects.txt rows 582 and up (not in d2go; Reign of the Warlock's objects.txt has them), named after their Name column.
+    DesertShrineRecharge = 582,
+    DesertShrineStamina = 583,
+    PlaceUniqueChest = 584,
+    PlaceRandomTreasureChest = 585,
+    PlaceArcaneThingamajig = 586,
 }

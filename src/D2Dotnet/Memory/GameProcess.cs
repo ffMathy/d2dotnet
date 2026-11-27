@@ -143,6 +143,18 @@ public sealed class GameProcess : IDisposable
     }
 
     /// <summary>
+    /// The link timestamp in the <c>d2r.exe</c> PE header, which tells game builds apart: a key for offsets kept between
+    /// runs (see <see cref="GameReader(GameProcess, Data.GameDatabase, GameOffsets)"/>). 0 when the header cannot be read.
+    /// </summary>
+    public uint ReadBuildTimestamp()
+    {
+        var peHeader = ReadUInt32(unchecked(ModuleBaseAddress + 0x3C));
+        if (peHeader is 0 or > 0x1000 || ReadUInt32(unchecked(ModuleBaseAddress + peHeader)) != 0x0000_4550) // "PE\0\0"
+            return 0;
+        return ReadUInt32(unchecked(ModuleBaseAddress + peHeader + 8));
+    }
+
+    /// <summary>
     /// The whole <c>d2r.exe</c> image. Pages that cannot be read (the running game protects some of its image) read
     /// as zero bytes.
     /// </summary>

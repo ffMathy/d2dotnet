@@ -8,7 +8,7 @@ namespace D2Dotnet.Memory;
 public sealed partial class GameReader
 {
     // player.go, relative to the module base: the waypoint list of the waypoint menu.
-    internal const nuint WaypointsAddress = 0x2140E20;
+    internal const nuint WaypointsAddress = 0x1D705F0; // d2go 0x2140E20 before Reign of the Warlock
 
     /// <summary>
     /// Every player unit: players, the player's corpse and the shared stash units (the 128 lists of the player unit
@@ -23,8 +23,9 @@ public sealed partial class GameReader
     internal IReadOnlyList<PlayerUnit> ReadPlayers(HoveredUnit? hover)
     {
         var players = new List<PlayerUnit>();
-        var expansionChar = Process.ReadPointer(Module(Offsets.Expansion));
-        var isExpansion = Process.ReadUInt16(unchecked(expansionChar + 0x5C)) > 0;
+        // Without the expansion offset, assume an expansion character (the D2R default).
+        var isExpansion = Offsets.Expansion is not { } expansion
+            || Process.ReadUInt16(unchecked(Process.ReadPointer(Module(expansion)) + 0x5C)) > 0;
 
         foreach (var unit in WalkUnitTable(Offsets.UnitTable))
         {
@@ -98,7 +99,8 @@ public sealed partial class GameReader
                 Stats = unit.Stats,
                 BaseStats = unit.BaseStats,
                 States = unit.States,
-                Class = (CharacterClass)Process.ReadUInt32(unit.Address + 0x174),
+                // The unit's class id (+0x04), as for objects; d2go's +0x174 reads 0 since Reign of the Warlock.
+                Class = (CharacterClass)Process.ReadUInt32(unit.Address + 0x04),
                 Skills = ReadSkills(skillList),
                 LeftSkill = (SkillId)Process.ReadUInt16(left),
                 RightSkill = (SkillId)Process.ReadUInt16(right),

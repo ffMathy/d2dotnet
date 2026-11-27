@@ -1,5 +1,6 @@
 // Values and names from d2go pkg/data/state/states.go (github.com/hectorgimenez/d2go, MIT, (c) 2023 Héctor Giménez).
 // The oracle tests check every value against the pinned d2go source.
+// The members from 188 up are not in d2go: Reign of the Warlock's new rows.
 
 namespace D2Dotnet;
 
@@ -198,4 +199,50 @@ public enum StateId : uint
     Cooldown = 185,
     SharedStash = 186,
     HideDead = 187,
+
+    // Reign of the Warlock (states.txt rows 188 and up; not in d2go), named after their codes.
+    Impale = 188,
+    Desecrated = 189,
+    MarkOfTheBear = 190,
+    MarkOfTheWolf = 191,
+    SigilLethargy = 192,
+    SigilRancor = 193,
+    SigilDeath = 194,
+    BloodOath = 195,
+    DemonicMastery = 196,
+    LevitateMastery = 197,
+    HexBane = 198,
+    HexBaneDebuff = 199,
+    HexSiphon = 200,
+    HexSiphonDebuff = 201,
+    HexPurge = 202,
+    MindBarrier = 203,
+    ShadowMastery = 204,
+    Sigil = 205,
+    PsychicWard = 206,
+    BindDemon = 207,
+    Consume = 208,
+    AdvancedStash = 209,
+    HealthLink = 210,
+    Engorge = 211,
+    DeathMark = 212,
+    HealthLinkCaster = 213,
+    WarlockDemonGround = 214,
+    WarlockDemonTorso = 215,
+    SkillChanneling = 216,
+    HexPurgeDebuff = 217,
+    ChronicleBacklight = 218,
+    ChronicleFootprints = 219,
+    ChroniclePortal = 220,
+    EldritchBlastPeriodic = 221,
+    LightningEnchant = 222,
+    ColdEnchant = 223,
+    TalicFirePierce = 224,
+    MadawcLightningPierce = 225,
+    KorlicColdPierce = 226,
+    BindDemonUnderling = 227,
+    Herald = 228,
+    Apocalypse = 229,
+    MissileLimit = 230,
+    PrimeEvilThreat = 231,
 }

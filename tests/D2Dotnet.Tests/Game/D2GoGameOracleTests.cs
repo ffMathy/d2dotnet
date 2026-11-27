@@ -157,7 +157,9 @@ public partial class D2GoGameOracleTests
             .ToDictionary(s => s.ToString(), s => (long)Math.Log2((int)s)).OrderBy(e => e.Key, StringComparer.Ordinal));
 
         var classes = Constants(Fixtures.D2GoFile("pkg/data/data.go"), "data.go").Where(c => c.Type == "Class").ToDictionary(c => c.Name, c => (long)c.Value);
-        Assert.Equal(classes.OrderBy(e => e.Key, StringComparer.Ordinal), Enum.GetValues<CharacterClass>().ToDictionary(c => c.ToString(), c => (long)c).OrderBy(e => e.Key, StringComparer.Ordinal));
+        // The Warlock (Reign of the Warlock) is not in d2go.
+        Assert.Equal(classes.OrderBy(e => e.Key, StringComparer.Ordinal), Enum.GetValues<CharacterClass>().Where(c => c != CharacterClass.Warlock)
+            .ToDictionary(c => c.ToString(), c => (long)c).OrderBy(e => e.Key, StringComparer.Ordinal));
     }
 
     [GeneratedRegex(@"^(\w+):\s*\{(\d+), (\d+), (nil|\[\]ID\{(.*)\})\},$")]

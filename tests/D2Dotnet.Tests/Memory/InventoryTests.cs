@@ -157,7 +157,7 @@ public sealed class InventoryTests
         Assert.Equal(3, inv.Items.Count);
         var near = inv.Items[0];
         Assert.Equal(ItemId.HealingPotion, near.Class);
-        Assert.Equal("Item589", near.Info?.Name);
+        Assert.Equal($"Item{(int)ItemId.HealingPotion}", near.Info?.Name);
         Assert.True(near.IsHealingPotion);
         Assert.Equal(ItemQuality.Magic, near.Quality);
         Assert.Equal(new Point(101, 100), near.Position);

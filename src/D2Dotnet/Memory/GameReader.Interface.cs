@@ -13,10 +13,10 @@ public sealed partial class GameReader
     internal const string CharacterCreatePanel = "CharacterCreatePanel";
 
     // keybindings.go, relative to the module base: the key binding blob and the skill hotkey blob.
-    internal const nuint KeyBindingsAddress = 0x1DFA914;
-    internal const nuint SkillKeyBindingsAddress = 0x21E29B0;
+    internal const nuint KeyBindingsAddress = 0x19E95F4; // d2go 0x1DFA914 before Reign of the Warlock
+    internal const nuint SkillKeyBindingsAddress = 0x1E12330; // d2go 0x21E29B0 before Reign of the Warlock
 
-    // Each quest's two status bytes in the quest buffer (after its first 3 bytes).
+    // Where each quest's status word starts in the quest buffer, after its first 2 bytes (Act I's introduction).
     internal static readonly (QuestId Quest, int Start)[] QuestBytes =
     [
         (QuestId.Act1DenOfEvil, 0),
@@ -60,11 +60,13 @@ public sealed partial class GameReader
         var party = new List<PartyMember>();
         if (players.FirstOrDefault(p => p.IsMainPlayer) is { } main)
             party.Add(new PartyMember(main.Name, main.Area, main.Position));
+        if (Offsets.Roster is not { } roster)
+            return party; // without the roster offset, only the main player is known
 
         unchecked
         {
             // The first entry is the main player's: skip it.
-            var member = Process.ReadPointer(Process.ReadPointer(Module(Offsets.Roster)) + 0x148);
+            var member = Process.ReadPointer(Process.ReadPointer(Module(roster)) + 0x148);
             for (var n = 0; member != 0 && n < MaxListLength; n++)
             {
                 var name = Process.ReadString(member, 16);
@@ -83,18 +85,23 @@ public sealed partial class GameReader
     }
 
     /// <summary>The status of every quest, from the quest buffer.</summary>
+    /// <remarks>
+    /// The buffer has the layout of a save file's quest block: a 16-bit little-endian word per quest, the act's
+    /// introduction first. d2go skipped 3 bytes and read each quest big-endian, which takes a quest's high byte and the
+    /// next quest's low byte: bit 12 (<see cref="QuestStatusExtensions.IsCompleted"/>) came out right, the others did not.
+    /// </remarks>
     public IReadOnlyDictionary<QuestId, QuestStatus> ReadQuests()
     {
         var buffer = Process.ReadPointer(Process.ReadPointer(Module(QuestsAddress)));
-        return ParseQuests(Process.ReadBytes(buffer, 85).AsSpan(3));
+        return ParseQuests(Process.ReadBytes(buffer, 84).AsSpan(2));
     }
 
-    /// <summary>The status of every quest from the quest bytes (the quest buffer after its first 3 bytes, 80 bytes or more).</summary>
+    /// <summary>The status of every quest from the quest words (the quest buffer after its first 2 bytes, 82 bytes or more).</summary>
     internal static IReadOnlyDictionary<QuestId, QuestStatus> ParseQuests(ReadOnlySpan<byte> bytes)
     {
         var quests = new Dictionary<QuestId, QuestStatus>();
         foreach (var (quest, start) in QuestBytes)
-            quests[quest] = (QuestStatus)BinaryPrimitives.ReadUInt16BigEndian(bytes[start..]);
+            quests[quest] = (QuestStatus)BinaryPrimitives.ReadUInt16LittleEndian(bytes[start..]);
         return Freeze(quests);
     }
 

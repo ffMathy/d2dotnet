@@ -22,7 +22,7 @@ public sealed class GameReaderTests
 
     [Theory]
     [InlineData(0x01, nameof(OpenMenus.Inventory))]
-    [InlineData(0x16C, nameof(OpenMenus.LoadingScreen))]
+    [InlineData(0x168, nameof(OpenMenus.LoadingScreen))]
     [InlineData(0x08, nameof(OpenMenus.NpcInteract))]
     [InlineData(0x0B, nameof(OpenMenus.NpcShop))]
     [InlineData(0x18, nameof(OpenMenus.Stash))]
@@ -48,7 +48,7 @@ public sealed class GameReaderTests
     public void ReadMenus_IgnoresTheOtherUIBytes()
     {
         var image = new GameImage();
-        int[] used = [0x01, 0x16C, 0x08, 0x0B, 0x18, 0x13, 0x0A, 0x04, 0x02, 0x09, 0x19, 0x03, 0x0D];
+        int[] used = [0x01, 0x168, 0x08, 0x0B, 0x18, 0x13, 0x0A, 0x04, 0x02, 0x09, 0x19, 0x03, 0x0D];
         for (var i = 0; i < 0x16D; i++)
         {
             if (!used.Contains(i))
@@ -86,14 +86,15 @@ public sealed class GameReaderTests
     }
 
     [Fact]
-    public void ParseQuests_ReadsTwoBigEndianBytesPerQuest()
+    public void ParseQuests_ReadsALittleEndianWordPerQuest()
     {
+        // The layout of a save file's quest block, as Reign of the Warlock's memory holds it.
         var bytes = new byte[82];
-        bytes[0] = 0x10;  // Den of Evil: completed
-        bytes[11] = 0x01; // Sisters to the Slaughter: reward granted
-        bytes[79] = 0x02; // Eve of Destruction: reward pending
+        bytes[1] = 0x10;  // Den of Evil: completed
+        bytes[10] = 0x01; // Sisters to the Slaughter: reward granted
+        bytes[78] = 0x02; // Eve of Destruction: reward pending
         bytes[12] = 0xFF; // between the acts: not a quest
-        bytes[50] = 0x80; bytes[51] = 0x01; // Terror's End: bits 15 and 0
+        bytes[50] = 0x01; bytes[51] = 0x80; // Terror's End: bits 0 and 15
         var quests = GameReader.ParseQuests(bytes);
 
         Assert.Equal(27, quests.Count);
@@ -107,11 +108,11 @@ public sealed class GameReaderTests
     }
 
     [Fact]
-    public void ReadQuests_FollowsTwoPointersAndSkipsThreeBytes()
+    public void ReadQuests_FollowsTwoPointersAndSkipsTwoBytes()
     {
         var image = new GameImage();
         var bytes = new byte[82];
-        bytes[1] = 0x01;
+        bytes[0] = 0x01;
         image.SetQuestBytes(bytes);
         Assert.Equal(QuestStatus.RewardGranted, image.Reader().ReadQuests()[QuestId.Act1DenOfEvil]);
     }
@@ -147,24 +148,21 @@ public sealed class GameReaderTests
 
         m.WriteU64(GameImage.Base + 0x21E2308, 1);
         m.WriteU8(GameImage.Base + 0x2140ED0, 1);
-        m.WriteU8(GameImage.Base + 0x22D5D78, 1);
         m.WriteU32(GameImage.Base + 0x2140DF4, 0x8000_0090);
         m.WriteCString(GameImage.Base + 0x29DBD10 + 0x8, "game-01");
         m.WriteCString(GameImage.Base + 0x29DBD10 + 0x60, "pw");
-        m.WriteCString(GameImage.Base + 0x2A01A50, "MySorc");
+        m.WriteCString(GameImage.Base + GameReader.SelectedCharacterNameAddress, "MySorc");
         Assert.True(reader.IsLegacyGraphics());
         Assert.True(reader.IsOnline());
-        Assert.True(reader.IsInGame());
+        Assert.False(reader.IsInGame()); // no main player unit
         Assert.Equal(new OnlineGameInfo("game-01", "pw", 0x8000_0090), reader.ReadOnlineGame());
         Assert.Equal("MySorc", reader.ReadSelectedCharacterName());
 
         // Exactly 1, not just non-zero; legacy graphics is 8 bytes, the other two flags 1.
         m.WriteU64(GameImage.Base + 0x21E2308, 0x101);
         m.WriteU64(GameImage.Base + 0x2140ED0, 0x201);
-        m.WriteU8(GameImage.Base + 0x22D5D78, 2);
         Assert.False(reader.IsLegacyGraphics());
         Assert.True(reader.IsOnline());
-        Assert.False(reader.IsInGame());
     }
 
     [Fact]
@@ -236,8 +234,8 @@ public sealed class GameReaderTests
     public void ReadKeyBindings_ReadTwoBytesPerKey()
     {
         var image = new GameImage();
-        var blob = GameImage.Base + 0x1DFA914;
-        var skills = GameImage.Base + 0x21E29B0;
+        var blob = GameImage.Base + GameReader.KeyBindingsAddress;
+        var skills = GameImage.Base + GameReader.SkillKeyBindingsAddress;
         image.Memory.Write(blob + 0x14, [0x49, 0x00]);             // Inventory primary: I
         image.Memory.Write(blob + 0x1e, [0x09, 0x01]);             // Inventory secondary
         image.Memory.Write(blob + 0x118 + 0x14, [0x70, 0x00]);     // skill 1 primary: F1
@@ -280,13 +278,12 @@ public sealed class GameReaderTests
         image.SetRoster(("Friend", 4, 7, 8));
         image.SetPanels(image.Widget("LobbyBackgroundPanel", false, true));
         var questBytes = new byte[82];
-        questBytes[1] = 0x01;
+        questBytes[0] = 0x01;
         image.SetQuestBytes(questBytes);
         m.WriteU32(GameImage.Base + 0x29BD4D8, (uint)AreaId.DarkWood);
-        m.Write(GameImage.Base + 0x1DFA914, [0x43, 0x00]);
+        m.Write(GameImage.Base + GameReader.KeyBindingsAddress, [0x43, 0x00]);
         m.WriteU64(GameImage.Base + 0x21E2308, 1);
         m.WriteU8(GameImage.Base + 0x2140ED0, 1);
-        m.WriteU8(GameImage.Base + 0x22D5D78, 1);
         m.WriteU32(GameImage.Base + 0x2140DF4, 60);
         m.WriteCString(GameImage.Base + 0x29DBD10 + 0x8, "g");
         m.WriteCString(GameImage.Base + 0x29DBD10 + 0x60, "p");

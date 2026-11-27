@@ -11,6 +11,32 @@ D2Dotnet is one .NET 10 library for Diablo II: Resurrected (D2R). It has no thir
 Game data always comes from the user's own install. Nothing derived from Blizzard's files is in this repository, and
 the repository ships no apps: programs reference the library.
 
+## Reign of the Warlock
+
+D2Dotnet supports the Reign of the Warlock expansion:
+
+- the id enums have its new rows: the Warlock (`CharacterClass.Warlock`), its skills and the other new skills, states,
+  stats, monsters, objects, item types and items. `ItemId` follows its numbering, which inserts the Warlock's books at
+  508 and so moves every later item 15 rows on from d2go's;
+- the memory reader reads its player unit (the class at `+0x04`) and its act structures (the map seed and difficulty),
+  checked in a running game against the map id in the character's save file;
+- its new level, Colossal Summit, is `AreaId.ColossalSummit` (137); d2go's five "Maps" ids, which no levels.txt has,
+  are gone;
+- the expansion flag, party list and game data patterns are not found in its code: `GameOffsets.Missing` names them,
+  the reader assumes an expansion character and reads a party of the main player only;
+- the game keeps part of its code unreadable, and which part changes while it runs, so a scan can miss a pattern that
+  an earlier one found. Keep the offsets of a build (`GameProcess.ReadBuildTimestamp()` tells builds apart) and pass
+  them to `new GameReader(process, data, offsets)`; `src/SampleBot` shows a cache that does this.
+
+- the fixed addresses that moved were found again in a running game: the quests (whose buffer has a save file's
+  layout: little-endian words), the waypoints, the key and skill key bindings, the selected character name, and the
+  panel flags (now 0x14 bytes before the UI offset, the loading screen at 0x168); `IsInGame` checks for the main
+  player instead of a flag.
+
+Not yet checked against it: the online and legacy graphics flags (the Warlock has no legacy graphics), the last game,
+the frame rate, the terror zones, the hovered unit, and the expansion, roster and game data offsets, whose patterns
+are not found. `docs/memory.md` lists every address and how it was found.
+
 ## Building
 
 You need the [.NET 10 SDK](https://dotnet.microsoft.com/download) (pinned in `global.json`).

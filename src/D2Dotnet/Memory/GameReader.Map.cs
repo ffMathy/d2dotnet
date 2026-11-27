@@ -6,14 +6,16 @@ namespace D2Dotnet.Memory;
 public sealed partial class GameReader
 {
     // Player unit -> act -> act misc. The layout comes from MapAssist (Structs/UnitAny.cs pAct at +0x20, Structs/Act.cs
-    // pActMisc at +0x78, Structs/ActMisc.cs GameDifficulty at +0x830) and koolo (internal/reader/reader.go getMapSeed:
-    // the init seed hash at act misc +0x840 and the end seed hash at +0x868, 32 bits each). They describe the game; no
-    // code is taken from either.
+    // pActMisc, Structs/ActMisc.cs GameDifficulty at +0x830) and koolo (internal/reader/reader.go getMapSeed: the init
+    // seed hash at act misc +0x840 and the end seed hash at +0x868, 32 bits each). They describe the game; no code is
+    // taken from either. Reign of the Warlock moved pActMisc from MapAssist's +0x78 to +0x70 (+0x78 now points into the
+    // module) and the act misc fields below 8 bytes down: observed in a running game, where the seed decoded from
+    // +0x838/+0x860 is the map id the character's save file holds.
     internal const nuint UnitActOffset = 0x20;
-    internal const nuint ActMiscOffset = 0x78;
-    internal const nuint DifficultyOffset = 0x830;
-    internal const nuint InitSeedHashOffset = 0x840;
-    internal const nuint EndSeedHashOffset = 0x868;
+    internal const nuint ActMiscOffset = 0x70;
+    internal const nuint DifficultyOffset = 0x828;
+    internal const nuint InitSeedHashOffset = 0x838;
+    internal const nuint EndSeedHashOffset = 0x860;
 
     /// <summary>
     /// The map seed, difficulty and area of the main player's game, ready for

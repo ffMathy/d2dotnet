@@ -79,7 +79,7 @@ public class D2GoTablesOracleTests
 
         AssertSameTable("item.Desc", expected, actual);
         Assert.Equal(659, expected.Count);
-        Assert.Equal(Enum.GetValues<ItemId>().Length, Db.Items.Count);
+        Assert.Equal(expected.Count, Db.Items.Count); // d2go's (pre-Reign of the Warlock) tables; ItemId has the newer rows too
     }
 
     [Fact]

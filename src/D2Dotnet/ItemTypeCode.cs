@@ -1,5 +1,6 @@
 // Values and names from d2go pkg/data/item/itemtypes.go (github.com/hectorgimenez/d2go, MIT, (c) 2023 Héctor Giménez).
-// The oracle tests check every value against the pinned d2go source.
+// The oracle tests check every value against the pinned d2go source. WarlockItem to CraftedSunderCharm are Reign of the
+// Warlock's item types, not in d2go.
 
 namespace D2Dotnet;
 
@@ -312,4 +313,18 @@ public static class ItemTypeCode
 
     /// <summary><c>sppl</c></summary>
     public const string SpearsandPolearms = "sppl";
+
+    // Reign of the Warlock (not in d2go).
+
+    /// <summary><c>warl</c></summary>
+    public const string WarlockItem = "warl";
+
+    /// <summary><c>grim</c></summary>
+    public const string Grimoire = "grim";
+
+    /// <summary><c>cjwl</c></summary>
+    public const string ColossalJewel = "cjwl";
+
+    /// <summary><c>csch</c></summary>
+    public const string CraftedSunderCharm = "csch";
 }

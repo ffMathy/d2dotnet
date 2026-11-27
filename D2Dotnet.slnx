@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/D2Dotnet/D2Dotnet.csproj" />
+    <Project Path="src/SampleBot/SampleBot.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/D2Dotnet.Tests/D2Dotnet.Tests.csproj" />

@@ -25,6 +25,9 @@ public enum CharacterClass : uint
 
     /// <summary>Assassin.</summary>
     Assassin = 6,
+
+    /// <summary>Warlock (Reign of the Warlock; not in d2go).</summary>
+    Warlock = 7,
 }
 
 /// <summary>A skill's points on a unit, 16 bits each as the game stores them.</summary>

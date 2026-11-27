@@ -15,10 +15,10 @@ public sealed class MapContextTests
         var act = image.Memory.Alloc(0x100);
         var actMisc = image.Memory.Alloc(0x900);
         image.Memory.WriteU64(unit + 0x20, act);
-        image.Memory.WriteU64(act + 0x78, actMisc);
-        image.Memory.WriteU16(actMisc + 0x830, difficulty);
-        image.Memory.WriteU32(actMisc + 0x840, initHash);
-        image.Memory.WriteU32(actMisc + 0x868, endHash);
+        image.Memory.WriteU64(act + 0x70, actMisc);
+        image.Memory.WriteU16(actMisc + 0x828, difficulty);
+        image.Memory.WriteU32(actMisc + 0x838, initHash);
+        image.Memory.WriteU32(actMisc + 0x860, endHash);
     }
 
     private static (GameImage Image, ulong Unit) Game(uint area = 46)
@@ -112,9 +112,9 @@ public sealed class MapContextTests
     public void Offsets_AreTheDocumentedOnes()
     {
         Assert.Equal((nuint)0x20, GameReader.UnitActOffset);
-        Assert.Equal((nuint)0x78, GameReader.ActMiscOffset);
-        Assert.Equal((nuint)0x830, GameReader.DifficultyOffset);
-        Assert.Equal((nuint)0x840, GameReader.InitSeedHashOffset);
-        Assert.Equal((nuint)0x868, GameReader.EndSeedHashOffset);
+        Assert.Equal((nuint)0x70, GameReader.ActMiscOffset);
+        Assert.Equal((nuint)0x828, GameReader.DifficultyOffset);
+        Assert.Equal((nuint)0x838, GameReader.InitSeedHashOffset);
+        Assert.Equal((nuint)0x860, GameReader.EndSeedHashOffset);
     }
 }

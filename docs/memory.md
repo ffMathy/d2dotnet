@@ -11,10 +11,34 @@ accident is fixed (see [Changes from d2go](#changes-from-d2go)). d2go's license 
 [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md).
 
 **Windows only, for one game build.** Attaching to a game needs Windows and a running `d2r.exe`. The fixed addresses
-and structure offsets are those of the D2R build d2go `1072577` targets: on another build the code patterns are not
-found (`GameReader` throws `InvalidDataException`) or the fixed addresses read garbage. Everything except
+and structure offsets are those of the D2R build d2go `1072577` targets, updated for Reign of the Warlock where a
+running game showed them to have moved (the player class and the act structures; see the README): on another build
+a required code pattern is not found (`GameReader` throws `InvalidDataException`), an optional one leaves its offset
+null (`GameOffsets.Missing`), or the fixed addresses read garbage. Everything except
 `WindowsProcessMemory` is platform independent and reads through `IProcessMemory`, so it runs over any memory source
 (a dump, or the synthetic images of the tests).
+
+### Reign of the Warlock
+
+Found in a running Reign of the Warlock game (build `6AD81202`) by comparing the module's `.data` before and after
+one change in the game:
+
+| Address | d2go | Now | Found by |
+| --- | --- | --- | --- |
+| Selected character name | `0x2A01A50` | `0x1E15848` | selecting another character |
+| Waypoints | `0x2140E20` | `0x1D705F0` | the Act I list with the character's waypoints |
+| Key bindings | `0x1DFA914` | `0x19E95F4` | rebinding the character screen key |
+| Skill key bindings | `0x21E29B0` | `0x1E12330` | putting two skills on F1 and F2 |
+| Quests | `0x22E2978` | `0x1EDAF78` | the pointer chain to a buffer equal to the save file's quest block |
+| Panel flags | UI - `0xA` | UI - `0x14` | opening the inventory, automap and waypoint panels |
+| Loading screen | flag `0x16C` | flag `0x168` | waypoint travel |
+| In game | the byte at `0x22D5D78` | the main player unit | the unit table is empty outside a game |
+
+The quest buffer has the layout of a save file's quest block, a little-endian word per quest after Act I's
+introduction; d2go read big-endian words 3 bytes in, which only got bit 12 (completed) right. The key binding blob and
+the panel flags kept d2go's layout. Not checked: the online, legacy graphics, last game, frame rate and terror zone
+addresses. The UI pattern matches six instructions that set different panel flags; the offsets assume the first one
+in the module, as d2go did, so keep the offsets of a scan that found it.
 
 ## Usage
 
@@ -54,9 +78,11 @@ if (reader.ReadMapContext() is { } context)
 }
 ```
 
-The reader follows the main player unit (`+0x20`) to its act, the act (`+0x78`) to its act misc structure, and reads
-the difficulty (16 bits at `+0x830`) and the init and end seed hashes (32 bits at `+0x840` and `+0x868`); `MapSeed`
-turns the hashes into the seed. These offsets come from MapAssist (the unit, act and difficulty layout) and koolo (the
+The reader follows the main player unit (`+0x20`) to its act, the act (`+0x70`) to its act misc structure, and reads
+the difficulty (16 bits at `+0x828`) and the init and end seed hashes (32 bits at `+0x838` and `+0x860`); `MapSeed`
+turns the hashes into the seed. Reign of the Warlock moved these: before it they were `+0x78`, `+0x830`, `+0x840` and
+`+0x868`. The new ones were checked in a running game, where the decoded seed is the map id in the character's save
+file. These offsets come from MapAssist (the unit, act and difficulty layout) and koolo (the
 seed hashes) rather than from d2go, which does not read them. MapAssist's 2022 layout has a pointer at `+0x868`, so
 the act misc structure has changed between game patches: like every offset here, they need checking against the D2R
 build in use. The context is null when the player is not in a game, the difficulty is not 0 to 2, or the hashes do

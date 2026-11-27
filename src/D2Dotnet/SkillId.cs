@@ -1,11 +1,13 @@
 // Values and names from d2go pkg/data/skill/skill.go (github.com/hectorgimenez/d2go, MIT, (c) 2023 Héctor Giménez).
-// The oracle tests check every value against the pinned d2go source.
+// The oracle tests check every value against the pinned d2go source. The members after FixedSiegeBeastStomp (358 and up)
+// are not in d2go: Reign of the Warlock's skills.txt rows, named after its skill column.
 
 namespace D2Dotnet;
 
 /// <summary>A skill: the <c>*Id</c> (classic <c>Id</c>) column of skills.txt; <see cref="None"/> (-1) is no skill.</summary>
 /// <remarks>
-/// Values and names come from d2go's <c>skill.ID</c> (whose -1 is <c>Unset</c>); 16 bits wide as the game stores it.
+/// Values and names come from d2go's <c>skill.ID</c> (whose -1 is <c>Unset</c>), then Reign of the Warlock's skills from
+/// 358 up; 16 bits wide as the game stores it.
 /// What a skill is is read from the game: see <see cref="Data.GameDatabase.Skills"/>.
 /// </remarks>
 public enum SkillId : short
@@ -368,5 +370,78 @@ public enum SkillId : short
     ShamanFireEx = 355,
     ImpFireMissileEx = 356,
     FixedSiegeBeastStomp = 357,
+
+    // Reign of the Warlock (skills.txt rows 358 and up; not in d2go). The Warlock's skills are SummonGoatman to Abyss.
+    Loot = 358,
+    TownPortal = 359,
+    EmoteWheel = 360,
+    SwapWeapons = 361,
+    Map = 362,
+    ShowItems = 363,
+    RunToggle = 364,
+    MonHolyFreeze = 365,
+    MonLeap = 366,
+    MonLeapAttack = 367,
+    MonHolyFire = 368,
+    MonHolyShock = 369,
+    CubeLoot = 370,
+    MarkOfTheBear = 371,
+    MarkOfTheWolf = 372,
+    SummonGoatman = 373,
+    DemonicMastery = 374,
+    DeathMark = 375,
+    SummonTainted = 376,
+    SummonDefiler = 377,
+    BloodOath = 378,
+    Engorge = 379,
+    BloodBoil = 380,
+    Consume = 381,
+    BindDemon = 382,
+    Levitate = 383,
+    EldritchBlast = 384,
+    HexBane = 385,
+    HexSiphon = 386,
+    PsychicWard = 387,
+    EchoingStrike = 388,
+    HexPurge = 389,
+    BladeWarp = 390,
+    Cleave = 391,
+    MirroredBlades = 392,
+    SigilLethargy = 393,
+    RingOfFire = 394,
+    MiasmaBolt = 395,
+    SigilRancor = 396,
+    EnhancedEntropy = 397,
+    FlameWave = 398,
+    MiasmaChains = 399,
+    SigilDeath = 400,
+    Apocalypse = 401,
+    Abyss = 402,
+    SigilDeathExplosion = 403,
+    HexPurgeExplosion = 404,
+    HealthLink = 405,
+    ColdFissure = 406,
+    KorlicsLeapAttack = 407,
+    ColdEnchant = 408,
+    LightningEnchant = 409,
+    TalicsWhirlwind = 410,
+    TownportalOSkill = 411,
+    FireTwisters = 412,
+    ColossalVolcano = 413,
+    ColossalThunderStorm = 414,
+    UberAncientsHeal = 415,
+    GoatmanStun = 416,
+    GoatmanFrenzy = 417,
+    GoatmanBerserk = 418,
+    GoatmanCleave = 419,
+    TaintedResistFire = 420,
+    TaintedFireBolt = 421,
+    TaintedFireBall = 422,
+    TalicsFirePierce = 423,
+    MadawcsLightningPierce = 424,
+    KorlicsColdPierce = 425,
+    ChargedBoltDisk = 426,
+    KorlicsBash = 427,
+    HeraldThorns = 428,
     None = -1,
 }

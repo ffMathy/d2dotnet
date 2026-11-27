@@ -184,7 +184,7 @@ internal sealed class GameImage
         Memory.WriteU64(unit + 0x88, statsEx);
 
         Memory.WriteU64(unit + 0xD8, p.StashOrder);
-        Memory.WriteU32(unit + 0x174, p.Class);
+        Memory.WriteU32(unit + 0x04, p.Class);
         Memory.WriteU8(unit + 0x1A6, p.CorpseFlag);
 
         Link(PlayerTable, p.Bucket, unit);
@@ -288,17 +288,17 @@ internal sealed class GameImage
         Memory.WriteU32(Base + HoverOffset + 8, unitId);
     }
 
-    /// <summary>A byte of the UI buffer, which starts at base + UI - 0xA.</summary>
-    public void SetUIByte(int index, byte value) => Memory.WriteU8(Base + UIOffset - 0xA + (ulong)index, value);
+    /// <summary>A byte of the UI buffer, which starts at base + UI - 0x14.</summary>
+    public void SetUIByte(int index, byte value) => Memory.WriteU8(Base + UIOffset - GameReader.UIFlagsBefore + (ulong)index, value);
 
-    /// <summary>The 85-byte quest buffer behind two pointers at base + 0x22E2978; d2go drops its first 3 bytes.</summary>
-    public ulong SetQuestBytes(ReadOnlySpan<byte> afterFirstThree)
+    /// <summary>The 84-byte quest buffer behind two pointers at the quests address; its first 2 bytes are Act I's introduction.</summary>
+    public ulong SetQuestBytes(ReadOnlySpan<byte> afterFirstTwo)
     {
-        var buffer = Memory.Alloc(85);
-        Memory.Write(buffer + 3, afterFirstThree);
+        var buffer = Memory.Alloc(84);
+        Memory.Write(buffer + 2, afterFirstTwo);
         var q1 = Memory.Alloc(8);
         Memory.WriteU64(q1, buffer);
-        Memory.WriteU64(Base + 0x22E2978, q1);
+        Memory.WriteU64(Base + GameReader.QuestsAddress, q1);
         return buffer;
     }
 

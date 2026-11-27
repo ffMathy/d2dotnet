@@ -97,11 +97,11 @@ public sealed partial class D2GoMemoryOracleTests
             var blob = new byte[0x500];
             for (var i = 0; i < blob.Length; i++)
                 blob[i] = fill(i);
-            image.Memory.Write(GameImage.Base + 0x1DFA914, blob);
+            image.Memory.Write(GameImage.Base + GameReader.KeyBindingsAddress, blob);
             var skills = new byte[0x500];
             for (var i = 0; i < skills.Length; i += 4)
                 BitConverter.TryWriteBytes(skills.AsSpan(i), (uint)(i * 3 + 1));
-            image.Memory.Write(GameImage.Base + 0x21E29B0, skills);
+            image.Memory.Write(GameImage.Base + GameReader.SkillKeyBindingsAddress, skills);
             return (image.Reader().ReadKeyBindings(), offset => (SkillId)(short)(offset * 3 + 1));
         }
     }
@@ -194,9 +194,10 @@ public sealed partial class D2GoMemoryOracleTests
         foreach (var (quest, start, end) in ranges)
         {
             Assert.Equal(start + 2, end);
+            // d2go's ranges, read as little-endian words (d2go read them big-endian, 3 bytes in; see ReadQuests).
             var bytes = new byte[82];
-            bytes[start] = 0x10;     // first byte: bit 12
-            bytes[start + 1] = 0x01; // second byte: bit 0
+            bytes[start] = 0x01;     // first byte: bit 0
+            bytes[start + 1] = 0x10; // second byte: bit 12
             foreach (var (q, status) in GameReader.ParseQuests(bytes))
                 Assert.Equal(q == quest ? QuestStatus.UpdateQuestLogCompleted | QuestStatus.RewardGranted : QuestStatus.None, status);
         }

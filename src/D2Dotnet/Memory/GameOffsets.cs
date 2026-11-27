@@ -9,22 +9,30 @@ namespace D2Dotnet.Memory;
 /// Where the game keeps its structures, relative to the module base: found by scanning the game code for byte
 /// patterns when a <see cref="GameReader"/> is created.
 /// </summary>
-/// <param name="GameData">The game data structure.</param>
+/// <param name="GameData">The game data structure; null when its pattern is not found (no reader uses it).</param>
 /// <param name="UnitTable">The unit hash tables (players, monsters, objects, missiles, items; 1024 bytes each).</param>
 /// <param name="UI">The user interface flags (the automap flag; the panel flags start 0xA bytes before).</param>
 /// <param name="Hover">The hovered unit.</param>
-/// <param name="Expansion">The pointer to the expansion character flag.</param>
-/// <param name="Roster">The pointer to the party list.</param>
+/// <param name="Expansion">The pointer to the expansion character flag; null when its pattern is not found.</param>
+/// <param name="Roster">The pointer to the party list; null when its pattern is not found.</param>
 /// <param name="PanelManager">The pointer to the panel manager widget.</param>
 public readonly record struct GameOffsets(
-    nuint GameData,
+    nuint? GameData,
     nuint UnitTable,
     nuint UI,
     nuint Hover,
-    nuint Expansion,
-    nuint Roster,
+    nuint? Expansion,
+    nuint? Roster,
     nuint PanelManager)
 {
+    /// <summary>
+    /// The names of the optional offsets whose pattern was not found: <c>GameData</c>, <c>Expansion</c> and
+    /// <c>Roster</c>. The reader works without them, with less: see <see cref="GameReader"/>.
+    /// </summary>
+    public IReadOnlyList<string> Missing =>
+        [.. new (string Name, nuint? Value)[] { ("GameData", GameData), ("Expansion", Expansion), ("Roster", Roster) }
+            .Where(o => o.Value is null).Select(o => o.Name)];
+
     /// <summary>A code pattern: its bytes, and a mask where <c>?</c> matches any byte.</summary>
     internal sealed record Pattern(string Name, byte[] Bytes, string Mask);
 
@@ -47,18 +55,20 @@ public readonly record struct GameOffsets(
 
     /// <summary>
     /// Scans a module image for the patterns and decodes the offsets. <c>rip</c>-relative displacements are signed;
-    /// the unit table and hover operands are module-relative addresses.
+    /// the unit table and hover operands are module-relative addresses. The game data, expansion and roster patterns
+    /// are optional: when one is not found its offset is null (see <see cref="Missing"/>).
     /// </summary>
-    /// <exception cref="InvalidDataException">A pattern is not in the image: the game build is not the one these patterns are for.</exception>
+    /// <exception cref="InvalidDataException">A required pattern (unit table, UI, hover, panel manager) is not in the image: the game build is not the one these patterns are for.</exception>
     public static GameOffsets Find(ReadOnlySpan<byte> image)
     {
         var missing = new List<string>();
-        var gameData = At(image, GameDataPattern, missing);
+        var optional = new List<string>();
+        var gameData = At(image, GameDataPattern, optional);
         var unitTable = At(image, UnitTablePattern, missing);
         var ui = At(image, UIPattern, missing);
         var hover = At(image, HoverPattern, missing);
-        var expansion = At(image, ExpansionPattern, missing);
-        var roster = At(image, RosterPattern, missing, operandStart: -3);
+        var expansion = At(image, ExpansionPattern, optional);
+        var roster = At(image, RosterPattern, optional, operandStart: -3);
         var panel = At(image, PanelManagerPattern, missing);
         if (missing.Count > 0)
             throw new InvalidDataException($"Code patterns not found in the game module: {string.Join(", ", missing)}. This game build is not supported.");
@@ -67,7 +77,7 @@ public readonly record struct GameOffsets(
 
         return new GameOffsets(
             // GameData: pattern - 0x121 + displacement at +3.
-            GameData: Offset((long)gameData - 0x121 + Displacement(image, gameData + 3)),
+            GameData: gameData < 0 ? null : Offset((long)gameData - 0x121 + Displacement(image, gameData + 3)),
             // UnitTable: the module-relative address at +7.
             UnitTable: Operand(image, unitTable + 7),
             // UI: the end of the instruction (+10) plus the displacement at +6.
@@ -75,9 +85,9 @@ public readonly record struct GameOffsets(
             // Hover: the module-relative address at +3, minus 1.
             Hover: Offset((long)Operand(image, hover + 3) - 1),
             // Expansion: the end of the instruction (+7) plus the displacement at +3.
-            Expansion: Offset((long)expansion + 7 + Displacement(image, expansion + 3)),
+            Expansion: expansion < 0 ? null : Offset((long)expansion + 7 + Displacement(image, expansion + 3)),
             // Roster: the instruction ends at +1, its displacement is the 4 bytes before (the pattern's first byte is its top byte).
-            Roster: Offset((long)roster + 1 + Displacement(image, roster - 3)),
+            Roster: roster < 0 ? null : Offset((long)roster + 1 + Displacement(image, roster - 3)),
             // PanelManagerContainer: the end of the instruction (+7) plus the displacement at +3.
             PanelManager: Offset((long)panel + Displacement(image, panel + 3) + 7));
     }
@@ -87,7 +97,11 @@ public readonly record struct GameOffsets(
     {
         var i = GameProcess.FindPattern(image, pattern.Bytes, pattern.Mask);
         if (i < 0 || i + operandStart < 0)
+        {
             missing.Add(pattern.Name);
+            return -1;
+        }
+
         return i;
     }
 

@@ -260,7 +260,7 @@ public sealed class PlayerTests
         m.WriteU64(unit + 0x100, skillList);
 
         // Waypoint list: 9 (area, active) pairs.
-        var wp = GameImage.Base + 0x2140E20;
+        var wp = GameImage.Base + GameReader.WaypointsAddress;
         uint[] wps = [1, 1, 3, 0, 4, 1, 5, 0, 6, 0, 0, 0, 0, 1, 0, 0, 7, 1];
         for (var i = 0; i < wps.Length; i++)
             m.WriteU32(wp + (ulong)(i * 4), wps[i]);

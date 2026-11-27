@@ -1,5 +1,6 @@
 // Values and names from d2go pkg/data/npc/npc.go (github.com/hectorgimenez/d2go, MIT, (c) 2023 Héctor Giménez).
 // The oracle tests check every value against the pinned d2go source.
+// The members from 734 up are not in d2go: Reign of the Warlock's new rows.
 
 namespace D2Dotnet;
 
@@ -744,4 +745,23 @@ public enum MonsterId
     DarkLord3 = 731,
     Specter3 = 732,
     BurningSoul3 = 733,
+
+    // Reign of the Warlock (monstats.txt rows 734 and up; not in d2go), named after their display names.
+    Horse = 734,
+    HellBovine2 = 735,
+    PlagueBearer2 = 736,
+    Pig = 737,
+    Seagull = 738,
+    BerserkerSlayer = 739,
+    FrenziedHellSpawn2 = 740,
+    InsaneHellSpawn2 = 741,
+    WarlockGoatman = 742,
+    WarlockTainted = 743,
+    WarlockDefiler = 744,
+    ColossalTalic = 745,
+    ColossalMadawc = 746,
+    ColossalKorlic = 747,
+    DefenderSpirit = 748,
+    GuardianSpirit = 749,
+    ProtectorSpirit = 750,
 }

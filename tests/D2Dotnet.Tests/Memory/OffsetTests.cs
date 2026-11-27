@@ -51,18 +51,36 @@ public sealed class OffsetTests
     }
 
     [Fact]
-    public void Find_ReportsTheMissingPatterns()
+    public void Find_ReportsTheMissingRequiredPatterns()
     {
         // d2go decoded meaningless offsets from address 0 instead.
         var image = HandBuiltImage();
         image.AsSpan(0x80, 0x20).Clear(); // Hover
-        image.AsSpan(0xC0, 0x10).Clear(); // Roster
+        image.AsSpan(0xE0, 0x10).Clear(); // PanelManagerContainer
         var e = Assert.Throws<InvalidDataException>(() => GameOffsets.Find(image));
         Assert.Contains("Hover", e.Message, StringComparison.Ordinal);
-        Assert.Contains("Roster", e.Message, StringComparison.Ordinal);
+        Assert.Contains("PanelManagerContainer", e.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("UnitTable", e.Message, StringComparison.Ordinal);
 
         Assert.Throws<InvalidDataException>(() => GameOffsets.Find(new byte[0x100]));
+    }
+
+    [Fact]
+    public void Find_LeavesTheMissingOptionalOffsetsNull()
+    {
+        var o = GameOffsets.Find(HandBuiltImage());
+        Assert.Empty(o.Missing);
+
+        var image = HandBuiltImage();
+        image.AsSpan(0x10, 0x10).Clear(); // GameData
+        image.AsSpan(0xA0, 0x10).Clear(); // Expansion
+        image.AsSpan(0xC0, 0x10).Clear(); // Roster
+        o = GameOffsets.Find(image);
+        Assert.Null(o.GameData);
+        Assert.Null(o.Expansion);
+        Assert.Null(o.Roster);
+        Assert.Equal(["GameData", "Expansion", "Roster"], o.Missing);
+        Assert.Equal((nuint)0x01543210, o.UnitTable);
     }
 
     [Fact]
@@ -71,7 +89,7 @@ public sealed class OffsetTests
         var image = HandBuiltImage();
         image.AsSpan(0xC0, 0x10).Clear();
         image[0] = 0x02; image[1] = 0x45; image[2] = 0x33; image[3] = 0xD2; image[4] = 0x4D; image[5] = 0x8B;
-        Assert.Throws<InvalidDataException>(() => GameOffsets.Find(image));
+        Assert.Null(GameOffsets.Find(image).Roster);
     }
 
     [Fact]
@@ -97,5 +115,17 @@ public sealed class OffsetTests
         Assert.Same(process, reader.Process);
         Assert.Same(TestDatabase.Database, reader.Database);
         Assert.False(image.Memory.IsDisposed);
+    }
+
+    [Fact]
+    public void GameReader_TakesKnownOffsetsWithoutScanning()
+    {
+        // A module whose code is unreadable: a scan would throw, the given offsets are used as they are.
+        var memory = new FakeProcessMemory(unchecked((nuint)0x7FF6_2000_0000), 0x1000);
+        var offsets = new GameOffsets(null, 0x100, 0x200, 0x300, null, null, 0x400);
+        var reader = new GameReader(new GameProcess(memory), TestDatabase.Database, offsets);
+        Assert.Equal(offsets, reader.Offsets);
+        Assert.Throws<ArgumentNullException>(() => new GameReader(null!, TestDatabase.Database, offsets));
+        Assert.Throws<ArgumentNullException>(() => new GameReader(new GameProcess(memory), null!, offsets));
     }
 }

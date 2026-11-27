@@ -8,7 +8,7 @@ namespace D2Dotnet;
 /// <remarks>
 /// <para>
 /// Values are the classic 1.14d numbering that Diablo II: Resurrected keeps (0 is the unused <c>Null</c> row), plus the
-/// levels D2R appends after <see cref="UberTristram"/>. Names are read from the game, not from here: see
+/// level Reign of the Warlock appends after <see cref="UberTristram"/>. Names are read from the game, not from here: see
 /// <see cref="Data.GameDatabase.Levels"/> and <see cref="Data.Localization"/>.
 /// </para>
 /// <para>
@@ -155,9 +155,8 @@ public enum AreaId
     ForgottenSands = 134,
     FurnaceOfPain = 135,
     UberTristram = 136,
-    MapsAncientTemple = 137,
-    MapsDesecratedTemple = 138,
-    MapsFrigidPlateau = 139,
-    MapsInfernalTrial = 140,
-    MapsRuinedCitadel = 141,
+
+    // Reign of the Warlock (levels.txt row 137, "Act 5 - Colossal Summit"). d2go numbers 137 to 141 as five "Maps" areas
+    // that no levels.txt has; they are left out.
+    ColossalSummit = 137,
 }
