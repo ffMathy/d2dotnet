@@ -182,3 +182,36 @@ public sealed class RouteTests
         Assert.Null(Act.FindRoute(AreaId.RogueEncampment, AreaId.LutGholein)); // not in the act
     }
 }
+
+/// <summary>Paths to the nearest subtile a goal accepts.</summary>
+public sealed class PathToGoalTests
+{
+    [Fact]
+    public void FindPathTo_ReachesTheNearestGoal_AroundWalls_OrNull()
+    {
+        var level = new MapLevel
+        {
+            Id = AreaId.RogueEncampment,
+            Bounds = new Rect(0, 0, 1, 1),
+            Collision = new CollisionMap(5, 5,
+            [
+                0, 1, 0, 0, 0,
+                0, 1, 0, 1, 0,
+                0, 1, 0, 1, 0,
+                0, 1, 0, 1, 0,
+                0, 0, 0, 1, 0,
+            ]),
+        };
+        var grid = new MapGrid(level);
+
+        // From the left column to the right one: down, through the gap at the bottom, up the middle, over the top.
+        var path = grid.FindPathTo(new Point(0, 0), p => p.X == 4)!;
+        Assert.Equal(new Point(0, 0), path[0]);
+        Assert.Equal(4, path[^1].X);
+        Assert.All(path, p => Assert.True(grid.IsWalkable(p)));
+        Assert.Contains(new Point(1, 4), path);
+
+        Assert.Equal([new Point(0, 0)], grid.FindPathTo(new Point(0, 0), p => p.X == 0)); // already there
+        Assert.Null(grid.FindPathTo(new Point(0, 0), p => p.X == 5)); // no such subtile
+    }
+}

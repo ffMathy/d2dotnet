@@ -166,47 +166,18 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         EnterWarp(warp, step.To.Id);
     }
 
-    // Walks to the nearest point of the border, then into the next level until the game says the player is there.
+    // Walks into the next level: along the shortest path to the first of its subtiles that is a little way past the
+    // border (searched outwards from the player, so a fenced town is entered through its gate), until the game says
+    // the player is there.
     private void CrossSeam(RouteStep step, bool fight)
     {
         var grid = new MapGrid(step.From, step.To);
-        var here = Player().Position;
-        var border = step.From.ToWorld(step.Exits.MinBy(e => Distance(here, step.From.ToWorld(e.Position))).Position);
-        var inside = PointInside(grid, step.To, border, here)
-            ?? throw new BotStopped($"No reachable point of {step.To.Id} near its border with {step.From.Id} at {border}.");
-        WalkTo(grid, inside, arriveWithin: 6, fight, until: () => Player().Area == step.To.Id);
+        var path = grid.FindPathTo(Player().Position, p => grid.LevelAt(p) == step.To && DistanceToOtherLevel(grid, step.To, p) >= 6)
+            ?? throw new BotStopped($"No way from {Player().Position} into {step.To.Id}.");
+        var inside = path[^1];
+        WalkTo(grid, inside, arriveWithin: 4, fight, until: () => Player().Area == step.To.Id);
         if (Player().Area != step.To.Id && !WaitForArea(step.To.Id, seconds: 3))
             throw new BotStopped($"Walked to {inside} but the game does not say the player is in {step.To.Id}.");
-    }
-
-    // A walkable point of the next level, about 10 subtiles past the border, that a path from the player reaches; the
-    // search goes outwards from the border's point (exits are room centres, which can be cut off by a river or a wall).
-    private static Point? PointInside(MapGrid grid, MapLevel next, Point border, Point from)
-    {
-        for (var radius = 0; radius <= 60; radius += 4)
-        {
-            var candidates = new List<Point>();
-            for (var dy = -radius; dy <= radius; dy += 2)
-            {
-                for (var dx = -radius; dx <= radius; dx += 2)
-                {
-                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) < radius - 3)
-                        continue;
-                    var p = new Point(border.X + dx, border.Y + dy);
-                    if (grid.LevelAt(p) == next && grid.IsWalkable(p))
-                        candidates.Add(p);
-                }
-            }
-
-            // Prefer the points a little way in, so the walk ends past the border rather than on it.
-            foreach (var p in candidates.OrderBy(p => Math.Abs(DistanceToOtherLevel(grid, next, p) - 10)).Take(12))
-            {
-                if (grid.FindPath(from, p) is not null)
-                    return p;
-            }
-        }
-
-        return null;
     }
 
     // How far a point is from the nearest subtile that is not in the level (up to 20), along the four axes.

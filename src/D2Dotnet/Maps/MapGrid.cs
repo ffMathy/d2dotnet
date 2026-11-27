@@ -198,6 +198,57 @@ public sealed class MapGrid
         bool Inside(Point p) => p.X >= Bounds.X && p.Y >= Bounds.Y && p.X < Bounds.X + width && p.Y < Bounds.Y + height;
     }
 
+    /// <summary>
+    /// The shortest path from <paramref name="from"/> (moved to the nearest walkable subtile) to the nearest walkable
+    /// subtile <paramref name="isGoal"/> accepts, such as the first subtiles of the next level: every subtile on the way,
+    /// both ends included. Null when no goal can be reached. The same steps as <see cref="FindPath"/>; no heuristic, so
+    /// it searches outwards evenly.
+    /// </summary>
+    public IReadOnlyList<Point>? FindPathTo(Point from, Func<Point, bool> isGoal)
+    {
+        ArgumentNullException.ThrowIfNull(isGoal);
+        if (NearestWalkable(from) is not { } start)
+            return null;
+
+        int width = Bounds.Width, height = Bounds.Height;
+        var cost = new float[width * height];
+        Array.Fill(cost, float.PositiveInfinity);
+        var parent = new int[width * height];
+        var open = new PriorityQueue<Point, float>();
+        cost[Index(start)] = 0;
+        open.Enqueue(start, 0);
+
+        while (open.TryDequeue(out var current, out var currentCost))
+        {
+            if (currentCost > cost[Index(current)])
+                continue; // a stale entry
+            if (isGoal(current))
+                return Unwind(parent, Index(start), Index(current));
+
+            foreach (var (dx, dy, stepCost) in Steps)
+            {
+                var next = new Point(current.X + dx, current.Y + dy);
+                if (!Inside(next) || !IsWalkable(next))
+                    continue;
+                if (dx != 0 && dy != 0 && (!IsWalkable(new Point(current.X + dx, current.Y)) || !IsWalkable(new Point(current.X, current.Y + dy))))
+                    continue;
+
+                var nextCost = currentCost + stepCost;
+                var i = Index(next);
+                if (nextCost >= cost[i])
+                    continue;
+                cost[i] = nextCost;
+                parent[i] = Index(current);
+                open.Enqueue(next, nextCost);
+            }
+        }
+
+        return null;
+
+        int Index(Point p) => (p.Y - Bounds.Y) * width + (p.X - Bounds.X);
+        bool Inside(Point p) => p.X >= Bounds.X && p.Y >= Bounds.Y && p.X < Bounds.X + width && p.Y < Bounds.Y + height;
+    }
+
     // Octile distance: exact for eight-way steps on an empty grid, so A* stays optimal.
     private static float Heuristic(Point a, Point b)
     {
