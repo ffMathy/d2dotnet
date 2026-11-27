@@ -13,6 +13,10 @@ public sealed partial class GameReader
     internal const nuint ObjectTable = 2 * 1024;
     internal const nuint ItemTable = 4 * 1024;
 
+    // A monster unit's mode (+0x0C) while it dies and once it is dead.
+    internal const uint MonsterModeDeath = 0;
+    internal const uint MonsterModeDead = 12;
+
     // objects.txt OperateFn of shrines.
     internal const int ShrineOperateFn = 2;
 
@@ -60,7 +64,9 @@ public sealed partial class GameReader
                 var id = new UnitId(BinaryPrimitives.ReadUInt32LittleEndian(data[0x08..]));
                 var unitData = (nuint)BinaryPrimitives.ReadUInt64LittleEndian(data[0x10..]);
                 var typeFlag = Process.ReadByte(unitData + 0x1A);
-                var isCorpse = Process.ReadByte(unit + 0x1A6) != 0;
+                // Dying (mode 0) or dead (12). d2go read a flag at +0x1A6, which Reign of the Warlock no longer sets for
+                // dead monsters (observed in a running game: every corpse in mode 12, the byte 0).
+                var isCorpse = BinaryPrimitives.ReadUInt32LittleEndian(data[0x0C..]) is MonsterModeDeath or MonsterModeDead;
 
                 var path = Process.ReadPointer(unit + 0x38);
                 var position = new Point(Process.ReadUInt16(path + 0x02), Process.ReadUInt16(path + 0x06));

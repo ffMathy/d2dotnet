@@ -207,7 +207,7 @@ internal sealed class GameImage
         // Monster stats: pointer at +0x30, count at +0x38, 8-byte entries (layer u16, id u16, value u32).
         WriteStatList(statsEx + 0x30, stats ?? []);
         Memory.WriteU64(unit + 0x88, statsEx);
-        Memory.WriteU8(unit + 0x1A6, corpse ? (byte)1 : (byte)0);
+        Memory.WriteU32(unit + 0x0C, corpse ? GameReader.MonsterModeDead : 1); // dead, or neutral
         Link(MonsterTable, bucket, unit);
         return unit;
     }
