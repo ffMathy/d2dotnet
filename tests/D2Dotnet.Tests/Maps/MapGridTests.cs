@@ -215,3 +215,25 @@ public sealed class PathToGoalTests
         Assert.Null(grid.FindPathTo(new Point(0, 0), p => p.X == 5)); // no such subtile
     }
 }
+
+/// <summary>Obstacles added to a grid.</summary>
+public sealed class BlockTests
+{
+    [Fact]
+    public void Block_MakesSubtilesUnwalkable_AndPathsGoRound_UntilCleared()
+    {
+        var level = new MapLevel { Id = AreaId.BloodMoor, Bounds = new Rect(0, 0, 1, 1), Collision = new CollisionMap(5, 5, new ushort[25]) };
+        var grid = new MapGrid(level);
+        Assert.Equal(5, grid.FindPath(new Point(0, 2), new Point(4, 2))!.Count); // straight across
+
+        grid.Block(new Point(2, 2), radius: 1);
+        Assert.Equal(9, grid.Blocked.Count);
+        Assert.False(grid.IsWalkable(new Point(3, 3)));
+        var path = grid.FindPath(new Point(0, 2), new Point(4, 2))!;
+        Assert.DoesNotContain(path, p => Math.Abs(p.X - 2) <= 1 && Math.Abs(p.Y - 2) <= 1);
+
+        grid.ClearBlocks();
+        Assert.True(grid.IsWalkable(new Point(2, 2)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => grid.Block(new Point(0, 0), -1));
+    }
+}

@@ -235,6 +235,11 @@ internal sealed class QuestRunner(Bot bot)
             {
                 died = death;
             }
+            catch (Stuck stuck)
+            {
+                // Counted as a try: the next one starts from where the character is.
+                Bot.Log($"{stuck.Message} Trying {quest.Id} again.");
+            }
 
             // Back to life in town and to the corpse; dying on the way there starts that again.
             while (died is { } death)

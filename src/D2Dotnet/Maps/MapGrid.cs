@@ -7,7 +7,8 @@ namespace D2Dotnet.Maps;
 /// <remarks>
 /// A subtile is walkable when the first level whose collision map covers it says so (<see cref="CollisionMap.IsWalkable(Point)"/>).
 /// Paths are A* over the eight neighbours of a subtile, diagonal steps costing √2, and never cut a corner: a diagonal
-/// step needs both subtiles beside it to be walkable.
+/// step needs both subtiles beside it to be walkable. <see cref="Block"/> adds obstacles the collision map does not
+/// hold; a grid with blocks is not thread-safe.
 /// </remarks>
 public sealed class MapGrid
 {
@@ -61,8 +62,31 @@ public sealed class MapGrid
         return null;
     }
 
-    /// <summary>True when <paramref name="world"/> is walkable.</summary>
-    public bool IsWalkable(Point world) => LevelAt(world) is { } level && level.Collision!.IsWalkable(level.ToLocal(world));
+    /// <summary>True when <paramref name="world"/> is walkable: the collision map says so and it is not <see cref="Block"/>ed.</summary>
+    public bool IsWalkable(Point world) =>
+        !_blocked.Contains(world) && LevelAt(world) is { } level && level.Collision!.IsWalkable(level.ToLocal(world));
+
+    private readonly HashSet<Point> _blocked = [];
+
+    /// <summary>The subtiles <see cref="Block"/> made unwalkable.</summary>
+    public IReadOnlyCollection<Point> Blocked => _blocked;
+
+    /// <summary>
+    /// Makes the subtiles within <paramref name="radius"/> of <paramref name="world"/> (Chebyshev distance) unwalkable,
+    /// for something the collision map does not hold, such as a unit or an object in the way; paths go round them.
+    /// </summary>
+    public void Block(Point world, int radius = 0)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(radius);
+        for (var dy = -radius; dy <= radius; dy++)
+        {
+            for (var dx = -radius; dx <= radius; dx++)
+                _blocked.Add(new Point(world.X + dx, world.Y + dy));
+        }
+    }
+
+    /// <summary>Makes every <see cref="Block"/>ed subtile walkable again.</summary>
+    public void ClearBlocks() => _blocked.Clear();
 
     /// <summary>
     /// True when nothing <paramref name="blocking"/> lies on the line from <paramref name="from"/> to

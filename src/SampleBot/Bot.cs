@@ -252,9 +252,19 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 ?? throw new BotStopped($"No path from {Player().Position} to {target}.");
             var step = path[Math.Min(StepLength, path.Count - 1)];
             if (MoveTo(step))
+            {
                 failures = 0;
-            else if (++failures >= 6)
-                throw new BotStopped($"Stuck at {Player().Position} on the way to {target}.");
+            }
+            else if (++failures >= 10)
+            {
+                throw new Stuck($"Stuck at {Player().Position} on the way to {target}.");
+            }
+            else if (failures % 3 == 0)
+            {
+                // Something the map does not show is in the way (a unit, a barrel): go round the spot.
+                grid.Block(path[Math.Min(3, path.Count - 1)], radius: 1);
+                Log($"Blocked at {Player().Position}: going round.");
+            }
         }
     }
 
@@ -298,7 +308,15 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             var here = Player().Position;
             var next = Enumerable.Range(0, rooms.Count).Where(i => !visited.Contains(i)).MinBy(i => Distance(here, rooms[i]));
             Log($"{level.Id}: room {visited.Count + 1} of {rooms.Count}.");
-            WalkTo(grid, rooms[next], arriveWithin: 8, fight: true, until: until);
+            try
+            {
+                WalkTo(grid, rooms[next], arriveWithin: 8, fight: true, until: until);
+            }
+            catch (Stuck stuck)
+            {
+                Log($"{stuck.Message} Skipping the room.");
+            }
+
             here = Player().Position;
             for (var i = 0; i < rooms.Count; i++)
             {
@@ -723,10 +741,13 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 }
 
 /// <summary>The bot stopped on purpose, with the reason.</summary>
-internal sealed class BotStopped(string reason) : Exception(reason);
+internal class BotStopped(string reason) : Exception(reason);
 
 /// <summary>Life is low and nothing is left to drink: the bot retreats to town (see <see cref="Bot.Retreat"/>).</summary>
 internal sealed class LowLife(string reason) : Exception(reason);
+
+/// <summary>The bot could not get past something on the way (see <see cref="Bot.WalkTo"/>).</summary>
+internal sealed class Stuck(string reason) : BotStopped(reason);
 
 /// <summary>The character died, here (see <see cref="Bot.Respawn"/>).</summary>
 internal sealed class Died(AreaId area, Point position) : Exception($"Died in {area} at {position}.")

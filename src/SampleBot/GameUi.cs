@@ -87,6 +87,7 @@ internal sealed class GameUi(Bot bot)
         var before = bot.Player().BaseStats.GetValue(stat) ?? 0;
         var done = ClickUntil(LeftAnchor, LeftPanel, (StatButtonX, StatButtonY[index]), () => (bot.Player().BaseStats.GetValue(stat) ?? 0) > before);
         Bot.Log(done ? $"Spent a stat point on {stat} ({before + 1})." : $"Could not spend a stat point on {stat}.");
+        Thread.Sleep(150);
         return done;
     }
 
@@ -121,6 +122,7 @@ internal sealed class GameUi(Bot bot)
         if (hit.Count > 0)
             throw new BotStopped($"A click meant for {skill} spent a point on {string.Join(", ", hit)}: the skill tree positions are off.");
         Bot.Log(done ? $"Spent a skill point on {skill} ({before + 1})." : $"Could not spend a skill point on {skill}.");
+        Thread.Sleep(300);
         return done;
     }
 
@@ -154,8 +156,9 @@ internal sealed class GameUi(Bot bot)
     private bool ClickUntil((double X, double Y) anchor, (int X, int Y) panel, (int X, int Y) button, Func<bool> done)
     {
         var scales = Scales();
+        // A known calibration is tried twice: a click right after the previous point can go unnoticed.
         var tries = _calibration is { } known
-            ? [(Index: -1, known.Scale, known.Inside)]
+            ? [(Index: -1, known.Scale, known.Inside), (Index: -1, known.Scale, known.Inside)]
             : Enumerable.Range(0, scales.Length).SelectMany(i => Insides.Select(inside => (Index: i, Scale: scales[i], Inside: inside))).ToArray();
         foreach (var (index, scale, inside) in tries)
         {
