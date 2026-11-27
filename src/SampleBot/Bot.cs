@@ -261,9 +261,18 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             }
             else if (failures % 3 == 0)
             {
-                // Something the map does not show is in the way (a unit, a barrel): go round the spot.
+                // Something the map does not show is in the way (a unit, a barrel): step back a little in a free
+                // direction, and go round the spot.
                 grid.Block(path[Math.Min(3, path.Count - 1)], radius: 1);
-                Log($"Blocked at {Player().Position}: going round.");
+                var here = Player().Position;
+                var back = new[] { (6, 0), (-6, 0), (0, 6), (0, -6), (5, 5), (-5, -5), (5, -5), (-5, 5) }
+                    .Select(d => new Point(here.X + d.Item1, here.Y + d.Item2))
+                    .Where(grid.IsWalkable)
+                    .OrderBy(_ => Random.Shared.Next())
+                    .FirstOrDefault();
+                if (back != default)
+                    MoveTo(back);
+                Log($"Blocked at {here}: going round.");
             }
         }
     }
@@ -579,10 +588,19 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         PotionType? need = life < 30 ? PotionType.Rejuvenation : life < 50 ? PotionType.Healing : mana < 15 ? PotionType.Mana : null;
         if (need is null)
             return;
-        // Out of mana with nothing to drink for it: a caster cannot fight, so back to town (the healer restores mana).
+        // Out of mana with nothing to drink for it: a caster cannot fight. With no monster near, mana comes back on its
+        // own (wait for it); with monsters near, back to town (the healer restores mana).
         if (need == PotionType.Mana && belt.FindPotion(PotionType.Mana) is null && belt.FindPotion(PotionType.Rejuvenation) is null
             && mana < 5 && !_retreating && !Healers.ContainsKey(player.Area) && player.Class == CharacterClass.Sorceress)
-            throw new LowLife($"Mana is at {mana}% and the belt has no mana potion left.");
+        {
+            if (Enemies(player.Position, 20).Any())
+                throw new LowLife($"Mana is at {mana}% with monsters near, and the belt has no mana potion left.");
+            var deadline = DateTime.UtcNow.AddSeconds(20);
+            while (DateTime.UtcNow < deadline && (Player().ManaPercent ?? 100) < 50 && !Enemies(Player().Position, 20).Any())
+                Thread.Sleep(500);
+            _lastPotion = DateTime.UtcNow;
+            return;
+        }
         var potion = belt.FindPotion(need.Value) ?? (need == PotionType.Rejuvenation ? belt.FindPotion(PotionType.Healing) : null);
         if (potion is null)
         {

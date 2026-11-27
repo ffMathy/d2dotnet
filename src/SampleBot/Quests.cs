@@ -256,6 +256,10 @@ internal sealed class QuestRunner(Bot bot)
                 {
                     died = retreatDeath;
                 }
+                catch (Stuck stuck)
+                {
+                    Bot.Log($"{stuck.Message} (retreating) Trying again.");
+                }
             }
             catch (Died death)
             {
@@ -281,6 +285,10 @@ internal sealed class QuestRunner(Bot bot)
                 {
                     died = again;
                 }
+                catch (Stuck stuck)
+                {
+                    Bot.Log($"{stuck.Message} (going for the corpse) Trying again later.");
+                }
                 catch (LowLife low)
                 {
                     // Hurt again on the way to the corpse: back to town; the corpse waits for the next try.
@@ -291,6 +299,10 @@ internal sealed class QuestRunner(Bot bot)
                     catch (Died again)
                     {
                         died = again;
+                    }
+                    catch (Stuck stuck)
+                    {
+                        Bot.Log($"{stuck.Message} (retreating) Trying again.");
                     }
                 }
             }
