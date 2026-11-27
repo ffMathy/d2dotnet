@@ -59,7 +59,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         if (Native.IsKeyDown(Native.VkEnd))
             throw new BotStopped("End pressed.");
         var player = reader.ReadMainPlayer() ?? throw new BotStopped("Not in a game any more.");
-        if (!_respawning && player.GetStat(StatId.Life) is 0)
+        if (!_respawning && (player.GetStat(StatId.Life) ?? 0) == 0) // a dead character has no life stat left, or 0
             throw new Died(player.Area, player.Position);
         return player;
     }
@@ -77,7 +77,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         try
         {
             var deadline = DateTime.UtcNow.AddSeconds(30);
-            while (DateTime.UtcNow < deadline && reader.ReadMainPlayer() is { } p && p.GetStat(StatId.Life) is 0)
+            while (DateTime.UtcNow < deadline && reader.ReadMainPlayer() is { } p && (p.GetStat(StatId.Life) ?? 0) == 0)
             {
                 input.PressKey(Native.VkEscape);
                 Thread.Sleep(1500);
@@ -88,7 +88,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             _respawning = false;
         }
 
-        if (reader.ReadMainPlayer() is not { } back || back.GetStat(StatId.Life) is 0)
+        if (reader.ReadMainPlayer() is not { } back || (back.GetStat(StatId.Life) ?? 0) == 0)
             throw new BotStopped("Pressing Esc did not bring the character back.");
         WaitForArea(back.Area, seconds: 10);
         HealInTown(below: 100);
