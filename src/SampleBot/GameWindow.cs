@@ -38,6 +38,14 @@ internal sealed class GameWindow
         return (origin.X, origin.Y, rect.Right - rect.Left, rect.Bottom - rect.Top);
     }
 
+    /// <summary>The cursor in client coordinates, packed as a mouse message's lParam (y in the high word).</summary>
+    public nint CursorInClient()
+    {
+        Native.GetCursorPos(out var point);
+        Native.ScreenToClient(Handle, ref point);
+        return (nint)((point.Y << 16) | (point.X & 0xFFFF));
+    }
+
     /// <summary>Where <paramref name="target"/> (world subtiles) is on screen, seen from a player at <paramref name="player"/>.</summary>
     public (int X, int Y) ToScreen(Point player, Point target, int aimHeight = 0)
     {

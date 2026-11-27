@@ -9,10 +9,12 @@ using D2Dotnet.Memory;
 /// every room of the Den, fighting the monsters it meets with the right skill and drinking potions from the belt.
 /// </summary>
 /// <remarks>
-/// It only reads the game's memory and sends the mouse and keys a player would. It pauses while the game is not the
-/// foreground window and stops when End is pressed, when life is low with no potion left, or when it is stuck.
+/// It only reads the game's memory and sends the mouse and keys a player would: as window messages (the game can be in
+/// the background; the real cursor is borrowed for about 80 ms per click or key, as the game aims at it) or synthesized
+/// (the game must be in front, and the bot pauses while it is not). It stops when End is pressed, when life is low with
+/// no potion left, or when it is stuck.
 /// </remarks>
-internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct act, GameWindow window, KeyBindings keys)
+internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct act, GameWindow window, KeyBindings keys, IGameInput input)
 {
     private const int FightRange = 18;     // subtiles: monsters nearer than this are fought
     private const int StepLength = 10;     // subtiles between the points the bot moves to
@@ -30,6 +32,103 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
             throw new BotStopped($"Start in the Rogue Encampment, the Blood Moor or the Den of Evil, not in {player.Area}.");
 
         ClearTheDen();
+    }
+
+    /// <summary>
+    /// Checks the input in the game, starting in the Rogue Encampment or the Blood Moor: force-moves to three points,
+    /// walks by clicking, then (walking into the Blood Moor first) casts the right skill once at the nearest monster,
+    /// standing still.
+    /// </summary>
+    public void CheckInput()
+    {
+        var player = Player();
+        if (player.Area is not (AreaId.RogueEncampment or AreaId.BloodMoor))
+            throw new BotStopped($"Start the input check in the Rogue Encampment or the Blood Moor, not in {player.Area}.");
+        Log($"Checking the input ({(input.NeedsForeground ? "synthesized; the game must stay in front" : "posted; the game can be in the background")}).");
+        Calibrate();
+
+        var town = act[AreaId.RogueEncampment];
+        var moor = act[AreaId.BloodMoor];
+        var grid = new MapGrid(town, moor);
+
+        // 1. Force move (a key) to three nearby points.
+        var moved = 0;
+        foreach (var (dx, dy) in new[] { (8, 0), (0, 8), (-8, -8) })
+        {
+            var from = Player().Position;
+            if (grid.NearestWalkable(new Point(from.X + dx, from.Y + dy), 3) is not { } point)
+                continue;
+            var ok = MoveTo(point);
+            moved += ok ? 1 : 0;
+            Log($"Force move from {from} to {point}: {(ok ? "arrived" : "did not arrive")}, now at {Player().Position}.");
+        }
+
+        // 2. A left click on the ground.
+        {
+            var from = Player().Position;
+            var point = grid.NearestWalkable(new Point(from.X - 8, from.Y), 3) ?? from;
+            Aim(from, point, aimHeight: 0);
+            input.LeftClick();
+            Thread.Sleep(1500);
+            var now = Player().Position;
+            Log($"Click from {from} to {point}: now at {now} ({(Distance(now, point) <= 3 ? "arrived" : "did not arrive")}).");
+        }
+
+        // 3. Into the Blood Moor, and one cast at the nearest monster.
+        if (Player().Area == AreaId.RogueEncampment)
+        {
+            var here = Player().Position;
+            var seam = town.Exits.Where(e => e.Destination == AreaId.BloodMoor).MinBy(e => Distance(here, town.ToWorld(e.Position)));
+            var inside = moor.Exits.Where(e => e.Destination == AreaId.RogueEncampment).MinBy(e => Distance(town.ToWorld(seam.Position), moor.ToWorld(e.Position)));
+            Log("Walking into the Blood Moor.");
+            WalkTo(grid, moor.ToWorld(inside.Position), arriveWithin: 6, fight: false);
+        }
+
+        // Walk towards the nearest enemy until it is within 14 subtiles (or 40 s pass).
+        var deadline = DateTime.UtcNow.AddSeconds(40);
+        Monster? target = null;
+        while (DateTime.UtcNow < deadline && (target = Enemies(Player().Position, 15).FirstOrDefault()) is null)
+        {
+            var nearest = Enemies(Player().Position, 100).FirstOrDefault();
+            if (nearest is null || grid.FindPath(Player().Position, nearest.Position) is not { Count: > 1 } path)
+            {
+                Thread.Sleep(300);
+                continue;
+            }
+
+            MoveTo(path[Math.Min(StepLength, path.Count - 1)]);
+        }
+        if (target is null)
+        {
+            Log($"Input check: {moved} of 3 force moves arrived; no monster came within 15 subtiles to cast at.");
+            return;
+        }
+
+        var before = Player();
+        var cost = data.Skills.Find(before.RightSkill)?.ManaCost(before.Skills.TryGetValue(before.RightSkill, out var points) ? points.Level : 1) ?? 0;
+        var casts = 0;
+        for (var i = 0; i < 3; i++)
+        {
+            var wait = DateTime.UtcNow.AddSeconds(40);
+            while ((Player().GetStat(StatId.Mana) ?? 0) < cost + 0.5 && DateTime.UtcNow < wait)
+                Thread.Sleep(500);
+            var start = Player();
+            if (reader.ReadMonsters().FirstOrDefault(m => m.Id == target.Id && m.IsEnemy) is not { } now)
+                now = Enemies(start.Position, 15).FirstOrDefault();
+            if (now is null)
+                break;
+            Aim(start.Position, now.Position, window.AimHeight);
+            input.RightClickStandingStill();
+            Thread.Sleep(1200);
+            var end = Player();
+            var used = (start.GetStat(StatId.Mana) ?? 0) - (end.GetStat(StatId.Mana) ?? 0);
+            var walked = Distance(start.Position, end.Position);
+            if (used >= cost * 0.8 && walked <= 1)
+                casts++;
+            Log($"Cast {start.RightSkill} (costs {cost:0.#}) at {now.Class} {Distance(start.Position, now.Position):F0} subtiles away: mana {start.GetStat(StatId.Mana)} -> {end.GetStat(StatId.Mana)}, walked {walked:F0} subtiles.");
+        }
+
+        Log($"Input check: {moved} of 3 force moves arrived; {casts} of 3 casts used the mana while standing still.");
     }
 
     /// <summary>Prints what the bot would do from where the player is, without sending any input.</summary>
@@ -161,12 +260,11 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
             var player = Player();
             foreach (var spot in Spiral(around, radius: 14, step: 2))
             {
-                Aim(player.Position, spot, aimHeight: 0);
-                Thread.Sleep(40);
-                if (reader.ReadHover() is { Type: UnitType.Tile })
+                var aim = Aim(player.Position, spot, aimHeight: 0);
+                if (input.Peek(aim, reader.ReadHover) is { Type: UnitType.Tile })
                 {
                     Log($"Entering {destination}.");
-                    Native.LeftClick();
+                    input.LeftClick();
                     if (WaitForArea(destination, seconds: 8))
                         return;
                     break;
@@ -222,14 +320,12 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
             if (CanCast(player, player.RightSkill))
             {
                 // The right skill, standing still (shift) so a miss does not walk into the pack.
-                Native.KeyDown(Native.VkShift);
-                Native.RightClick();
-                Native.KeyUpFor(Native.VkShift);
+                input.RightClickStandingStill();
             }
             else
             {
                 // Not enough mana for it: the left skill, walking up to the monster.
-                Native.LeftClick();
+                input.LeftClick();
             }
 
             Thread.Sleep(250);
@@ -238,10 +334,10 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
         Log($"Gave up on monster {id.Value} after 12 s.");
     }
 
-    // True when the player has the mana for the skill at its current level (the game keeps mana in 1/256 points).
+    // True when the player has the mana for the skill at its current level (the player's mana stat is in whole points).
     private bool CanCast(MainPlayer player, SkillId skill)
     {
-        var mana = (player.GetStat(StatId.Mana) ?? 0) / 256.0;
+        var mana = player.GetStat(StatId.Mana) ?? 0;
         var level = player.Skills.TryGetValue(skill, out var points) ? points.Level : 1;
         return data.Skills.Find(skill) is not { } info || mana >= info.ManaCost(level);
     }
@@ -303,9 +399,8 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
                 var player = Player();
                 if (reader.ReadMonsters().FirstOrDefault(m => m.Id == unit.Id) is not { } now)
                     break;
-                Aim(player.Position, now.Position, height);
-                Thread.Sleep(150);
-                if (reader.ReadHover() is { } hover && hover.Id == unit.Id)
+                var aim = Aim(player.Position, now.Position, height);
+                if (input.Peek(aim, reader.ReadHover) is { } hover && hover.Id == unit.Id)
                 {
                     window.AimHeight = height;
                     Log($"Screen mapping checked on {unit.Class}: aiming {height} pixels above the feet.");
@@ -338,7 +433,7 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
     private void WaitWhileNotForeground()
     {
         var announced = false;
-        while (!window.IsForeground)
+        while (input.NeedsForeground && !window.IsForeground)
         {
             if (!announced)
                 Log("Paused: the game is not the foreground window.");
@@ -349,7 +444,8 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
         }
     }
 
-    private void Aim(Point player, Point target, int aimHeight)
+    // Aims the next click or key at target (and returns where that is on screen).
+    private (int X, int Y) Aim(Point player, Point target, int aimHeight)
     {
         var screen = window.ToScreen(player, target, aimHeight);
         if (!window.IsClickable(screen))
@@ -357,21 +453,19 @@ internal sealed class DenBot(GameReader reader, GameDatabase data, GeneratedAct 
             // Off screen or over the bottom panel: aim at the same direction, closer.
             var halfway = new Point((player.X + target.X) / 2, (player.Y + target.Y) / 2);
             if (halfway != target && halfway != player)
-            {
-                Aim(player, halfway, aimHeight);
-                return;
-            }
+                return Aim(player, halfway, aimHeight);
         }
 
-        Native.SetCursorPos(screen.X, screen.Y);
+        input.AimAt(screen);
+        return screen;
     }
 
-    private static void Press(KeyBinding binding)
+    private void Press(KeyBinding binding)
     {
         var key = binding.Primary is { IsNone: false, First: not 0xFF } ? binding.Primary : binding.Secondary;
         if (key.IsNone || key.First == 0xFF)
             throw new BotStopped("A key the bot needs (force move or a belt slot) is not bound.");
-        Native.PressKey(key.First);
+        input.PressKey(key.First);
     }
 
     private static IEnumerable<Point> Spiral(Point centre, int radius, int step)

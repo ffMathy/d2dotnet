@@ -59,6 +59,17 @@ internal static partial class Native
     [LibraryImport("user32.dll")]
     public static partial short GetAsyncKeyState(int virtualKey);
 
+    [LibraryImport("user32.dll", EntryPoint = "SendMessageW")]
+    public static partial nint SendMessage(nint window, uint message, nint wParam, nint lParam);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetCursorPos(out PointI point);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ScreenToClient(nint window, ref PointI point);
+
     [LibraryImport("user32.dll")]
     private static partial uint MapVirtualKeyW(uint code, uint mapType);
 
@@ -66,6 +77,8 @@ internal static partial class Native
     private static unsafe partial uint SendInput(uint count, Input* inputs, int size);
 
     public static bool IsKeyDown(int virtualKey) => (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
+
+    public static uint ScanCode(int virtualKey) => MapVirtualKeyW((uint)virtualKey, 0);
 
     public static void LeftClick() => Mouse(MouseLeftDown, MouseLeftUp);
 
@@ -98,7 +111,7 @@ internal static partial class Native
         var input = new Input
         {
             Type = InputKeyboard,
-            KeyScan = (ushort)MapVirtualKeyW((uint)virtualKey, 0),
+            KeyScan = (ushort)ScanCode(virtualKey),
             KeyFlags = KeyScanCode | (up ? KeyUp : 0),
         };
         SendInput(1, &input, sizeof(Input));
