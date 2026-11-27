@@ -158,7 +158,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         while (Distance(Player().Position, target) > arriveWithin && until?.Invoke() != true)
         {
             if (fight)
+            {
                 FightNearby(FightRange);
+                PickUpNearby();
+            }
 
             var path = grid.FindPath(Player().Position, target)
                 ?? throw new BotStopped($"No path from {Player().Position} to {target}.");
@@ -307,6 +310,52 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             return false;
         var mana = player.GetStat(StatId.Mana) ?? 0;
         return data.Skills.Find(skill) is not { } info || mana >= info.ManaCost(Math.Max(1, (int)points.Level));
+    }
+
+    // ---- Picking up ----
+
+    private readonly HashSet<UnitId> _unreachableItems = [];
+
+    // What the bot picks up: potions for the belt, and gold.
+    private static bool IsWanted(Item item) =>
+        item.Class == ItemId.Gold || item.IsPotionOf(PotionType.Healing) || item.IsPotionOf(PotionType.Mana) || item.IsPotionOf(PotionType.Rejuvenation);
+
+    /// <summary>Picks up the potions and gold on the ground within <paramref name="range"/>, nearest first.</summary>
+    public void PickUpNearby(int range = 15)
+    {
+        for (var picked = 0; picked < 12; picked++)
+        {
+            var player = Player();
+            var item = reader.ReadInventory().Items
+                .Where(i => i.Location == ItemLocation.Ground && IsWanted(i) && !_unreachableItems.Contains(i.Id) && Distance(player.Position, i.Position) <= range)
+                .MinBy(i => Distance(player.Position, i.Position));
+            if (item is null)
+                return;
+
+            if (Distance(player.Position, item.Position) > 3)
+                WalkTo(GridHere(), item.Position, arriveWithin: 2, fight: false);
+
+            // Items lie on the ground: aim low, and click only once the game says the item is under the cursor.
+            var clicked = false;
+            foreach (var height in new[] { 5, 15, 0, 25 })
+            {
+                var aim = Aim(Player().Position, item.Position, height);
+                if (input.Peek(aim, reader.ReadHover) is { Type: UnitType.Item } hover && hover.Id == item.Id)
+                {
+                    input.LeftClick();
+                    clicked = true;
+                    break;
+                }
+            }
+
+            var deadline = DateTime.UtcNow.AddSeconds(2);
+            while (clicked && DateTime.UtcNow < deadline && reader.ReadInventory().Items.Any(i => i.Id == item.Id && i.Location == ItemLocation.Ground))
+                Thread.Sleep(100);
+            if (!clicked || reader.ReadInventory().Items.Any(i => i.Id == item.Id && i.Location == ItemLocation.Ground))
+                _unreachableItems.Add(item.Id);
+            else
+                Log($"Picked up {item.Class}.");
+        }
     }
 
     // ---- Potions ----
