@@ -116,6 +116,17 @@ SOFTWARE.
 TACTLib (<https://github.com/overtools/TACTLib>, MIT) was used only to cross-check the TVFS header; none of its code
 is carried over.
 
+## MapAssist and koolo (memory offsets only)
+
+`GameReader.ReadMapContext` (`src/D2Dotnet/Memory/GameReader.Map.cs`) reads the map seed and difficulty at offsets
+taken from two other D2R readers. Only those offsets, facts about the game's memory layout, are used; no code is
+carried over from either project.
+
+- MapAssist (<https://github.com/OneXDeveloper/MapAssist>, GPL-3.0): the player unit's act pointer (`+0x20`), the
+  act's act misc pointer (`+0x78`) and the difficulty in act misc (`+0x830`).
+- koolo (<https://github.com/hectorgimenez/koolo>, MIT, Copyright (c) 2022 Koolo): the init and end seed hashes in
+  act misc (`+0x840`, `+0x868`).
+
 ## NuGet dependencies
 
 These are not redistributed in this repository; they are restored from NuGet at build time.

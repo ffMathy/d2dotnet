@@ -56,7 +56,8 @@ native memory pool freed when the call returns), and the tables and parsed tile 
 
 | Type | What it is |
 | --- | --- |
-| `MapGenerator` | `Generate(seed, Difficulty, ActId)` returns a `GeneratedAct`; `GetAreas(ActId)` lists an act's levels. Created by `GameInstall.Maps`, or from a `GameInstall` or a `GameDatabase`. |
+| `MapGenerator` | `Generate(seed, Difficulty, ActId)` returns a `GeneratedAct`; `Generate(MapContext)` generates the act of a context's area (see below); `GetAreas(ActId)` lists an act's levels. Created by `GameInstall.Maps`, or from a `GameInstall` or a `GameDatabase`. |
+| `MapContext` | `Seed`, `Difficulty` and `Area` (with its `Act`): what is needed to rebuild a game's map. `GameReader.ReadMapContext()` and `GameSnapshot.Map` read one from a running game ([memory.md](memory.md)). |
 | `GeneratedAct` | `Act`, `Seed`, `Difficulty`, `StaffTomb` (Act II's true Tal Rasha's Tomb, null elsewhere) and `Levels`; `Find(AreaId)` and the `[AreaId]` indexer look a level up. |
 | `MapLevel` | `Id` (`AreaId`), `Layout` (maze, preset or wilderness), `IsPlaced`, `Bounds`, `Rooms`, `Presets`, `Waypoints`, `Exits`, `Shrines` and `Collision`. |
 | `MapRoom` | A room's `Bounds` and the engine's room type, preset type and picked file. |

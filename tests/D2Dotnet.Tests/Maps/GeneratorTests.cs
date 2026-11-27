@@ -104,4 +104,32 @@ public sealed class GeneratorTests
         Assert.Throws<ArgumentOutOfRangeException>(() => map[3, 0]);
         Assert.Throws<ArgumentException>(() => new CollisionMap(2, 2, new ushort[3]));
     }
+
+    [Theory]
+    [InlineData(AreaId.RogueEncampment, ActId.Act1)]
+    [InlineData(AreaId.CanyonOfTheMagi, ActId.Act2)]
+    [InlineData(AreaId.DuranceOfHateLevel3, ActId.Act3)]
+    [InlineData(AreaId.PandemoniumFortress, ActId.Act4)]
+    [InlineData(AreaId.WorldstoneChamber, ActId.Act5)]
+    public void Generate_FromAMapContext_IsTheAreasAct(AreaId area, ActId act)
+    {
+        var gen = LibD2Fixtures.Generator;
+        var context = new MapContext(0x3607656C, Difficulty.Nightmare, area);
+
+        var fromContext = gen.Generate(context);
+
+        Assert.Equal(act, fromContext.Act);
+        Assert.Equal(Fingerprint(gen.Generate(0x3607656C, Difficulty.Nightmare, act)), Fingerprint(fromContext));
+        Assert.NotNull(fromContext.Find(area));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(5000)]
+    public void Generate_FromAContextWithoutAGameArea_Throws(int area) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => LibD2Fixtures.Generator.Generate(new MapContext(1, Difficulty.Normal, (AreaId)area)));
+
+    [Fact]
+    public void Generate_FromAContextWithAnUnknownDifficulty_Throws() =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => LibD2Fixtures.Generator.Generate(new MapContext(1, (Difficulty)7, AreaId.BloodMoor)));
 }

@@ -14,6 +14,13 @@ public sealed record GameSnapshot
     /// <summary>The player this game client controls; null when not in a game.</summary>
     public MainPlayer? Player { get; init; }
 
+    /// <summary>
+    /// The game's map seed and difficulty and the player's area, for
+    /// <see cref="Maps.MapGenerator.Generate(Maps.MapContext)"/>; null when not in a game or when the seed cannot be
+    /// read.
+    /// </summary>
+    public Maps.MapContext? Map { get; init; }
+
     /// <summary>Every player unit: players, the player's corpse and the shared stash units.</summary>
     public IReadOnlyList<PlayerUnit> Players { get; init; } = [];
 
