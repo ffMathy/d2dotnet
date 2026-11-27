@@ -1,7 +1,7 @@
-// A bot that clears the Den of Evil, offline, for a character standing in the Rogue Encampment (or already in the Blood
-// Moor or the Den). Usage: dotnet run [-- [--plan | --check-input] [--foreground] [<D2R install folder>]].
-//   --plan         prints the route and sends no input.
-//   --check-input  checks moving, clicking and casting from the Rogue Encampment instead of clearing the Den.
+// A bot that plays the game's quests, offline, from the character's current state (see PLAN.md; it knows Den of Evil
+// and Sisters' Burial Grounds so far). Usage: dotnet run [-- [--plan | --check-input] [--foreground] [<D2R folder>]].
+//   --plan         prints the quests the bot knows and their state, and sends no input.
+//   --check-input  checks moving, clicking and casting from the Rogue Encampment or the Blood Moor.
 //   --foreground   synthesizes input (SendInput), which needs the game in front. By default the clicks and keys are
 //                  sent to the game window, which works with the game in the background; the game aims at the real
 //                  cursor, so the bot borrows it for about 80 ms per click or key and puts it back.
@@ -26,7 +26,7 @@ foreach (var missing in reader.Offsets.Missing)
 
 if (reader.ReadMapContext() is not { } context)
 {
-    Console.WriteLine("Not in a game: start one with the character in the Rogue Encampment.");
+    Console.WriteLine("Not in a game: start one with the character first.");
     return 1;
 }
 
@@ -36,16 +36,21 @@ if (reader.IsOnline())
     return 1;
 }
 
-var act = game.Maps.Generate(context);
 var window = GameWindow.Of(process.ProcessId);
-var keys = reader.ReadKeyBindings();
+IGameInput input = foreground ? new ForegroundInput() : new BackgroundInput(window);
+var bot = new Bot(reader, game.Data, game.Maps, window, input);
+var quests = new QuestRunner(bot);
+
 if (planOnly)
 {
-    new DenBot(reader, game.Data, act, window, keys, new BackgroundInput(window)).Plan();
+    var player = reader.ReadMainPlayer()!;
+    Console.WriteLine($"{player.Name} ({player.Class}, level {player.Level}) in {player.Area}; seed 0x{context.Seed:X8}, {context.Difficulty}.");
+    foreach (var quest in QuestRunner.Quests)
+        Console.WriteLine($"  {quest.Id}: {(quest.IsDone(bot) ? "done" : "to do")} ({reader.ReadQuests().GetValueOrDefault(quest.Id)})");
+    Console.WriteLine(quests.Next() is { } next ? $"Next: {next.Id}." : "Every quest the bot knows is done.");
     return 0;
 }
 
-IGameInput input = foreground ? new ForegroundInput() : new BackgroundInput(window);
 if (foreground)
 {
     Console.WriteLine($"Seed 0x{context.Seed:X8}, {context.Difficulty}. Starting in 3 seconds; the game window comes to the front.");
@@ -60,11 +65,16 @@ Thread.Sleep(3000);
 
 try
 {
-    var bot = new DenBot(reader, game.Data, act, window, keys, input);
     if (checkInput)
-        bot.CheckInput();
+    {
+        InputCheck.Run(bot);
+    }
     else
-        bot.Run();
+    {
+        bot.Calibrate();
+        quests.Run();
+    }
+
     return 0;
 }
 catch (BotStopped stopped)
