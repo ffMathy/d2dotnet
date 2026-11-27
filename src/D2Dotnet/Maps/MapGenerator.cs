@@ -89,6 +89,29 @@ public sealed class MapGenerator
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="difficulty"/> or <paramref name="act"/> is not defined.</exception>
     public GeneratedAct Generate(uint seed, Difficulty difficulty, ActId act) => Generate(seed, difficulty, act, null);
 
+    /// <summary>
+    /// Generate the act of a game read from memory: the act Levels.txt gives <see cref="MapContext.Area"/> (or
+    /// <see cref="MapContext.Act"/> when the table lacks the area), for the context's seed and difficulty. The level the player is in is then <c>act[context.Area]</c>.
+    /// </summary>
+    /// <param name="context">The game's map seed, difficulty and area, for example from
+    /// <see cref="Memory.GameReader.ReadMapContext()"/>.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The context's difficulty or area is not defined.</exception>
+    public GeneratedAct Generate(MapContext context)
+    {
+        if (!Enum.IsDefined(context.Area) || context.Area == AreaId.None)
+            throw new ArgumentOutOfRangeException(nameof(context), context.Area, "The context's area is not a game area.");
+        return Generate(context.Seed, context.Difficulty, ActOf(context.Area) ?? context.Act);
+    }
+
+    /// <summary>The act Levels.txt gives an area, or null when the table does not have it.</summary>
+    private ActId? ActOf(AreaId area)
+    {
+        var tb = _data.Tables;
+        for (int row = 0; row < tb.LevelCount; row++)
+            if (tb.LevelAtRow(row) is LevelRow lv && lv.Id == (int)area) return (ActId)lv.Act;
+        return null;
+    }
+
     /// <summary>Test seam: <paramref name="beforeCollision"/> sees each level (a D2DrlgLevelStrc*) after
     /// its rooms and warp exits are read and before its rooms are built for collision.</summary>
     internal GeneratedAct Generate(uint seed, Difficulty difficulty, ActId act, Action<nint>? beforeCollision)

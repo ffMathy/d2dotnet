@@ -64,6 +64,7 @@ public sealed partial class GameReader
         var players = ReadPlayers(hover);
         var mainUnit = players.FirstOrDefault(p => p.IsMainPlayer);
         var player = mainUnit is null ? null : ReadMainPlayer(mainUnit);
+        var map = mainUnit is null ? null : ReadMapContext(mainUnit);
         var origin = player?.Position ?? default;
         var (monsters, corpses) = ReadMonsterTable(origin, hover);
         var widgets = ReadWidgets();
@@ -73,6 +74,7 @@ public sealed partial class GameReader
         return new GameSnapshot
         {
             Player = player,
+            Map = map,
             Players = players,
             Corpse = corpse is null ? null : new PlayerCorpse(corpse.Position, corpse.IsHovered),
             Monsters = monsters,

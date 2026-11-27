@@ -41,8 +41,26 @@ IReadOnlyList<Monster> monsters = reader.ReadMonsters();
 bool inGame = reader.IsInGame();
 ```
 
-The map is not in the snapshot: generate it with `D2Dotnet.Maps` from the map seed and the area (`MapSeed` recovers the
-seed from the game's seed hashes).
+The map of the game is not in memory as a whole, but what generates it is: `snapshot.Map` (or `reader.ReadMapContext()`)
+is a `MapContext` with the game's map seed, difficulty and the player's area, and `D2Dotnet.Maps` rebuilds the map
+from it:
+
+```csharp
+if (reader.ReadMapContext() is { } context)
+{
+    GeneratedAct act = game.Maps.Generate(context);    // the act the player is in
+    MapLevel here = act[context.Area];
+    bool walkable = here.Collision!.IsWalkable(new Point(120, 80));
+}
+```
+
+The reader follows the main player unit (`+0x20`) to its act, the act (`+0x78`) to its act misc structure, and reads
+the difficulty (16 bits at `+0x830`) and the init and end seed hashes (32 bits at `+0x840` and `+0x868`); `MapSeed`
+turns the hashes into the seed. These offsets come from MapAssist (the unit, act and difficulty layout) and koolo (the
+seed hashes) rather than from d2go, which does not read them. MapAssist's 2022 layout has a pointer at `+0x868`, so
+the act misc structure has changed between game patches: like every offset here, they need checking against the D2R
+build in use. The context is null when the player is not in a game, the difficulty is not 0 to 2, or the hashes do
+not give a seed.
 
 ## API
 
@@ -72,7 +90,7 @@ Immutable records; lookups return `null` when there is nothing; numbers have the
 | `WindowsProcessMemory` | `[SupportedOSPlatform("windows")]`: `OpenGame()`, `Open(pid)`, `GetModules(pid)` (`LibraryImport`, AOT-safe) |
 | `ProcessModuleInfo` | A loaded module |
 | `GameProcess` | `Attach()`, `Attach(pid)` (Windows) or `new GameProcess(memory)`; typed reads, `ReadString`, `ReadModule`, `FindPattern` |
-| `GameReader` | `new GameReader(process, database)`; `ReadSnapshot()` and the focused reads `ReadPlayers`, `ReadMainPlayer`, `ReadMonsters`, `ReadCorpses`, `ReadObjects`, `ReadInventory`, `ReadParty`, `ReadQuests`, `ReadKeyBindings`, `ReadTerrorZones`, `ReadMenus`, `ReadHover`, `ReadWidgets`, `ReadOnlineGame`, `ReadSelectedCharacterName`, `IsInGame`, `IsOnline`, `IsLegacyGraphics`, `IsInLobby`, `IsInCharacterSelection`, `IsInCharacterCreation`, `IsWidgetShown`, `IsPlayerInWorld` |
+| `GameReader` | `new GameReader(process, database)`; `ReadSnapshot()` and the focused reads `ReadMapContext`, `ReadPlayers`, `ReadMainPlayer`, `ReadMonsters`, `ReadCorpses`, `ReadObjects`, `ReadInventory`, `ReadParty`, `ReadQuests`, `ReadKeyBindings`, `ReadTerrorZones`, `ReadMenus`, `ReadHover`, `ReadWidgets`, `ReadOnlineGame`, `ReadSelectedCharacterName`, `IsInGame`, `IsOnline`, `IsLegacyGraphics`, `IsInLobby`, `IsInCharacterSelection`, `IsInCharacterCreation`, `IsWidgetShown`, `IsPlayerInWorld` |
 | `GameOffsets` | The offsets found by the pattern scan (`GameOffsets.Find(image)`) |
 | `MapSeed` | `Hash`, `Reverse` (closed form: the multiplier's inverse modulo 2^32) and `TryGetMapSeed` |
 

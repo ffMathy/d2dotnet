@@ -97,6 +97,13 @@ if (snapshot.Player is { } player)
     Item? potion = snapshot.Inventory.Belt.FindPotion(PotionType.Healing);
     int fireImmune = snapshot.Enemies.Count(m => m.IsImmune(Element.Fire));
 }
+
+// The map of the game being played: its seed, difficulty and the player's area, read from memory.
+if (snapshot.Map is { } context)
+{
+    GeneratedAct current = game.Maps.Generate(context);
+    MapLevel here = current[context.Area];
+}
 ```
 
 Attaching needs Windows and the D2R build the memory layout targets. Everything else, including `GameReader`, runs on
