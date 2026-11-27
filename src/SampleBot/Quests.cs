@@ -101,6 +101,9 @@ internal sealed class QuestRunner(Bot bot)
             if (tries > 5)
                 throw new BotStopped($"{quest.Id} is still not done after five tries.");
 
+            // Hurt out in the field (a stopped run, or one that ran out of potions): back to town first.
+            if (bot.Player() is { LifePercent: < 40 } hurt && hurt.Area != bot.Town)
+                bot.Retreat($"Life is at {hurt.LifePercent}%.");
             bot.HealInTown();
             CharacterBuild.SpendPoints(bot, ui);
             try
