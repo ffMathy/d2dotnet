@@ -514,6 +514,15 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         {
             // Monsters that followed (run past while travelling) first: the search takes seconds.
             ClearAround();
+            // A click that did not take the player through (the stairs behind a wall from here, the game's walk there
+            // blocked): right up to the warp's spot first.
+            if (attempt > 0 && GridHere() is var grid
+                && grid.FindPathTo(Player().Position, p => Distance(p, around) <= 3, maxLength: 200) is { Count: > 1 } closer)
+            {
+                Log($"Walking up to the entrance to {destination} at {around}.");
+                WalkTo(grid, closer[^1], arriveWithin: 1, fight: true);
+            }
+
             var player = Player();
             var looked = 0;
             foreach (var spot in Spiral(around, radius: 14, step: 2))
