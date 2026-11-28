@@ -1010,15 +1010,21 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
             // Items lie on the ground: aim low, and click only once the game says the item is under the cursor.
             var clicked = false;
-            foreach (var height in new[] { 5, 15, 0, 25 })
+            foreach (var offset in new[] { new Point(0, 0), new Point(1, 0), new Point(0, 1), new Point(-1, 0), new Point(0, -1) })
             {
-                var aim = Aim(Player().Position, item.Position, height);
-                if (input.Peek(aim, reader.ReadHover) is { Type: UnitType.Item } hover && hover.Id == item.Id)
+                foreach (var height in new[] { 5, 15, 0, 25 })
                 {
-                    input.LeftClick();
-                    clicked = true;
-                    break;
+                    var aim = Aim(Player().Position, new Point(item.Position.X + offset.X, item.Position.Y + offset.Y), height);
+                    if (input.Peek(aim, reader.ReadHover) is { Type: UnitType.Item } hover && hover.Id == item.Id)
+                    {
+                        input.LeftClick();
+                        clicked = true;
+                        break;
+                    }
                 }
+
+                if (clicked)
+                    break;
             }
 
             var deadline = DateTime.UtcNow.AddSeconds(2);
