@@ -286,8 +286,8 @@ public sealed class PlayerTests
         Assert.Equal(new SkillPoints(20, 0, 0), pu.Skills[SkillId.Teleport]); // the later entry wins
         Assert.Equal(new SkillPoints(1, 2, 3), pu.Skills[SkillId.FireBolt]);
         Assert.Equal(new SkillPoints(4, 0, 0), pu.Skills[SkillId.None]);
-        // Active (1), or the current area (3, Cold Plains) even when not active; area 0 is no waypoint even when active.
-        Assert.Equal([AreaId.RogueEncampment, AreaId.ColdPlains, AreaId.StonyField, (AreaId)7], pu.AvailableWaypoints);
+        // Active (1) only, not the current area (3, Cold Plains); area 0 is no waypoint even when active.
+        Assert.Equal([AreaId.RogueEncampment, AreaId.StonyField, (AreaId)7], pu.AvailableWaypoints);
     }
 
     [Fact]

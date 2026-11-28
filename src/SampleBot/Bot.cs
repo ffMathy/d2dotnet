@@ -297,8 +297,6 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         }
     }
 
-    private DateTime _waypointsLearned = DateTime.MinValue;
-
     /// <summary>
     /// Takes a waypoint towards <paramref name="area"/> when the player's level has one, the player has the waypoint
     /// that leaves the fewest levels to walk, and it saves at least two of them. True when it took one.
@@ -312,27 +310,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         // Only a waypoint close by: walking across a level to one, through its monsters, is no shortcut.
         if (PresetWaypoint() is not { } waypoint || (Distance(player.Position, waypoint) > 60 && !Healers.ContainsKey(player.Area)))
             return false; // (in town there is nothing to walk through)
-        // The game reads the activated waypoints into memory when the waypoint menu opens: a new game shows only the
-        // town's until then. Open it once (in town, a short walk) to learn them.
-        if (Healers.ContainsKey(player.Area) && player.AvailableWaypoints.Count <= 1 && DateTime.UtcNow - _waypointsLearned > TimeSpan.FromMinutes(10))
-        {
-            _waypointsLearned = DateTime.UtcNow;
-            if (reader.ReadObjects().FirstOrDefault(o => o.IsWaypoint)?.Class is not { } here)
-            {
-                WalkTo(GridHere(), waypoint, arriveWithin: 6, fight: false);
-                here = reader.ReadObjects().FirstOrDefault(o => o.IsWaypoint)?.Class ?? default;
-            }
-
-            if (here != default && UseObject(here, until: () => reader.ReadMenus().Waypoint))
-            {
-                Thread.Sleep(500);
-                player = Player();
-                var raw = reader.Process.ReadBytes(unchecked(reader.Process.ModuleBaseAddress + 0x1D705F0), 0x48);
-                Log($"Waypoints: {string.Join(", ", player.AvailableWaypoints)}; raw {Convert.ToHexString(raw)}.");
-                ClosePanels();
-            }
-        }
-
+        // The activated waypoints are not in memory's list (Reign of the Warlock): the bot's own record of them counts.
         var walking = act.FindRoute(player.Area, area)?.Count ?? int.MaxValue;
         var best = player.AvailableWaypoints.Concat(KnownWaypoints(player)).Distinct()
             .Where(w => w != player.Area && act.Find(w) is not null && !_failedWaypoints.Contains(w))
