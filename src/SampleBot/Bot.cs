@@ -955,6 +955,60 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         return false;
     }
 
+    /// <summary>The town portal scrolls carried: the Tome of Town Portal's charges and loose scrolls.</summary>
+    public int TownPortals() =>
+        reader.ReadInventory().Items.Where(i => i.Location == ItemLocation.Inventory)
+            .Sum(i => i.Class == ItemId.TomeOfTownPortal ? i.GetStat(StatId.Quantity) ?? 0 : i.Class == ItemId.ScrollOfTownPortal ? 1 : 0);
+
+    /// <summary>
+    /// Opens a town portal (a right click on the Tome of Town Portal, else a scroll) and steps through it: false when
+    /// there is no scroll, or the portal did not take the player to town.
+    /// </summary>
+    public bool TownPortalHome()
+    {
+        var items = reader.ReadInventory().Items.Where(i => i.Location == ItemLocation.Inventory).ToList();
+        var book = items.FirstOrDefault(i => i.Class == ItemId.TomeOfTownPortal && (i.GetStat(StatId.Quantity) ?? 0) > 0)
+            ?? items.FirstOrDefault(i => i.Class == ItemId.ScrollOfTownPortal);
+        if (book is null)
+            return false;
+
+        Step = "opening a town portal";
+        ClearCursor();
+        InventoryPanel.Open(this);
+        Ui.ClickRightPanel(InventoryPanel.CentreOf(book), right: true);
+        Thread.Sleep(300);
+        InventoryPanel.Close(this);
+        ClosePanels();
+
+        // The portal rises in front of the player within a second or so.
+        var deadline = DateTime.UtcNow.AddSeconds(3);
+        while (DateTime.UtcNow < deadline && !reader.ReadObjects().Any(o => o.Class == ObjectId.TownPortal && Distance(Player().Position, o.Position) < 8))
+            Thread.Sleep(150);
+        if (!reader.ReadObjects().Any(o => o.Class == ObjectId.TownPortal && Distance(Player().Position, o.Position) < 8))
+        {
+            Failure("The town portal did not open.");
+            return false;
+        }
+
+        if (!UseObject(ObjectId.TownPortal, until: () => reader.ReadMainPlayer() is { } p && p.Area == Town))
+        {
+            Failure("Could not go through the town portal.");
+            return false;
+        }
+
+        WaitWhileLoading();
+        return Player().Area == Town;
+    }
+
+    // Waits for the loading screen between areas to go.
+    private void WaitWhileLoading()
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        Thread.Sleep(300);
+        while (DateTime.UtcNow < deadline && reader.ReadMenus().LoadingScreen)
+            Thread.Sleep(200);
+    }
+
     /// <summary>The worn items' lowest durability, as a share of their maximum (1 when nothing wears out).</summary>
     public double LowestDurability() =>
         reader.ReadInventory().Items.Where(i => i.Location == ItemLocation.Equipped)
@@ -1143,11 +1197,18 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// <summary>Runs back to the act's town without fighting (low life and nothing to drink), and heals there.</summary>
     public void Retreat(string reason)
     {
-        Log($"{reason} Running back to town.");
         _retreating = true;
         try
         {
-            TravelTo(Town, fight: false);
+            if (Player().Area != Town && TownPortalHome())
+            {
+                Log($"{reason} Back to town through a town portal.");
+            }
+            else
+            {
+                Log($"{reason} Running back to town.");
+                TravelTo(Town, fight: false);
+            }
         }
         finally
         {

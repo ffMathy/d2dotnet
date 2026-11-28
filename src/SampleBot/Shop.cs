@@ -159,6 +159,12 @@ internal static class Shop
                     Buy(bot, ui, tome, 1);
             }
 
+            // Scrolls for the tomes (bought scrolls go into the tome): town portals to get home, identifying.
+            if (bot.HasItem(ItemId.TomeOfTownPortal) && bot.TownPortals() < 8)
+                Buy(bot, ui, ItemId.ScrollOfTownPortal, 8 - bot.TownPortals());
+            if (Carried(bot).FirstOrDefault(i => i.Class == ItemId.TomeOfIdentify) is { } idTome && (idTome.GetStat(StatId.Quantity) ?? 0) < 5)
+                Buy(bot, ui, ItemId.ScrollOfIdentify, 5 - (idTome.GetStat(StatId.Quantity) ?? 0));
+
             Buy(bot, ui, healing, spare);
             if (caster)
                 Buy(bot, ui, mana, Math.Max(0, SpareHealing - Carried(bot).Count(i => i.IsManaPotion)));
