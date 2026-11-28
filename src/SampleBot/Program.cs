@@ -106,6 +106,17 @@ if (args.Contains("--ui-flags") || Environment.GetEnvironmentVariable("D2_UI_FLA
     return 0;
 }
 
+if (Environment.GetEnvironmentVariable("D2_PLAYERS") == "1")
+{
+    if (bot.PresetPosition(ObjectId.Bank) is { } bank && Bot.Distance(bot.Player().Position, bank) > 8)
+        bot.WalkTo(bot.GridHere(), bank, arriveWithin: 5, fight: false);
+    foreach (var p in reader.ReadPlayers())
+        Console.WriteLine($"  {p.Name} id {p.Id.Value} main {p.IsMainPlayer} corpse {p.IsCorpse} at {p.Position} in {p.Area}, bytes 0x1A0..0x1AF: " +
+            string.Join(" ", process.ReadBytes(p.Address + 0x1A0, 16).Select(b => b.ToString("X2"))));
+    bot.Screenshot("players");
+    return 0;
+}
+
 if (Environment.GetEnvironmentVariable("D2_INV") == "1")
 {
     var inv = reader.ReadInventory();

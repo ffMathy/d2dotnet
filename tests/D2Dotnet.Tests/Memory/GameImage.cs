@@ -185,7 +185,7 @@ internal sealed class GameImage
 
         Memory.WriteU64(unit + 0xD8, p.StashOrder);
         Memory.WriteU32(unit + 0x04, p.Class);
-        Memory.WriteU8(unit + 0x1A6, p.CorpseFlag);
+        Memory.WriteU8(unit + 0x1A5, p.CorpseFlag);
 
         Link(PlayerTable, p.Bucket, unit);
         return unit;

@@ -44,7 +44,8 @@ public sealed partial class GameReader
 
                 var name = Process.ReadString(Process.ReadPointer(unit + 0x10));
                 var isMain = Process.ReadUInt16(inventory + (isExpansion ? (nuint)0x70 : 0x30)) > 0;
-                var corpseFlag = Process.ReadByte(unit + 0x1A6);
+                // The corpse flag: +0x1A5 since Reign of the Warlock (d2go +0x1A6), observed on a corpse in town.
+                var corpseFlag = Process.ReadByte(unit + 0x1A5);
 
                 var statsEx = Process.ReadPointer(unit + 0x88);
                 players.Add(new PlayerUnit
