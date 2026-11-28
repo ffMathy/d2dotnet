@@ -19,6 +19,14 @@ using D2Dotnet.Memory;
 
 [assembly: SupportedOSPlatform("windows")]
 
+// Two bots at once would fight over the cursor and the keys: one at a time.
+using var single = new Mutex(true, @"Local\D2Dotnet.SampleBot", out var first);
+if (!first)
+{
+    Console.Error.WriteLine("Another SampleBot is running; stop it first.");
+    return 1;
+}
+
 var planOnly = args.Contains("--plan");
 var foreground = args.Contains("--foreground");
 var checkInput = args.Contains("--check-input");
