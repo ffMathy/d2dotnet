@@ -1616,10 +1616,14 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// <summary>The life (percent) below which the bot leaves the game when monsters are about.</summary>
     public const int LeaveBelowLife = 25;
 
+    // The life seen in the last seconds, to see how fast it falls.
+    private readonly Queue<(DateTime At, int Life)> _lifeSeen = new();
+
     public void DrinkIfNeeded(MainPlayer player)
     {
-        if (DateTime.UtcNow - _lastPotion < TimeSpan.FromSeconds(1))
-            return;
+        _lifeSeen.Enqueue((DateTime.UtcNow, player.LifePercent ?? 100));
+        while (_lifeSeen.Count > 0 && DateTime.UtcNow - _lifeSeen.Peek().At > TimeSpan.FromSeconds(3))
+            _lifeSeen.Dequeue();
         var life = player.LifePercent ?? 100;
         var mana = player.ManaPercent ?? 100;
         var belt = reader.ReadInventory().Belt;
@@ -1635,7 +1639,14 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 && reader.ReadInventory().Items.Count(i => i.Location == ItemLocation.Inventory && (i.IsHealingPotion || i.IsRejuvenationPotion)) < 2;
             if (life < LeaveBelowLife)
                 throw new LowLife($"Life is at {life}% with {about.Count} monsters about{(bossClose ? ", a boss close" : "")}{(beltDry ? ", the belt dry" : "")}.");
+            // Falling fast (a lightning enchanted monster's bolts, a pack's blows): the next second would be too late.
+            if (life < 50 && _lifeSeen.Where(l => DateTime.UtcNow - l.At < TimeSpan.FromSeconds(2)).Select(l => l.Life).DefaultIfEmpty(life).Max() - life >= 20)
+                throw new LowLife($"Life is falling fast: {life}% with {about.Count} monsters about.");
         }
+
+        // One potion a second at most (the leaving above is checked every time).
+        if (DateTime.UtcNow - _lastPotion < TimeSpan.FromSeconds(1))
+            return;
 
         // Early, so that the game rarely has to be left: healing below 70%, a rejuvenation below 45%, mana below 30%.
         PotionType? need = life < 45 ? PotionType.Rejuvenation : life < 70 ? PotionType.Healing : mana < 30 ? PotionType.Mana : null;
