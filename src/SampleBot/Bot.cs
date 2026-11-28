@@ -768,7 +768,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     private const int LightningEnchanted = 17;
 
     // The level below which deadly monsters are left alone.
-    public const int DeadlyBelowLevel = 15;
+    public const int DeadlyBelowLevel = 13;
 
     /// <summary>
     /// A monster's resistance: its class's for the difficulty (monstats.txt), with its unique modifiers (magic

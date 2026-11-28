@@ -79,8 +79,8 @@ internal sealed class SearchForCainQuest : IQuest
 
     public QuestId Id => QuestId.Act1TheSearchForCain;
 
-    // The Dark Wood's packs need Fire Ball (12), and Rakanishu, lightning enchanted, guards the Cairn Stones: the bot
-    // leaves him alone below Bot.DeadlyBelowLevel.
+    // Rakanishu, lightning enchanted, guards the Cairn Stones: the bot leaves him alone below Bot.DeadlyBelowLevel. The
+    // levelling guides send characters to Tristram from about level 5, so the quest comes as early as that allows.
     public int MinimumLevel => Bot.DeadlyBelowLevel;
 
     // Done once Cain is free: the quest log moves on to the reward (Cain is then in the camp).
@@ -121,6 +121,13 @@ internal sealed class SearchForCainQuest : IQuest
         bot.PickUpNearby();
         if (!bot.HasItem(ItemId.ScrollOfInifuss))
             throw new BotStopped("The Scroll of Inifuss is not in the inventory.");
+    }
+
+    /// <summary>Goes to Tristram through the Cairn Stones' portal (opening it when it is not open): for Tristram runs.</summary>
+    public static void EnterTristram(Bot bot)
+    {
+        if (bot.Player().Area != AreaId.Tristram)
+            OpenThePortal(bot);
     }
 
     private static void OpenThePortal(Bot bot)
@@ -176,6 +183,29 @@ internal sealed class QuestRunner(Bot bot)
     ];
 
     // The wilderness each act levels in, nearest the town first.
+    /// <summary>
+    /// Where the levelling guides send a character of the level (Maxroll, d2db: Normal), best last: the Den of Evil to
+    /// about 5; Tristram runs (once Cain is free) or the Countess's tower to 15; then the Act 2 tombs, Travincal,
+    /// Baal runs, which the bot cannot reach yet: there, and in Nightmare and Hell, the act's areas with the highest
+    /// monster level for now (see <see cref="BestLevellingAreas"/>).
+    /// </summary>
+    internal List<AreaId> GuideAreas(int characterLevel)
+    {
+        if (bot.Act.Difficulty == Difficulty.Normal && bot.Act.Act == ActId.Act1)
+        {
+            if (characterLevel < 6)
+                return [AreaId.DenOfEvil];
+            if (characterLevel < 15)
+            {
+                return Quests.OfType<SearchForCainQuest>().First().IsDone(bot)
+                    ? [AreaId.Tristram]
+                    : [AreaId.TowerCellarLevel1, AreaId.TowerCellarLevel2, AreaId.TowerCellarLevel3, AreaId.TowerCellarLevel4, AreaId.TowerCellarLevel5];
+            }
+        }
+
+        return BestLevellingAreas(characterLevel);
+    }
+
     // Areas left out of levelling: a portal leads to Tristram; Andariel's lair and the Den of Evil are quest places.
     private static readonly HashSet<AreaId> NotForLevelling = [AreaId.Tristram, AreaId.CatacombsLevel4, AreaId.DenOfEvil];
 
@@ -205,13 +235,13 @@ internal sealed class QuestRunner(Bot bot)
     // this game has not been explored yet, else the next one up; points are spent as it levels.
     private void LevelUp(int level)
     {
-        Bot.Log($"Level {bot.Player().Level}: levelling to {level} in {string.Join(", ", BestLevellingAreas(bot.Player().Level))}.");
+        Bot.Log($"Level {bot.Player().Level}: levelling to {level} in {string.Join(", ", GuideAreas(bot.Player().Level))}.");
         while (bot.Player().Level < level)
         {
             var characterLevel = bot.Player().Level;
             // The areas whose monsters give the most experience for the level; when they are cleared, a new game
             // brings them back (quicker than clearing easier ones, which give next to nothing).
-            var ready = BestLevellingAreas(characterLevel);
+            var ready = GuideAreas(characterLevel);
             var fresh = ready.Where(a => !_explored.Contains(a) && !bot.IsAvoided(a)).ToList();
             if (fresh.Count == 0)
                 fresh = ready.Where(a => !_explored.Contains(a)).ToList(); // only avoided ones left: better than new games
@@ -227,7 +257,10 @@ internal sealed class QuestRunner(Bot bot)
             var area = fresh[^1];
             try
             {
-                bot.TravelTo(area);
+                if (area == AreaId.Tristram)
+                    SearchForCainQuest.EnterTristram(bot); // through the Cairn Stones' portal, not on foot
+                else
+                    bot.TravelTo(area);
                 bot.ExploreLevel(until: () => bot.Player().Level >= level);
             }
             catch (TooDangerous danger)
