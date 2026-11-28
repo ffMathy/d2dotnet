@@ -340,9 +340,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var act = Act;
         if (_retreating || act[player.Area].Waypoints.Count == 0 || act.Find(area) is null)
             return false;
-        // Only a waypoint close by: walking across a level to one, through its monsters, is no shortcut.
-        if (PresetWaypoint() is not { } waypoint || (Distance(player.Position, waypoint) > 60 && !Healers.ContainsKey(player.Area)))
-            return false; // (in town there is nothing to walk through)
+        if (PresetWaypoint() is not { } waypoint)
+            return false;
+        var toWaypoint = Distance(player.Position, waypoint);
         // The activated waypoints are not in memory's list (Reign of the Warlock): the bot's own record of them counts.
         var walking = act.FindRoute(player.Area, area)?.Count ?? int.MaxValue;
         var best = player.AvailableWaypoints.Concat(KnownWaypoints(player)).Distinct()
@@ -352,6 +352,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             .OrderBy(w => w.Left)
             .FirstOrDefault();
         if (best.Area == default || best.Left > walking - 2)
+            return false;
+        // Only a waypoint close enough for what it saves: 60 subtiles, and 60 more for each level saved past two (a
+        // walk across a level to one, through its monsters, is no shortcut for one level). In town, any.
+        if (!Healers.ContainsKey(player.Area) && toWaypoint > 60 + 60 * Math.Max(0, walking - best.Left - 2))
             return false;
 
         Log($"Taking the waypoint to {best.Area} ({best.Left} levels from {area}, instead of {walking} on foot).");
