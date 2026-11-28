@@ -1042,6 +1042,14 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                     break;
             }
 
+            // Gold is small and not always reported under the cursor: a plain low click on it (a miss only walks a step).
+            if (!clicked && item.Class == ItemId.Gold)
+            {
+                Aim(Player().Position, item.Position, 5);
+                input.LeftClick();
+                clicked = true;
+            }
+
             var deadline = DateTime.UtcNow.AddSeconds(2);
             while (clicked && DateTime.UtcNow < deadline && reader.ReadInventory().Items.Any(i => i.Id == item.Id && i.Location == ItemLocation.Ground))
                 Thread.Sleep(100);

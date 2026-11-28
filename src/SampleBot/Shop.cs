@@ -6,12 +6,52 @@ internal static class Shop
 {
     // How far above each NPC's feet their dialog's Trade is (pixels at a height of 720), found by clicking upwards
     // from 130 until the shop opens; measured for Akara: 166 (Cancel or Akara below 130, Talk at 142 to 154).
-    private static readonly Dictionary<MonsterId, int> TradeHeights = new() { [MonsterId.Akara] = 166 };
+    private static readonly Dictionary<MonsterId, int> TradeHeights = LoadHeights();
+
+    // The heights learned in earlier runs (%LOCALAPPDATA%\D2Dotnet	rade-heights.txt, "npc=height" lines).
+    private static readonly string HeightsFile =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "D2Dotnet", "trade-heights.txt");
+
+    private static Dictionary<MonsterId, int> LoadHeights()
+    {
+        var heights = new Dictionary<MonsterId, int> { [MonsterId.Akara] = 166 };
+        try
+        {
+            foreach (var line in File.Exists(HeightsFile) ? File.ReadAllLines(HeightsFile) : [])
+            {
+                var parts = line.Split('=');
+                if (parts.Length == 2 && Enum.TryParse<MonsterId>(parts[0], out var npc) && int.TryParse(parts[1], out var height))
+                    heights[npc] = height;
+            }
+        }
+        catch (IOException)
+        {
+        }
+
+        return heights;
+    }
+
+    private static void SaveHeights()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(HeightsFile)!);
+            File.WriteAllLines(HeightsFile, TradeHeights.Select(h => $"{h.Key}={h.Value}"));
+        }
+        catch (IOException)
+        {
+        }
+    }
 
     /// <summary>Opens the NPC's shop: their dialog, then Trade (found the first time for an NPC not measured yet).</summary>
     public static bool OpenTrade(Bot bot, MonsterId npc)
     {
-        IEnumerable<int> heights = TradeHeights.TryGetValue(npc, out var known) ? [known, known + 8, known - 8] : Enumerable.Range(0, 20).Select(i => 130 + 12 * i);
+        // The learned height and round it first (the dialog grows with its options: Akara gains "Reset Stat/Skill
+        // Points" after the Den of Evil), then the whole range again.
+        var scan = Enumerable.Range(0, 20).Select(i => 130 + 12 * i);
+        IEnumerable<int> heights = TradeHeights.TryGetValue(npc, out var known)
+            ? new[] { 0, 8, -8, 16, -16, 24, -24 }.Select(d => known + d).Concat(scan).Distinct()
+            : scan;
         foreach (var height in heights)
         {
             if (!bot.OpenDialog(npc))
@@ -26,7 +66,12 @@ internal static class Shop
                 Thread.Sleep(150);
             if (IsOpen(bot))
             {
-                TradeHeights[npc] = height;
+                if (!TradeHeights.TryGetValue(npc, out var before) || before != height)
+                {
+                    TradeHeights[npc] = height;
+                    SaveHeights();
+                }
+
                 return true;
             }
 
