@@ -1530,11 +1530,16 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// </summary>
     public void StartWatchdog(int seconds = 45)
     {
+        Point? lastPosition = null;
         _watchdog = new Timer(_ =>
         {
-            if (DateTime.UtcNow - _lastLog < TimeSpan.FromSeconds(seconds))
+            // A long quiet walk is not a hang: only standing still with nothing logged is.
+            var position = reader.ReadMainPlayer()?.Position;
+            var moved = position is { } p && lastPosition is { } q && Distance(p, q) > 3;
+            lastPosition = position;
+            if (moved || DateTime.UtcNow - _lastLog < TimeSpan.FromSeconds(seconds))
                 return;
-            Failure($"Watchdog: nothing logged for {seconds} s; the step is: {Step}.");
+            Failure($"Watchdog: nothing logged and no move for {seconds} s; the step is: {Step}.");
         }, null, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(seconds));
     }
 
