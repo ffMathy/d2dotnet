@@ -87,13 +87,9 @@ internal static class Shop
     public static void BuyPotions(Bot bot, GameUi ui)
     {
         var inventory = bot.Reader.ReadInventory();
-        var room = inventory.Belt.Rows * 4 - inventory.Belt.Items.Count;
-        // Spare healing potions in the inventory, for when a fight empties the belt (a champion pack can).
-        var carried = inventory.Items.Where(i => i.Location == ItemLocation.Inventory).ToList();
-        var spare = Math.Max(0, SpareHealing - carried.Count(i => i.IsHealingPotion));
-        if (!TownChores.Fits(carried, 1, 1) || TownChores.FreeCellsOf(carried) < 8)
-            spare = 0;
-        if (room + spare <= 0 || inventory.Gold < 50 || bot.Player().Area != AreaId.RogueEncampment)
+        var (room, spare) = PotionsWanted(bot);
+        var tomes = !bot.HasItem(ItemId.TomeOfIdentify) || !bot.HasItem(ItemId.TomeOfTownPortal);
+        if ((room + spare <= 0 && !tomes) || inventory.Gold < 50 || bot.Player().Area != AreaId.RogueEncampment)
             return;
         if (!OpenTrade(bot, MonsterId.Akara))
         {
@@ -109,6 +105,13 @@ internal static class Shop
             var manaCount = room / 3;
             Buy(bot, ui, healing, room - manaCount + spare);
             Buy(bot, ui, mana, manaCount);
+
+            // Tomes once: identifying in the field-free way (in town), and a way back to town.
+            foreach (var tome in new[] { ItemId.TomeOfIdentify, ItemId.TomeOfTownPortal })
+            {
+                if (!bot.HasItem(tome) && TownChores.FreeCellsOf(Carried(bot)) >= 4)
+                    Buy(bot, ui, tome, 1);
+            }
         }
         finally
         {
@@ -116,8 +119,23 @@ internal static class Shop
         }
     }
 
+    /// <summary>
+    /// The potions to buy: the belt's free slots, and the spare healing potions to carry in the inventory, for when a
+    /// fight empties the belt (a champion pack can); no spares when the inventory is nearly full.
+    /// </summary>
+    public static (int Belt, int Spare) PotionsWanted(Bot bot)
+    {
+        var inventory = bot.Reader.ReadInventory();
+        var room = inventory.Belt.Rows * 4 - inventory.Belt.Items.Count;
+        var carried = inventory.Items.Where(i => i.Location == ItemLocation.Inventory).ToList();
+        var spare = TownChores.FreeCellsOf(carried) < 8 ? 0 : Math.Max(0, SpareHealing - carried.Count(i => i.IsHealingPotion));
+        return (Math.Max(0, room), spare);
+    }
+
     // How many healing potions to carry in the inventory besides the belt.
     private const int SpareHealing = 4;
+
+    private static List<Item> Carried(Bot bot) => bot.Reader.ReadInventory().Items.Where(i => i.Location == ItemLocation.Inventory).ToList();
 
     /// <summary>True when a vendor's goods are in memory: the shop is open.</summary>
     public static bool IsOpen(Bot bot) => bot.Reader.ReadInventory().Items.Any(i => i.Location == ItemLocation.Vendor);

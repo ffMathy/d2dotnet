@@ -151,8 +151,9 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
     public void WithdrawForPotions()
     {
         var inventory = bot.Reader.ReadInventory();
-        var room = inventory.Belt.Rows * 4 - inventory.Belt.Items.Count;
-        if (room <= 0 || inventory.Gold >= 500 || inventory.StashGold.Sum() <= 0)
+        var (room, spare) = Shop.PotionsWanted(bot);
+        var tomes = !bot.HasItem(ItemId.TomeOfIdentify) || !bot.HasItem(ItemId.TomeOfTownPortal);
+        if ((room + spare <= 0 && !tomes) || inventory.Gold >= 500 || inventory.StashGold.Sum() <= 0)
             return;
         if (!bot.UseObject(ObjectId.Bank, until: () => bot.Reader.ReadMenus().Stash))
         {

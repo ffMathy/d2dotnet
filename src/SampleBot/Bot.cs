@@ -576,7 +576,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 continue;
             }
 
-            Fight(target.Id, seconds: IsSummoner(target) ? 25 : 12);
+            Fight(target.Id, seconds: IsSummoner(target) || target.Type is not (MonsterType.Normal or MonsterType.Minion) ? 30 : 12);
         }
     }
 
