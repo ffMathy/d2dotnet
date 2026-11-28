@@ -1745,8 +1745,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 throw new LowLife($"Life is falling fast: {life}% with {about.Count} monsters about.");
         }
 
-        // One potion a second at most (the leaving above is checked every time).
-        if (DateTime.UtcNow - _lastPotion < TimeSpan.FromSeconds(1))
+        // One potion a second at most (the leaving above is checked every time). None in town: the healer heals.
+        if (DateTime.UtcNow - _lastPotion < TimeSpan.FromSeconds(1) || Healers.ContainsKey(player.Area))
             return;
 
         // Early, so that the game rarely has to be left: healing below 70%, a rejuvenation below 45%, mana below 30%.
