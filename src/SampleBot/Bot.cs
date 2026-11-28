@@ -284,7 +284,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// Activates the waypoint of the level the player is in when it is not activated yet and close by (40 subtiles):
     /// a click on it opens the waypoint menu, which is closed again.
     /// </summary>
-    private void ActivateWaypointHere()
+    public void ActivateWaypointHere()
     {
         // A level with a waypoint the character lacks: that first, before going on (it saves the walk next time).
         var player = Player();

@@ -270,7 +270,34 @@ internal sealed class QuestRunner(Bot bot)
         new ToolsOfTheTradeQuest(),
         new ClearAreaQuest(QuestId.Act1SistersToTheSlaughter, AreaId.CatacombsLevel4, minimumLevel: 18, MonsterId.Akara, MonsterId.Andariel),
         new TravelEastQuest(QuestId.Act1SistersToTheSlaughter, MonsterId.Warriv, AreaId.LutGholein),
+
+        // Act 2: Radament (a skill point: his Book of Skill read), the three pieces of the Horadric Staff and the staff,
+        // the Summoner (and with him the Canyon of the Magi), the true tomb and Duriel, then by boat to Act 3.
+        new ClearAreaQuest(QuestId.Act2RadamentsLair, AreaId.SewersLevel3Act2, minimumLevel: 1, MonsterId.Atma, MonsterId.Radament),
+        new FetchQuestItem(QuestId.Act2TheHoradricStaff, AreaId.HallsOfTheDeadLevel3, ObjectId.HoradricCubeChest, ItemId.HoradricCube,
+            bot => bot.HasItem(ItemId.HoradricCube)),
+        new FetchQuestItem(QuestId.Act2TheHoradricStaff, AreaId.MaggotLairLevel3, ObjectId.StaffOfKingsChest, ItemId.StaffOfKings,
+            bot => bot.HasItem(ItemId.StaffOfKings) || Act2.StaffDone(bot)),
+        new FetchQuestItem(QuestId.Act2TaintedSun, AreaId.ClawViperTempleLevel2, ObjectId.TaintedSunAltar, ItemId.AmuletOfTheViper,
+            bot => bot.HasItem(ItemId.AmuletOfTheViper) || Act2.StaffDone(bot)),
+        new TransmuteStaffQuest(),
+        new SummonerQuest(),
+        new SevenTombsQuest(),
+        new TravelEastQuest(QuestId.Act2TheSevenTombs, MonsterId.Meshif, AreaId.KurastDocks),
     ];
+
+    // A Book of Skill (Radament's) carried: read (a right click in the inventory), for its skill point.
+    private void ReadBooks()
+    {
+        bot.QuestItems.UnionWith([ItemId.BookOfSkill, ItemId.HoradricCube, ItemId.StaffOfKings, ItemId.AmuletOfTheViper, ItemId.HoradricStaff]);
+        if (bot.Reader.ReadInventory().Items.FirstOrDefault(i => i.Location == ItemLocation.Inventory && i.Class == ItemId.BookOfSkill) is not { } book)
+            return;
+        Bot.Log("Reading the Book of Skill.");
+        InventoryPanel.Open(bot);
+        ui.ClickRightPanel(InventoryPanel.CentreOf(book), right: true);
+        Thread.Sleep(800);
+        InventoryPanel.Close(bot);
+    }
 
     // Rewards already asked for in this run: each is asked for once.
     private readonly HashSet<QuestId> _rewardsAsked = [];
@@ -427,6 +454,7 @@ internal sealed class QuestRunner(Bot bot)
                 CharacterBuild.SpendPoints(bot, ui);
                 SkillBinder.Bind(bot, ClassCombat.AttackSkillsOf(bot.Player().Class));
                 CollectRewards();
+                ReadBooks();
                 if (bot.Player().Area == bot.Town)
                     new TownChores(bot, ui, bot.Items).Run();
                 bot.Proof($"{quest.Id} start");

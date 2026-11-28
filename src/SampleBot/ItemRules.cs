@@ -105,7 +105,7 @@ internal sealed class ItemRules(GameDatabase data)
 
     /// <summary>True for items the bot never sells: tomes, quest items, keys.</summary>
     public static bool IsKept(Item item) =>
-        item.Class is ItemId.TomeOfIdentify or ItemId.TomeOfTownPortal or ItemId.Key || item.IsQuestItem;
+        item.Class is ItemId.TomeOfIdentify or ItemId.TomeOfTownPortal or ItemId.Key or ItemId.HoradricCube || item.IsQuestItem;
 
     /// <summary>
     /// True when the item on the ground is worth picking up: supplies; magic, rare, set and unique items while gold is

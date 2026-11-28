@@ -66,6 +66,20 @@ if (Environment.GetEnvironmentVariable("D2_ROWS") is { Length: > 0 } rowsSpec)
     return 0;
 }
 
+if (Environment.GetEnvironmentVariable("D2_ACT2") is { Length: > 0 } act2Seed)
+{
+    // The Act 2 map of the seed (hex): the routes from Lut Gholein to the quest levels, the quest objects' places, the
+    // true tomb.
+    var act2 = game.Maps.Generate(Convert.ToUInt32(act2Seed, 16), Difficulty.Normal, ActId.Act2);
+    foreach (var to in new[] { AreaId.SewersLevel3Act2, AreaId.HallsOfTheDeadLevel3, AreaId.MaggotLairLevel3, AreaId.ClawViperTempleLevel2, AreaId.PalaceCellarLevel3, AreaId.ArcaneSanctuary, AreaId.CanyonOfTheMagi })
+        Console.WriteLine($"{to}: {(act2.FindRoute(AreaId.LutGholein, to) is { } r ? string.Join(" > ", r.Select(st => st.To.Id)) : "no route")}");
+    foreach (var (area, obj) in new[] { (AreaId.HallsOfTheDeadLevel3, ObjectId.HoradricCubeChest), (AreaId.MaggotLairLevel3, ObjectId.StaffOfKingsChest), (AreaId.ClawViperTempleLevel2, ObjectId.TaintedSunAltar), (AreaId.PalaceCellarLevel3, ObjectId.ArcaneSanctuaryPortal), (AreaId.ArcaneSanctuary, ObjectId.YetAnotherTome) })
+        Console.WriteLine($"{obj} in {area}: {(act2.Find(area)?.Presets.Any(p => p.Kind == D2Dotnet.Maps.PresetKind.Object && p.ClassId == (int)obj) == true ? "placed" : "missing")}");
+    for (var t = AreaId.TalRashasTomb1; t <= AreaId.TalRashasTomb7; t++)
+        Console.WriteLine($"{t}: orifice {act2.Find(t)?.Presets.Any(p => p.Kind == D2Dotnet.Maps.PresetKind.Object && p.ClassId == (int)ObjectId.HoradricOrifice)}, route from the canyon {(act2.FindRoute(AreaId.CanyonOfTheMagi, t)?.Count.ToString() ?? "none")}");
+    return 0;
+}
+
 if (Environment.GetEnvironmentVariable("D2_TYPES") == "1")
 {
     Console.WriteLine(string.Join(", ", game.Data.ItemTypes.Where(t => t.Class.Length > 0).Select(t => $"{t.Code}={t.Class}")));
