@@ -82,15 +82,32 @@ internal sealed class ClassCombat : ICombat
             }
 
             _selected = chosen;
-            bot.Input.RightClickStandingStill();
-        }
-        else
-        {
-            bot.Input.LeftClick();
+            // A burst of casts, a click every 140 ms (the next cast starts as soon as the last one ends: a cast takes
+            // about half a second), each aimed where the target is now, until it dies or for at most 0.9 s; the fight's
+            // checks (other monsters, the line, potions) between bursts.
+            var deadline = DateTime.UtcNow.AddMilliseconds(900);
+            var aim = target;
+            while (true)
+            {
+                bot.Input.RightClickStandingStill();
+                Thread.Sleep(CastClickMs);
+                if (DateTime.UtcNow >= deadline)
+                    return;
+                var me = bot.Player();
+                bot.DrinkIfNeeded(me);
+                if (bot.Reader.ReadMonsters().FirstOrDefault(m => m.Id == aim.Id) is not { } now || now.LifePercent == 0)
+                    return;
+                aim = now;
+                bot.Aim(me.Position, aim.Position, bot.Window.AimHeight);
+            }
         }
 
+        bot.Input.LeftClick();
         Thread.Sleep(250);
     }
+
+    // How often a burst clicks to cast.
+    private const int CastClickMs = 140;
 
     // The attack skill to use now: of the class's skills that can be cast and selected (the right skill already, or
     // on a key), those the target does not resist almost fully; the strongest (the table's order) with at least 4
