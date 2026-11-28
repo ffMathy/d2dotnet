@@ -787,8 +787,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 && grid.FindPath(player.Position, monster.Position) is { Count: > 1 } nearer)
             {
                 // Only as far as casting range: the first point of the path within it, at most 6 steps on.
+                // (At least 4 steps: MoveTo counts 3 subtiles as there, so a nearer point would not move at all.)
                 var stop = nearer.Select((p, i) => (p, i)).FirstOrDefault(x => Distance(x.p, monster.Position) <= CastRange - 1).i;
-                MoveTo(nearer[Math.Clamp(stop == 0 ? 6 : stop, 1, Math.Min(6, nearer.Count - 1))]);
+                MoveTo(nearer[Math.Min(nearer.Count - 1, Math.Clamp(stop == 0 ? 6 : stop, 4, 6))]);
                 continue;
             }
 
