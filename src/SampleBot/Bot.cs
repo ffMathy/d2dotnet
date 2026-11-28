@@ -589,14 +589,14 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         if (need is null)
             return;
         // Out of mana with nothing to drink for it: a caster cannot fight. With no monster near, mana comes back on its
-        // own (wait for it); with monsters near, back to town (the healer restores mana).
+        // own (wait for it); with monsters within 10 subtiles, back to town (the healer restores mana).
         if (need == PotionType.Mana && belt.FindPotion(PotionType.Mana) is null && belt.FindPotion(PotionType.Rejuvenation) is null
             && mana < 5 && !_retreating && !Healers.ContainsKey(player.Area) && player.Class == CharacterClass.Sorceress)
         {
-            if (Enemies(player.Position, 20).Any())
+            if (Enemies(player.Position, 10).Any())
                 throw new LowLife($"Mana is at {mana}% with monsters near, and the belt has no mana potion left.");
-            var deadline = DateTime.UtcNow.AddSeconds(20);
-            while (DateTime.UtcNow < deadline && (Player().ManaPercent ?? 100) < 50 && !Enemies(Player().Position, 20).Any())
+            var deadline = DateTime.UtcNow.AddSeconds(25);
+            while (DateTime.UtcNow < deadline && (Player().ManaPercent ?? 100) < 50 && !Enemies(Player().Position, 10).Any())
                 Thread.Sleep(500);
             _lastPotion = DateTime.UtcNow;
             return;
