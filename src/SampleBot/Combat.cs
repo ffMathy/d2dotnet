@@ -93,8 +93,8 @@ internal sealed class ClassCombat : ICombat
     }
 
     // The attack skill to use now: of the class's skills that can be cast and selected (the right skill already, or
-    // on a key), those the target does not resist almost fully; the one with the most points (then the table's
-    // order, strongest first). Null for the left skill.
+    // on a key), those the target does not resist almost fully; the strongest (the table's order) with at least 4
+    // points (or as many as the best has). Null for the left skill.
     private SkillId? Choose(Bot bot, MainPlayer player, Monster? target = null)
     {
         if (AttackSkills.TryGetValue(player.Class, out var table))
@@ -103,11 +103,13 @@ internal sealed class ClassCombat : ICombat
                 .Select((skill, order) => (Skill: skill, Order: order))
                 .Where(s => bot.CanCast(player, s.Skill) && (player.RightSkill == s.Skill || KeyFor(bot, s.Skill) is not null))
                 .Where(s => target is null || !Elements.TryGetValue(s.Skill, out var element) || bot.Resistance(target, element) < 95)
-                .OrderByDescending(s => player.Skills.TryGetValue(s.Skill, out var points) ? points.Level : 0)
-                .ThenBy(s => s.Order)
                 .ToList();
-            if (usable.Count > 0)
-                return usable[0].Skill;
+            // The strongest skill (the table's order) once it has a few points: 4, or as many as the best has.
+            int Points(SkillId skill) => player.Skills.TryGetValue(skill, out var points) ? points.Level : 0;
+            var most = usable.Select(s => Points(s.Skill)).DefaultIfEmpty(0).Max();
+            var ready = usable.Where(s => Points(s.Skill) >= Math.Min(4, most)).OrderBy(s => s.Order).ToList();
+            if (ready.Count > 0)
+                return ready[0].Skill;
             if (target is not null && table.Any(s => player.Skills.ContainsKey(s)))
                 return null; // every attack skill the character has is resisted: the left skill
         }
