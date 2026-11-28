@@ -374,6 +374,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 FightNearby(FightRange);
                 PickUpNearby();
                 RefillBeltWhenQuiet();
+                Step = $"walking to {target}";
             }
 
             // Not fighting (a retreat): keep away from the monsters where the map leaves room.
@@ -558,8 +559,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     public void FightNearby(int range)
     {
         var skipped = new HashSet<UnitId>();
+        var outer = Step;
         while (true)
         {
+            Step = $"{outer} (looking for a fight)";
             var player = Player();
             var grid = GridHere();
             var enemies = Enemies(player.Position, range + SummonerReach)
@@ -1000,8 +1003,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             if (item is null)
                 return;
 
+            var step = Step;
             if (Distance(player.Position, item.Position) > 3)
                 WalkTo(GridHere(), item.Position, arriveWithin: 2, fight: false);
+            Step = $"{step} (picking up {item.Class})";
 
             // Items lie on the ground: aim low, and click only once the game says the item is under the cursor.
             var clicked = false;
@@ -1019,8 +1024,12 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             var deadline = DateTime.UtcNow.AddSeconds(2);
             while (clicked && DateTime.UtcNow < deadline && reader.ReadInventory().Items.Any(i => i.Id == item.Id && i.Location == ItemLocation.Ground))
                 Thread.Sleep(100);
+            Step = step;
             if (!clicked || reader.ReadInventory().Items.Any(i => i.Id == item.Id && i.Location == ItemLocation.Ground))
+            {
                 _unreachableItems.Add(item.Id);
+                Log($"Could not pick up {item.Class} at {item.Position} ({(clicked ? "clicked, but it stayed" : "never under the cursor")}).");
+            }
             else
                 Log($"Picked up {(item.Quality is ItemQuality.Magic or ItemQuality.Rare or ItemQuality.Set or ItemQuality.Unique ? item.Quality + " " : "")}{item.Class}.");
         }
