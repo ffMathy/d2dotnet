@@ -792,14 +792,27 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     // with a click first.
     private void OpenDoorInWay(IReadOnlyList<Point> path)
     {
+        // (Opening it walks up to it: that walk must not open it again.)
+        if (_openingDoor)
+            return;
         var me = Player().Position;
         var ahead = path.Take(StepLength + 6).ToList();
         if (reader.ReadObjects().Where(o => o.IsDoor && o.IsSelectable && Distance(me, o.Position) <= 15
                 && ahead.Any(p => Distance(p, o.Position) <= 3)).MinBy(o => Distance(me, o.Position)) is not { } door)
             return;
         Log($"Opening a {door.Class} at {door.Position}.");
-        UseObject(door.Class, until: () => !reader.ReadObjects().Any(o => o.Id == door.Id && o.IsSelectable));
+        _openingDoor = true;
+        try
+        {
+            UseObject(door.Class, until: () => !reader.ReadObjects().Any(o => o.Id == door.Id && o.IsSelectable));
+        }
+        finally
+        {
+            _openingDoor = false;
+        }
     }
+
+    private bool _openingDoor;
 
     /// <summary>Subtiles in a tile: how far ahead on the path each move aims.</summary>
     public const int TileSubtiles = 5;
