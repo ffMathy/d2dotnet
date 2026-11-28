@@ -118,6 +118,21 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         HealInTown(below: 100);
     }
 
+    /// <summary>
+    /// Leaves the danger by leaving the game: Save and Exit (the single player menu stops the game at once), and a new
+    /// game, where the character starts again in town with the monsters back; quicker and safer than a portal, and the
+    /// next try is more experience.
+    /// </summary>
+    public void ExitAndRetry(string reason)
+    {
+        Log($"{reason} Leaving the game to try again.");
+        Proof("leaving the game");
+        _portalArea = null;
+        ClosePanels();
+        GameSession.NewGame(this);
+        HealInTown();
+    }
+
     /// <summary>Picks up the character's corpse when one lies near (in town after a new game).</summary>
     public void PickUpCorpse()
     {
@@ -661,7 +676,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 && reader.ReadInventory() is var purse && purse.Gold + purse.StashGold.Sum() >= 200)
             {
                 _nextRepairTrip = DateTime.UtcNow.AddMinutes(10);
-                throw new LowLife($"Equipment is nearly broken ({LowestDurability():P0} durability left): to town for repairs.");
+                throw new NeedTown($"Equipment is nearly broken ({LowestDurability():P0} durability left): to town for repairs.");
             }
             quietRooms = Enemies(Player().Position, 35).Any() ? 0 : quietRooms + 1;
             here = Player().Position;
@@ -1355,7 +1370,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             && !_retreating && DateTime.UtcNow > _nextSellingTrip && TownPortals() > 0)
         {
             _nextSellingTrip = DateTime.UtcNow.AddMinutes(5);
-            throw new LowLife($"No room for the {item.Quality} {item.Class}: to town to sell.");
+            throw new NeedTown($"No room for the {item.Quality} {item.Class}: to town to sell.");
         }
 
         return fits;
@@ -1497,7 +1512,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 throw new LowLife($"Life is at {life}% with {about.Count} monsters about{(bossClose ? ", a boss close" : "")}{(beltDry ? ", the belt dry" : "")}.");
         }
 
-        PotionType? need = life < 40 ? PotionType.Rejuvenation : life < 55 ? PotionType.Healing : mana < 15 ? PotionType.Mana : null;
+        // Early, so that the game rarely has to be left: healing below 70%, a rejuvenation below 45%, mana below 30%.
+        PotionType? need = life < 45 ? PotionType.Rejuvenation : life < 70 ? PotionType.Healing : mana < 30 ? PotionType.Mana : null;
         if (need is null)
             return;
         // Out of mana with nothing to drink for it: a caster cannot fight. With no monster near, mana comes back on its
@@ -1836,6 +1852,9 @@ internal class BotStopped(string reason) : Exception(reason);
 
 /// <summary>Life is low and nothing is left to drink: the bot retreats to town (see <see cref="Bot.Retreat"/>).</summary>
 internal sealed class LowLife(string reason) : Exception(reason);
+
+/// <summary>An errand in town (selling, repairs): the bot goes by town portal and comes back (see <see cref="Bot.Retreat"/>).</summary>
+internal sealed class NeedTown(string reason) : Exception(reason);
 
 /// <summary>Something too dangerous for the character is near: the bot leaves the area (see <see cref="Bot.IsDeadly"/>).</summary>
 internal sealed class TooDangerous(string reason) : Exception(reason);

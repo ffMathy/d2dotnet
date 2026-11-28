@@ -290,15 +290,13 @@ internal sealed class QuestRunner(Bot bot)
         IQuest? last = null;
         while (Next() is { } quest)
         {
-            var levelling = bot.Reader.ReadMainPlayer() is { } who && who.Level < quest.MinimumLevel;
-            if (!levelling)
-            {
-                // Only runs of the quest count as tries, not the levelling before it.
-                tries = quest == last ? tries + 1 : 1;
-                last = quest;
-                if (tries > 5)
-                    throw new BotStopped($"{quest.Id} is still not done after five tries.");
-            }
+            // No levelling first: the quest is tried again and again, leaving the game when it is too much; every try is
+            // experience. (A cap only against a quest the bot cannot do at all.)
+            tries = quest == last ? tries + 1 : 1;
+            last = quest;
+            if (tries > 300)
+                throw new BotStopped($"{quest.Id} is still not done after {tries - 1} tries.");
+            Bot.Log($"{quest.Id}: try {tries} at level {bot.Player().Level}.");
 
             try
             {
@@ -309,9 +307,9 @@ internal sealed class QuestRunner(Bot bot)
                     calibrated = true;
                 }
 
-                // Hurt out in the field (a stopped run, or one that ran out of potions): back to town first.
+                // Hurt out in the field (a stopped run): a new game.
                 if (bot.Player() is { LifePercent: < 40 } hurt && hurt.Area != bot.Town)
-                    bot.Retreat($"Life is at {hurt.LifePercent}%.");
+                    throw new LowLife($"Life is at {hurt.LifePercent}%.");
                 if (bot.Player().Area == bot.Town)
                     bot.PickUpCorpse(); // a corpse a new game brought to town
                 bot.HealInTown();
@@ -319,22 +317,29 @@ internal sealed class QuestRunner(Bot bot)
                 SkillBinder.Bind(bot, ClassCombat.AttackSkillsOf(bot.Player().Class));
                 if (bot.Player().Area == bot.Town)
                     new TownChores(bot, ui, bot.Items).Run();
-                if (bot.Player().Level < quest.MinimumLevel)
-                    LevelUp(quest.MinimumLevel);
-                else
-                {
-                    bot.Proof($"{quest.Id} start");
-                    quest.Run(bot);
-                    if (quest.IsDone(bot))
-                        bot.ProofQuestLog($"{quest.Id} done");
-                }
+                bot.Proof($"{quest.Id} start");
+                quest.Run(bot);
+                if (quest.IsDone(bot))
+                    bot.ProofQuestLog($"{quest.Id} done");
             }
-            catch (LowLife low)
+            catch (Exception danger) when (danger is LowLife or TooDangerous)
             {
-                // Back to town, healed there, and the quest is tried again.
+                // Too much for now: out of the game, and the quest again in a new one.
                 try
                 {
-                    bot.Retreat(low.Message);
+                    bot.ExitAndRetry(danger.Message);
+                }
+                catch (Died exitDeath)
+                {
+                    died = exitDeath;
+                }
+            }
+            catch (NeedTown errand)
+            {
+                // An errand (selling, repairs): to town by portal, and back to the quest.
+                try
+                {
+                    bot.Retreat(errand.Message);
                 }
                 catch (Died retreatDeath)
                 {
@@ -342,19 +347,7 @@ internal sealed class QuestRunner(Bot bot)
                 }
                 catch (Stuck stuck)
                 {
-                    Bot.Log($"{stuck.Message} (retreating) Trying again.");
-                }
-            }
-            catch (TooDangerous danger)
-            {
-                try
-                {
-                    bot.Retreat(danger.Message);
-                    bot.ForgetPortal();
-                }
-                catch (Died retreatDeath)
-                {
-                    died = retreatDeath;
+                    Bot.Log($"{stuck.Message} (going to town) Trying again.");
                 }
             }
             catch (Died death)
@@ -371,8 +364,8 @@ internal sealed class QuestRunner(Bot bot)
             while (died is { } death)
             {
                 died = null;
-                if (++deaths > 5)
-                    throw new BotStopped("The character died five times; stopping.");
+                if (++deaths > 30)
+                    throw new BotStopped("The character died 30 times; stopping.");
                 try
                 {
                     bot.Respawn(death);
@@ -385,21 +378,10 @@ internal sealed class QuestRunner(Bot bot)
                 {
                     Bot.Log($"{stuck.Message} (going for the corpse) Trying again later.");
                 }
-                catch (LowLife low)
+                catch (Exception danger) when (danger is LowLife or TooDangerous)
                 {
-                    // Hurt again on the way to the corpse: back to town; the corpse waits for the next try.
-                    try
-                    {
-                        bot.Retreat(low.Message);
-                    }
-                    catch (Died again)
-                    {
-                        died = again;
-                    }
-                    catch (Stuck stuck)
-                    {
-                        Bot.Log($"{stuck.Message} (retreating) Trying again.");
-                    }
+                    // Hurt again after coming back: out of the game; the corpse waits in town.
+                    bot.ExitAndRetry(danger.Message);
                 }
             }
         }
