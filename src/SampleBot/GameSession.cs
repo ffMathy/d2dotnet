@@ -30,7 +30,10 @@ internal static class GameSession
         Play(bot);
         if (!WaitUntil(() => bot.Reader.IsInGame() && bot.Reader.ReadMapContext() is not null, seconds: 30))
             throw new BotStopped("The new game did not start.");
-        Thread.Sleep(2000);
+        // The player is in memory before the loading screen goes: wait for it, and for the player to stand in town.
+        WaitUntil(() => !bot.Reader.ReadMenus().LoadingScreen && bot.Reader.ReadMainPlayer() is { Area: not AreaId.None }, seconds: 30);
+        Thread.Sleep(1500);
+        WaitUntil(() => !bot.Reader.ReadMenus().LoadingScreen, seconds: 15);
         Bot.Log($"In a new game: seed 0x{bot.Reader.ReadMapContext()!.Value.Seed:X8}.");
     }
 

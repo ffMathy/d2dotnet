@@ -79,7 +79,8 @@ internal sealed class SearchForCainQuest : IQuest
 
     public QuestId Id => QuestId.Act1TheSearchForCain;
 
-    public int MinimumLevel => 9;
+    // The Dark Wood's packs (Carvers with a unique, their shamans) need Fire Ball, which comes at 12.
+    public int MinimumLevel => 12;
 
     // Done once Cain is free: the quest log moves on to the reward (Cain is then in the camp).
     public bool IsDone(Bot bot) =>

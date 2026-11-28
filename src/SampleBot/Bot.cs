@@ -1237,8 +1237,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var belt = reader.ReadInventory().Belt;
 
         // Close to dying with monsters about: out by town portal now; potions heal too slowly under a pack's blows.
-        if (life < 30 && !_retreating && !Healers.ContainsKey(player.Area) && TownPortals() > 0 && Enemies(player.Position, 15).Any())
-            throw new LowLife($"Life is at {life}% with monsters about.");
+        // In a crowd the blows come faster than a portal opens: leave earlier.
+        if (!_retreating && !Healers.ContainsKey(player.Area) && TownPortals() > 0 && Enemies(player.Position, 15).ToList() is { Count: > 0 } about
+            && life < (about.Count(m => Distance(player.Position, m.Position) <= 10) >= 5 ? 45 : 30))
+            throw new LowLife($"Life is at {life}% with {about.Count} monsters about.");
 
         PotionType? need = life < 40 ? PotionType.Rejuvenation : life < 55 ? PotionType.Healing : mana < 15 ? PotionType.Mana : null;
         if (need is null)
