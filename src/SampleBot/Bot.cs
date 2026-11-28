@@ -1509,6 +1509,11 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         for (var picked = 0; picked < 12; picked++)
         {
             var player = Player();
+            // Not with monsters close (they stand over the items, and pick ups neither fight nor drink): the fight first,
+            // the items after it.
+            DrinkIfNeeded(player);
+            if (!_retreating && Enemies(player.Position, 10).Any(m => !IsImmune(player, m)))
+                return;
             var inventory = reader.ReadInventory();
             var item = inventory.Items
                 .Where(i => i.Location == ItemLocation.Ground && !_unreachableItems.Contains(i.Id) && Distance(player.Position, i.Position) <= range)
