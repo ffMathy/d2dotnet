@@ -718,6 +718,22 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 Screenshot("stuck");
                 throw new Stuck($"Stuck at {Player().Position} on the way to {target}.");
             }
+            else if (failures % 3 == 0 && !_openingDoor
+                     && reader.ReadObjects().Where(o => o.IsDoor && o.IsSelectable && Distance(Player().Position, o.Position) <= 6)
+                         .MinBy(o => Distance(Player().Position, o.Position)) is { } door)
+            {
+                // A closed door is what is in the way.
+                Log($"Blocked by a {door.Class}: opening it.");
+                _openingDoor = true;
+                try
+                {
+                    UseObject(door.Class, until: () => !reader.ReadObjects().Any(o => o.Id == door.Id && o.IsSelectable));
+                }
+                finally
+                {
+                    _openingDoor = false;
+                }
+            }
             else if (failures % 3 == 0)
             {
                 // Something the map does not show is in the way (a unit, a barrel): step back a little in a free

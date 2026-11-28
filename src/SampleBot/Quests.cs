@@ -373,6 +373,7 @@ internal sealed class QuestRunner(Bot bot)
         var calibrated = false;
         Died? died = null;
         IQuest? last = null;
+        var stuckInRow = 0;
         while (Next() is { } quest)
         {
             // No levelling first: the quest is tried again and again, leaving the game when it is too much; every try is
@@ -405,6 +406,7 @@ internal sealed class QuestRunner(Bot bot)
                     new TownChores(bot, ui, bot.Items).Run();
                 bot.Proof($"{quest.Id} start");
                 quest.Run(bot);
+                stuckInRow = 0;
                 if (quest.IsDone(bot))
                     bot.ProofQuestLog($"{quest.Id} done");
             }
@@ -442,8 +444,26 @@ internal sealed class QuestRunner(Bot bot)
             }
             catch (Stuck stuck)
             {
-                // Counted as a try: the next one starts from where the character is.
-                Bot.Log($"{stuck.Message} Trying {quest.Id} again.");
+                // Counted as a try: the next one starts from where the character is, on the map without the spots the
+                // walk marked as blocked (a door that then opened). Stuck three times in a row: a new game.
+                bot.GridHere().ClearBlocks();
+                stuckInRow++;
+                if (stuckInRow >= 3)
+                {
+                    stuckInRow = 0;
+                    try
+                    {
+                        bot.ExitAndRetry($"{stuck.Message} Stuck three times in a row.");
+                    }
+                    catch (Died exitDeath)
+                    {
+                        died = exitDeath;
+                    }
+                }
+                else
+                {
+                    Bot.Log($"{stuck.Message} Trying {quest.Id} again.");
+                }
             }
 
             // Back to life in town and to the corpse; dying on the way there starts that again.
