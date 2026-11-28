@@ -183,6 +183,13 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 throw new BotStopped($"Travelling to {area} takes too many steps.");
             var here = Player().Area;
             ActivateWaypointHere();
+            // To town from more than a level away: a town portal is quicker than any walk (a few scrolls kept for flight).
+            if (area == Town && !_retreating && (Act.FindRoute(here, area)?.Count ?? int.MaxValue) > 1 && TownPortals() >= 3)
+            {
+                Log($"{here} -> {area} by town portal.");
+                if (TownPortalHome())
+                    continue;
+            }
             if (TakePortalBack(area))
                 continue;
             if (TakeWaypointTowards(area))
