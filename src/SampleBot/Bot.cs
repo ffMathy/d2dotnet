@@ -176,6 +176,38 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// <summary>Goes to <paramref name="area"/> through the act's exits, fighting what comes near on the way when asked.</summary>
     public void TravelTo(AreaId area, bool fight = true)
     {
+        var outer = _travelling;
+        _travelling = true;
+        try
+        {
+            Travel(area, fight);
+        }
+        finally
+        {
+            _travelling = outer;
+        }
+    }
+
+    // On the way somewhere (not clearing a level): monsters too low to give good experience are run past.
+    private bool _travelling;
+
+    /// <summary>
+    /// Monster levels this far below the character's give little experience (the game cuts it once the character is
+    /// more than five levels above the monster), so a travelling character runs past them.
+    /// </summary>
+    public const int LowExperienceGap = 5;
+
+    /// <summary>True when the monster's level (its area's, +2 for a champion, +3 for a unique) is worth fighting for.</summary>
+    public bool GivesExperience(MainPlayer player, Monster monster)
+    {
+        if (data.Levels.Find(player.Area)?.MonsterLevelIn(Act.Difficulty) is not { } level || level <= 0)
+            return true;
+        level += monster.Type switch { MonsterType.Champion => 2, MonsterType.Unique or MonsterType.SuperUnique => 3, _ => 0 };
+        return level >= player.Level - LowExperienceGap;
+    }
+
+    private void Travel(AreaId area, bool fight = true)
+    {
         var hops = 0;
         while (Player().Area != area)
         {
@@ -567,7 +599,14 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
             if (fight)
             {
-                FightNearby(FightRange);
+                // Travelling: only monsters worth their experience, unless a crowd hems the character in or the way is
+                // blocked (then everything close).
+                var me = Player();
+                var hemmed = failures > 0 || Enemies(me.Position, 5).Count() >= 4;
+                if (!_travelling || hemmed)
+                    FightNearby(_travelling ? 8 : FightRange);
+                else
+                    FightNearby(FightRange, m => GivesExperience(me, m));
                 Step = $"walking to {target} (picking up)";
                 PickUpNearby();
                 Step = $"walking to {target} (chests and shrines)";
@@ -770,7 +809,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// Raven: what makes more monsters), from a little further; then those a missile can reach in a straight line, then
     /// the others the player can walk to within twice the range.
     /// </summary>
-    public void FightNearby(int range)
+    public void FightNearby(int range, Func<Monster, bool>? worth = null)
     {
         var skipped = new HashSet<UnitId>();
         var outer = Step;
@@ -784,6 +823,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             var grid = GridHere();
             var enemies = Enemies(player.Position, range + SummonerReach)
                 .Where(m => !skipped.Contains(m.Id) && !GivenUp(m.Id) && !IsImmune(player, m) && (Distance(player.Position, m.Position) <= range || IsSummoner(m)))
+                .Where(m => worth?.Invoke(m) != false)
                 .ToList();
             var target = enemies
                 .OrderBy(m => IsSummoner(m) ? 0 : 1)
