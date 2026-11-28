@@ -951,6 +951,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         for (var attempt = 0; attempt < 5; attempt++)
         {
             var player = Player();
+            DrinkIfNeeded(player);
             if (reader.ReadObjects().Where(o => o.Class == objectClass).MinBy(o => Distance(player.Position, o.Position)) is not { } target)
             {
                 // Not in sight yet: walk to where the level places it, then look again.
@@ -1131,6 +1132,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
         Step = "opening a town portal";
         var from = Player().Area;
+        DrinkIfNeeded(Player());
         ClearCursor();
         InventoryPanel.Open(this);
         Ui.ClickRightPanel(InventoryPanel.CentreOf(book), right: true);
@@ -1141,7 +1143,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         // The portal rises in front of the player within a second or so.
         var deadline = DateTime.UtcNow.AddSeconds(3);
         while (DateTime.UtcNow < deadline && !reader.ReadObjects().Any(o => o.Class == ObjectId.TownPortal && Distance(Player().Position, o.Position) < 8))
+        {
+            DrinkIfNeeded(Player()); // the blows go on while the portal rises
             Thread.Sleep(150);
+        }
         if (!reader.ReadObjects().Any(o => o.Class == ObjectId.TownPortal && Distance(Player().Position, o.Position) < 8))
         {
             Failure("The town portal did not open.");
@@ -1400,9 +1405,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         _retreating = true;
         try
         {
+            Log($"{reason} Leaving for town.");
             if (Player().Area != Town && TownPortalHome())
             {
-                Log($"{reason} Back to town through a town portal.");
+                Log("Back in town through a town portal.");
             }
             else
             {
