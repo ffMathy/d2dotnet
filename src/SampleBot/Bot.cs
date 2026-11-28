@@ -182,6 +182,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             if (++hops > 40)
                 throw new BotStopped($"Travelling to {area} takes too many steps.");
             var here = Player().Area;
+            var entry = Player().Position; // where the player came into the level (the way back is there)
             ActivateWaypointHere();
             // To town from more than a level away: a town portal is quicker than any walk (a few scrolls kept for flight).
             if (area == Town && !_retreating && (Act.FindRoute(here, area)?.Count ?? int.MaxValue) > 1 && TownPortals() >= 3)
@@ -211,7 +212,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             var step = route[0];
             Log($"{here} -> {step.To.Id}{(route.Count > 1 ? $" (then {string.Join(", ", route.Skip(1).Select(s => s.To.Id))})" : "")}.");
             if (step.Exits[0].Kind == ExitKind.Warp)
-                TakeWarp(step, fight);
+                TakeWarp(step, fight, entry);
             else
                 CrossSeam(step, fight);
         }
@@ -410,12 +411,12 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         return level.Waypoints.Count > 0 ? level.ToWorld(level.Waypoints[0].Position) : null;
     }
 
-    private void TakeWarp(RouteStep step, bool fight)
+    private void TakeWarp(RouteStep step, bool fight, Point? entry = null)
     {
         var grid = new MapGrid(step.From);
         var warp = step.From.ToWorld(step.Exits.MinBy(e => Distance(Player().Position, step.From.ToWorld(e.Position))).Position);
         WalkTo(grid, warp, arriveWithin: 6, fight);
-        EnterWarp(warp, step.To.Id);
+        EnterWarp(warp, step.To.Id, entry);
     }
 
     // Walks into the next level: along the shortest path to the first of its subtiles that is a little way past the
@@ -447,8 +448,13 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         return 20;
     }
 
-    /// <summary>Clicks a level warp: sweeps the cursor around it until a warp tile is hovered, then clicks it.</summary>
-    public void EnterWarp(Point around, AreaId destination)
+    /// <summary>
+    /// Clicks a level warp: sweeps the cursor around it until a warp tile is hovered, then clicks it. When none is
+    /// there (the map places some small levels' warps at their centre: the Forgotten Tower's ladder and stairs), the
+    /// whole screen is swept, and the warp farthest from where the player came in (<paramref name="entry"/>, the way
+    /// back) is taken.
+    /// </summary>
+    public void EnterWarp(Point around, AreaId destination, Point? entry = null)
     {
         for (var attempt = 0; attempt < 3; attempt++)
         {
@@ -467,8 +473,50 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             }
         }
 
+        if (SweepForWarp(destination, entry))
+            return;
         Failure($"Could not find the entrance to {destination} near {around}.");
         throw new BotStopped($"Could not find the entrance to {destination} near {around}.");
+    }
+
+    // The screen swept for warp tiles; each one, farthest from the way back first, is clicked until one leads to the
+    // destination. True when the player is there; a warp to elsewhere is left to the route (it starts again from there).
+    private bool SweepForWarp(AreaId destination, Point? entry)
+    {
+        var start = Player().Area;
+        var (cx, cy, cw, ch) = Window.ClientArea();
+        var tiles = new Dictionary<uint, (int X, int Y)>();
+        for (var y = cy + 30; y < cy + ch * 88 / 100; y += 40)
+        {
+            for (var x = cx + 30; x < cx + cw - 30; x += 40)
+            {
+                if (input.Peek((x, y), reader.ReadHover) is { Type: UnitType.Tile } hover)
+                    tiles.TryAdd(hover.Id.Value, (x, y));
+            }
+        }
+
+        var back = entry is { } e ? Aim(Player().Position, e, 0) : (cx + cw / 2, cy + ch / 2);
+        Log($"Swept the screen for the entrance to {destination}: {tiles.Count} warps.");
+        foreach (var (_, spot) in tiles.OrderByDescending(t => Math.Pow(t.Value.X - back.Item1, 2) + Math.Pow(t.Value.Y - back.Item2, 2)))
+        {
+            if (input.Peek(spot, reader.ReadHover) is not { Type: UnitType.Tile })
+                continue;
+            Log($"Entering the warp at screen {spot}.");
+            input.LeftClick();
+            var deadline = DateTime.UtcNow.AddSeconds(8);
+            while (DateTime.UtcNow < deadline && Player().Area == start)
+                Thread.Sleep(200);
+            WaitWhileLoading();
+            if (Player().Area == destination)
+                return true;
+            if (Player().Area != start)
+            {
+                Log($"That warp led to {Player().Area}.");
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public bool WaitForArea(AreaId area, int seconds)

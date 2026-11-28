@@ -161,6 +161,30 @@ if (Environment.GetEnvironmentVariable("D2_PATH") is { Length: > 0 } pathTo)
     return 0;
 }
 
+if (Environment.GetEnvironmentVariable("D2_SWEEP") == "1")
+{
+    // Moves the cursor over the screen in 50 pixel steps and lists what the game says is under it (finds warps and
+    // objects the map puts elsewhere), with the level's exits and objects from the map and from memory.
+    var me = reader.ReadMainPlayer()!;
+    var level = bot.Act[me.Area];
+    Console.WriteLine($"{me.Area} {level.Bounds} at {me.Position}; exits: {string.Join("; ", level.Exits.Select(e => $"{e} at {level.ToWorld(e.Position)}"))}");
+    foreach (var o in reader.ReadObjects())
+        Console.WriteLine($"  object {o.Class} at {o.Position}");
+    var (cx, cy, cw, ch) = bot.Window.ClientArea();
+    var seen = new HashSet<string>();
+    for (var y = cy + 40; y < cy + ch * 88 / 100; y += 50)
+    {
+        for (var x = cx + 40; x < cx + cw - 40; x += 50)
+        {
+            if (bot.Input.Peek((x, y), reader.ReadHover) is { } hover && seen.Add($"{hover.Type} {hover.Id.Value}"))
+                Console.WriteLine($"  hover {hover.Type} {hover.Id.Value} at screen ({x - cx}, {y - cy})");
+        }
+    }
+
+    bot.Screenshot("sweep");
+    return 0;
+}
+
 if (Environment.GetEnvironmentVariable("D2_PLAYERS") == "1")
 {
     if (bot.PresetPosition(ObjectId.Bank) is { } bank && Bot.Distance(bot.Player().Position, bank) > 8)
