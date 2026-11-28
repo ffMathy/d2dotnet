@@ -393,16 +393,24 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             if (fight)
             {
                 FightNearby(FightRange);
+                Step = $"walking to {target} (picking up)";
                 PickUpNearby();
+                Step = $"walking to {target} (refilling the belt)";
                 RefillBeltWhenQuiet();
-                Step = $"walking to {target}";
             }
+
+            Step = $"walking to {target} (finding the path)";
 
             // Not fighting (a retreat): keep away from the monsters where the map leaves room.
             var dangers = fight ? [] : Enemies(Player().Position, 40).Select(m => m.Position).ToList();
             var path = (dangers.Count > 0 ? grid.FindPath(Player().Position, target, p => Danger(p, dangers)) : grid.FindPath(Player().Position, target))
                 ?? throw new BotStopped($"No path from {Player().Position} to {target}.");
+            // An unwalkable target (in a wall, past the stairs) gets a path to the nearest walkable subtile: when that
+            // ends where the character stands, it is as close as it gets (else this loops for ever, never "stuck").
+            if (Distance(path[^1], Player().Position) <= 3)
+                return;
             var step = path[Math.Min(StepLength, path.Count - 1)];
+            Step = $"walking to {target} (moving to {step}, {path.Count} steps left, at {Player().Position})";
             if (MoveTo(step))
             {
                 failures = 0;

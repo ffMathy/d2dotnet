@@ -112,6 +112,21 @@ if (args.Contains("--ui-flags") || Environment.GetEnvironmentVariable("D2_UI_FLA
     return 0;
 }
 
+if (Environment.GetEnvironmentVariable("D2_PATH") is { Length: > 0 } pathTo)
+{
+    // Times a path search from the player to "x,y" (world subtiles) on the player's level.
+    var parts = pathTo.Split(',');
+    var to = new Point(int.Parse(parts[0]), int.Parse(parts[1]));
+    var me = reader.ReadMainPlayer()!;
+    var grid = bot.GridHere();
+    var level = bot.Act[me.Area];
+    Console.WriteLine($"{me.Area} {level.Bounds} from {me.Position} (walkable {grid.IsWalkable(me.Position)}) to {to} (walkable {grid.IsWalkable(to)}, level {grid.LevelAt(to)?.Id})");
+    var watch = System.Diagnostics.Stopwatch.StartNew();
+    var path = grid.FindPath(me.Position, to);
+    Console.WriteLine($"FindPath: {(path is null ? "none" : path.Count + " steps")} in {watch.ElapsedMilliseconds} ms");
+    return 0;
+}
+
 if (Environment.GetEnvironmentVariable("D2_PLAYERS") == "1")
 {
     if (bot.PresetPosition(ObjectId.Bank) is { } bank && Bot.Distance(bot.Player().Position, bank) > 8)
