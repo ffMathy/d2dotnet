@@ -515,6 +515,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 Log($"{stuck.Message} Skipping the room.");
             }
 
+            if (LowestDurability() < 0.15 && !_retreating)
+                throw new LowLife($"Equipment is nearly broken ({LowestDurability():P0} durability left): to town for repairs.");
             quietRooms = Enemies(Player().Position, 35).Any() ? 0 : quietRooms + 1;
             here = Player().Position;
             for (var i = 0; i < rooms.Count; i++)
@@ -560,7 +562,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             var player = Player();
             var grid = GridHere();
             var enemies = Enemies(player.Position, range + SummonerReach)
-                .Where(m => !skipped.Contains(m.Id) && (Distance(player.Position, m.Position) <= range || IsSummoner(m)))
+                .Where(m => !skipped.Contains(m.Id) && !GivenUp(m.Id) && (Distance(player.Position, m.Position) <= range || IsSummoner(m)))
                 .ToList();
             var target = enemies
                 .OrderBy(m => IsSummoner(m) ? 0 : 1)
@@ -582,6 +584,11 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
     // Half a missile's width, in subtiles: a bolt clips a wall's end or corner the thin line between centres misses.
     private const float MissileHalfWidth = 0.75f;
+
+    // Monsters given up on, left alone until the time: picked again at once, they eat the same 30 seconds again.
+    private readonly Dictionary<UnitId, DateTime> _givenUp = [];
+
+    private bool GivenUp(UnitId id) => _givenUp.TryGetValue(id, out var until) && DateTime.UtcNow < until;
 
     // How much further than the fight range summoners are gone for.
     private const int SummonerReach = 10;
@@ -676,7 +683,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             // A summoner come into reach goes first (FightNearby picks it next).
             var grid = GridHere();
             if (!IsSummoner(monster)
-                && Enemies(player.Position, FightRange + SummonerReach).Any(m => IsSummoner(m) && grid.IsLineClear(player.Position, m.Position, MissileHalfWidth)))
+                && Enemies(player.Position, FightRange + SummonerReach).Any(m => IsSummoner(m) && !GivenUp(m.Id) && grid.IsLineClear(player.Position, m.Position, MissileHalfWidth)))
             {
                 outcome = "left for a summoner";
                 break;
@@ -692,6 +699,15 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 }
 
                 MoveTo(path[Math.Min(4, path.Count - 1)]);
+                continue;
+            }
+
+            // A monster at arm's length hits every second while the target is cast at (and a bolt cast past it may hit
+            // it instead): it goes first.
+            if (Enemies(player.Position, 3).FirstOrDefault(m => m.Id != monster.Id) is { } close)
+            {
+                Combat.Attack(this, player, close);
+                attacks++;
                 continue;
             }
 
@@ -734,7 +750,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
         var endLife = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.LifePercent ?? 0;
         if (outcome == "gave up")
+        {
+            _givenUp[id] = DateTime.UtcNow.AddMinutes(1);
             Screenshot($"gave up on {name}");
+        }
         if (notable)
             Proof($"{name} {outcome}");
         Log($"{name} {id.Value}: {outcome} after {(DateTime.UtcNow - started).TotalSeconds:F1} s, {attacks} attacks, " +
@@ -901,6 +920,12 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         Failure($"Could not open {npc}'s dialog.");
         return false;
     }
+
+    /// <summary>The worn items' lowest durability, as a share of their maximum (1 when nothing wears out).</summary>
+    public double LowestDurability() =>
+        reader.ReadInventory().Items.Where(i => i.Location == ItemLocation.Equipped)
+            .Select(i => (Now: i.GetStat(StatId.Durability) ?? 0, Max: i.GetStat(StatId.MaxDurability) ?? 0))
+            .Where(d => d.Max > 0).Select(d => (double)d.Now / d.Max).DefaultIfEmpty(1).Min();
 
     /// <summary>Logs a failure with a screenshot of it (in the trail when one runs), so it can be seen what went wrong.</summary>
     public void Failure(string message)

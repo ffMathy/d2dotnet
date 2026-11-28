@@ -38,6 +38,7 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
             // Gold is stashed last: what selling brings in pays for the potions first.
             Identify();
             WearUpgrades();
+            Repair();
             Sell();
             bot.CloseDialog();
             WithdrawForPotions();
@@ -264,6 +265,43 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
     // as its body location (7 for the left hand), else the first slot.
     private static int RingIndex(Item? replaced, IReadOnlyList<Item> equipped) =>
         replaced is null ? (equipped.Count(e => e.Info?.Type == "ring") == 0 ? 0 : 1) : replaced.Position.X == 7 ? 1 : 0;
+
+    // ---- Repairing ----
+
+    // The shop's (vendorpanellayouthd, a left panel) repair-all button.
+    private static readonly (int X, int Y) RepairButton = (169 + 40, 1277 + 40);
+
+    /// <summary>The worn items' lowest durability, as a share of their maximum (1 when nothing wears out).</summary>
+    public double LowestDurability() => bot.LowestDurability();
+
+    /// <summary>Repairs everything at the town's smith (Charsi, Fara, Hratli, Halbu, Larzuk) once something worn is below half its durability.</summary>
+    public void Repair()
+    {
+        var lowest = LowestDurability();
+        if (lowest >= 0.5 || bot.Reader.ReadInventory().Gold + bot.Reader.ReadInventory().StashGold.Sum() < 100)
+            return;
+        var smith = bot.Town switch
+        {
+            AreaId.RogueEncampment => MonsterId.Charsi,
+            AreaId.LutGholein => MonsterId.Fara,
+            AreaId.KurastDocks => MonsterId.Hratli,
+            AreaId.PandemoniumFortress => MonsterId.Halbu,
+            _ => MonsterId.Larzuk,
+        };
+        if (!Shop.OpenTrade(bot, smith))
+        {
+            bot.Failure($"Could not open {smith}'s shop to repair.");
+            return;
+        }
+
+        Thread.Sleep(400);
+        ui.ClickLeftPanel(RepairButton);
+        if (Wait(() => LowestDurability() > lowest, 2))
+            Bot.Log($"Repaired at {smith} (lowest durability was {lowest:P0}).");
+        else
+            bot.Failure($"Could not repair at {smith}.");
+        bot.CloseDialog();
+    }
 
     // ---- Selling ----
 
