@@ -130,6 +130,27 @@ public sealed class MapGridTests
     }
 
     [Fact]
+    public void IsLineClear_WithAWidth_CatchesTheCornerAThinLineSlipsPast()
+    {
+        var grid = new MapGrid(Level(AreaId.ColdPlains, 0, 0,
+            "..........",
+            "....#.....",
+            "..........",
+            "..........",
+            ".....#...."));
+
+        // The thin line from (0,0) to (9,4) passes (4,2), under the wall's end at (4,1); a bolt 1.5 wide clips it.
+        Assert.True(grid.IsLineClear(new Point(0, 0), new Point(9, 4)));
+        Assert.False(grid.IsLineClear(new Point(0, 0), new Point(9, 4), halfWidth: 0.75f));
+        Assert.True(grid.IsLineClear(new Point(0, 0), new Point(9, 4), halfWidth: 0.5f));
+
+        // A wall beside the target, or behind it, does not count.
+        Assert.True(grid.IsLineClear(new Point(0, 3), new Point(5, 3), halfWidth: 0.75f));
+        Assert.True(grid.IsLineClear(new Point(0, 2), new Point(4, 2), halfWidth: 1f));
+        Assert.True(grid.IsLineClear(new Point(2, 1), new Point(3, 1), halfWidth: 0.75f));
+    }
+
+    [Fact]
     public void Constructor_RejectsNoLevels_AndLevelsWithoutCollision()
     {
         Assert.Throws<ArgumentException>(() => new MapGrid());

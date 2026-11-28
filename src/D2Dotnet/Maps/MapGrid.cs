@@ -134,6 +134,46 @@ public sealed class MapGrid
         return true;
     }
 
+    /// <summary>
+    /// True when nothing <paramref name="blocking"/> lies within <paramref name="halfWidth"/> subtiles of the line from
+    /// <paramref name="from"/> to <paramref name="to"/>: a missile as wide as twice that gets through, where
+    /// <see cref="IsLineClear(Point, Point, ushort)"/>'s thin line can slip past the end or the corner of a wall the
+    /// missile clips. Cells are tested by their centres; the two end cells, and cells beyond the ends, are not tested,
+    /// so a unit standing against a wall can still be hit. A cell no level covers blocks.
+    /// </summary>
+    /// <param name="from">One end, such as the caster.</param>
+    /// <param name="to">The other end, such as the target.</param>
+    /// <param name="halfWidth">How far either side of the line counts, in subtiles (0.75 for a bolt).</param>
+    /// <param name="blocking">The collision flags that stop the missile.</param>
+    public bool IsLineClear(Point from, Point to, float halfWidth, ushort blocking = CollisionMap.MissileFlight)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(halfWidth);
+        if (!IsLineClear(from, to, blocking))
+            return false;
+        double dx = to.X - from.X, dy = to.Y - from.Y;
+        var length = Math.Sqrt(dx * dx + dy * dy);
+        if (length < 1)
+            return true;
+        var reach = (int)Math.Ceiling(halfWidth);
+        for (var y = Math.Min(from.Y, to.Y) - reach; y <= Math.Max(from.Y, to.Y) + reach; y++)
+        {
+            for (var x = Math.Min(from.X, to.X) - reach; x <= Math.Max(from.X, to.X) + reach; x++)
+            {
+                var cell = new Point(x, y);
+                if (cell == from || cell == to)
+                    continue;
+                double ox = x - from.X, oy = y - from.Y;
+                var along = (ox * dx + oy * dy) / length;
+                if (along <= 0 || along >= length || Math.Abs(ox * dy - oy * dx) / length > halfWidth)
+                    continue;
+                if (IsBlocked(cell, blocking))
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
     // True when a cell holds one of the flags, or no level covers it.
     private bool IsBlocked(Point world, ushort flags)
     {

@@ -550,12 +550,12 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 .ToList();
             var target = enemies
                 .OrderBy(m => IsSummoner(m) ? 0 : 1)
-                .ThenBy(m => grid.IsLineClear(player.Position, m.Position) ? 0 : 1)
+                .ThenBy(m => grid.IsLineClear(player.Position, m.Position, MissileHalfWidth) ? 0 : 1)
                 .ThenBy(m => Distance(player.Position, m.Position))
                 .FirstOrDefault();
             if (target is null)
                 return;
-            if (!grid.IsLineClear(player.Position, target.Position)
+            if (!grid.IsLineClear(player.Position, target.Position, MissileHalfWidth)
                 && grid.FindPath(player.Position, target.Position) is not { Count: <= 2 * FightRange })
             {
                 skipped.Add(target.Id); // behind walls and far round (or no way at all): leave it
@@ -565,6 +565,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             Fight(target.Id, seconds: IsSummoner(target) ? 25 : 12);
         }
     }
+
+    // Half a missile's width, in subtiles: a bolt clips a wall's end or corner the thin line between centres misses.
+    private const float MissileHalfWidth = 0.75f;
 
     // How much further than the fight range summoners are gone for.
     private const int SummonerReach = 10;
@@ -611,7 +614,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         return grid.FindPathTo(Player().Position, p =>
             Distance(p, target.Position) is var d && d <= castRange && d >= 4
             && others.All(e => Distance(p, e.Position) >= 3)
-            && grid.IsLineClear(p, target.Position)
+            && grid.IsLineClear(p, target.Position, MissileHalfWidth)
             && InTheWay(p, target, others) is null, maxLength: 15);
     }
 
@@ -647,14 +650,14 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             // A summoner come into reach goes first (FightNearby picks it next).
             var grid = GridHere();
             if (!IsSummoner(monster)
-                && Enemies(player.Position, FightRange + SummonerReach).Any(m => IsSummoner(m) && grid.IsLineClear(player.Position, m.Position)))
+                && Enemies(player.Position, FightRange + SummonerReach).Any(m => IsSummoner(m) && grid.IsLineClear(player.Position, m.Position, MissileHalfWidth)))
             {
                 outcome = "left for a summoner";
                 break;
             }
 
             // A wall between them: walk round it towards the monster instead of casting into the wall.
-            if (!grid.IsLineClear(player.Position, monster.Position))
+            if (!grid.IsLineClear(player.Position, monster.Position, MissileHalfWidth))
             {
                 if (grid.FindPath(player.Position, monster.Position) is not { Count: > 1 } path)
                 {

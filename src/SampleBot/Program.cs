@@ -11,7 +11,9 @@
 //                  cursor, so the bot borrows it for about 80 ms per click or key and puts it back.
 // Press End to stop the bot.
 using System.Runtime.Versioning;
+using D2Dotnet;
 using D2Dotnet.Files;
+using D2Dotnet.Maps;
 using D2Dotnet.Memory;
 
 [assembly: SupportedOSPlatform("windows")]
@@ -24,7 +26,8 @@ var probeTrade = args.Contains("--probe-trade");
 var newGame = args.Contains("--new-game");
 var screenshot = args.Contains("--screenshot");
 var town = args.Contains("--town");
-args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points" or "--probe-trade" or "--new-game" or "--screenshot" or "--town"))];
+var walls = args.Contains("--walls");
+args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points" or "--probe-trade" or "--new-game" or "--screenshot" or "--town" or "--walls"))];
 var installPath = args.Length > 0 ? args[0] : @"C:\Program Files (x86)\Diablo II Resurrected";
 using var game = GameInstall.Open(installPath);
 
@@ -49,6 +52,36 @@ var window = GameWindow.Of(process.ProcessId);
 IGameInput input = foreground ? new ForegroundInput() : new BackgroundInput(window);
 var bot = new Bot(reader, game.Data, game.Maps, window, input);
 var quests = new QuestRunner(bot);
+
+if (walls)
+{
+    // The collision flags around the player, a character per subtile (hex of the low nibble, '.' for 0, ' ' uncovered;
+    // '@' the player, 'm' monsters), the counts of each flag value in the level, and a screenshot to compare with.
+    var player = reader.ReadMainPlayer()!;
+    var level = bot.Act[player.Area];
+    var map = level.Collision!;
+    var local = level.ToLocal(player.Position);
+    var monsters = reader.ReadMonsters().Where(m => m.IsEnemy).Select(m => level.ToLocal(m.Position)).ToHashSet();
+    Console.WriteLine($"{player.Area} at {player.Position} (local {local}); flag values in the level:");
+    foreach (var group in map.Cells.ToArray().GroupBy(c => c).OrderBy(g => g.Key))
+        Console.WriteLine($"  0x{group.Key:X4}: {group.Count()}");
+    for (var y = local.Y - 25; y <= local.Y + 25; y++)
+    {
+        var line = new System.Text.StringBuilder();
+        for (var x = local.X - 40; x <= local.X + 40; x++)
+        {
+            var p = new Point(x, y);
+            line.Append(p == local ? '@' : monsters.Contains(p) ? 'm'
+                : x < 0 || y < 0 || x >= map.Width || y >= map.Height || map[x, y] == CollisionMap.Uncovered ? ' '
+                : map[x, y] == 0 ? '.' : "0123456789ABCDEF"[map[x, y] & 0xF]);
+        }
+
+        Console.WriteLine(line);
+    }
+
+    bot.Screenshot("walls");
+    return 0;
+}
 
 if (screenshot)
 {
