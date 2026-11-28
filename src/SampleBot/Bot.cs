@@ -1225,7 +1225,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             // A caster keeps monsters that drain mana away (closer than 8, not only at arm's length): their hits take
             // the mana the spells need.
             var drainerClose = AttackUsesMana(player) && Enemies(player.Position, 8).Any(DrainsMana);
-            if ((kites < 3 && Enemies(player.Position, 4).Any() || drainerKites < 8 && drainerClose)
+            // A boss (unique, champion) at arm's length: stepped back from again and again (cast, step back, cast), as a
+            // player fights a melee boss such as the Smith; the others a few times a fight.
+            var kiteLimit = monster.Type is MonsterType.Unique or MonsterType.SuperUnique or MonsterType.Champion ? 10 : 3;
+            if ((kites < kiteLimit && Enemies(player.Position, 4).Any() || drainerKites < 8 && drainerClose)
                 && Enemies(player.Position, 30).ToList() is var near
                 && grid.FindPathTo(player.Position, p => near.All(m => Distance(p, m.Position) >= (DrainsMana(m) && AttackUsesMana(player) ? 11 : 8))
                     && grid.IsLineClear(p, monster.Position, MissileHalfWidth), maxLength: 14) is { Count: > 1 } away)
