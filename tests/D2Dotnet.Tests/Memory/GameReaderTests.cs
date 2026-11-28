@@ -34,6 +34,7 @@ public sealed class GameReaderTests
     [InlineData(0x19, nameof(OpenMenus.Cube))]
     [InlineData(0x03, nameof(OpenMenus.SkillSelect))]
     [InlineData(0x0D, nameof(OpenMenus.Anvil))]
+    [InlineData(0x0E, nameof(OpenMenus.QuestLog))]
     public void ReadMenus_ReadsEachFlagFromItsUIByte(int index, string menu)
     {
         var image = new GameImage();
@@ -48,7 +49,7 @@ public sealed class GameReaderTests
     public void ReadMenus_IgnoresTheOtherUIBytes()
     {
         var image = new GameImage();
-        int[] used = [0x01, 0x168, 0x08, 0x0B, 0x18, 0x13, 0x0A, 0x04, 0x02, 0x09, 0x19, 0x03, 0x0D];
+        int[] used = [0x01, 0x168, 0x08, 0x0B, 0x18, 0x13, 0x0A, 0x04, 0x02, 0x09, 0x19, 0x03, 0x0D, 0x0E];
         for (var i = 0; i < 0x16D; i++)
         {
             if (!used.Contains(i))

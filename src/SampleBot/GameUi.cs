@@ -86,7 +86,7 @@ internal sealed class GameUi(Bot bot)
         OpenPanel(() => bot.Reader.ReadMenus().Character, bot.Keys.CharacterScreen);
         var before = bot.Player().BaseStats.GetValue(stat) ?? 0;
         var done = ClickUntil(LeftAnchor, LeftPanel, (StatButtonX, StatButtonY[index]), () => (bot.Player().BaseStats.GetValue(stat) ?? 0) > before);
-        Bot.Log(done ? $"Spent a stat point on {stat} ({before + 1})." : $"Could not spend a stat point on {stat}.");
+        if (done) Bot.Log($"Spent a stat point on {stat} ({before + 1})."); else bot.Failure($"Could not spend a stat point on {stat}.");
         Thread.Sleep(150);
         return done;
     }
@@ -121,7 +121,7 @@ internal sealed class GameUi(Bot bot)
         var hit = bot.Player().Skills.Where(k => k.Key != skill && k.Value.Level > others.GetValueOrDefault(k.Key)).Select(k => k.Key).ToList();
         if (hit.Count > 0)
             throw new BotStopped($"A click meant for {skill} spent a point on {string.Join(", ", hit)}: the skill tree positions are off.");
-        Bot.Log(done ? $"Spent a skill point on {skill} ({before + 1})." : $"Could not spend a skill point on {skill}.");
+        if (done) Bot.Log($"Spent a skill point on {skill} ({before + 1})."); else bot.Failure($"Could not spend a skill point on {skill}.");
         Thread.Sleep(300);
         return done;
     }

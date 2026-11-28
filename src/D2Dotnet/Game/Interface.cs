@@ -42,12 +42,15 @@ public readonly record struct OpenMenus
     /// <summary>Larzuk's or Charsi's anvil (imbue, socket).</summary>
     public bool Anvil { get; init; }
 
+    /// <summary>The quest log.</summary>
+    public bool QuestLog { get; init; }
+
     /// <summary>
     /// True when a panel that takes the mouse is open. The loading screen and the automap are not panels: they do not
     /// count.
     /// </summary>
     public bool IsAnyPanelOpen =>
-        Inventory || NpcInteract || NpcShop || Stash || Waypoint || SkillTree || Character || QuitMenu || Cube || SkillSelect || Anvil;
+        Inventory || NpcInteract || NpcShop || Stash || Waypoint || SkillTree || Character || QuitMenu || Cube || SkillSelect || Anvil || QuestLog;
 }
 
 /// <summary>A widget of the game's user interface (a child of its panel manager).</summary>

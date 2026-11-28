@@ -258,7 +258,6 @@ internal sealed class QuestRunner(Bot bot)
                 CharacterBuild.SpendPoints(bot, ui);
                 if (bot.Player().Area == bot.Town)
                     new TownChores(bot, ui, bot.Items).Run();
-                Shop.BuyPotions(bot, ui);
                 if (bot.Player().Level < quest.MinimumLevel)
                     LevelUp(quest.MinimumLevel);
                 else

@@ -33,6 +33,14 @@ args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-inpu
 var installPath = args.Length > 0 ? args[0] : @"C:\Program Files (x86)\Diablo II Resurrected";
 using var game = GameInstall.Open(installPath);
 
+if (Environment.GetEnvironmentVariable("D2_LAYOUT") is { Length: > 0 } layoutName)
+{
+    // Prints the game's UI layout files whose name holds the text (data/global/ui/layouts), to find where a button is.
+    foreach (var file in game.Files.EnumerateFiles("data/global/ui/layouts").Where(f => f.Contains(layoutName, StringComparison.OrdinalIgnoreCase)))
+        Console.WriteLine($"==== {file}\n{System.Text.Encoding.UTF8.GetString(game.Files.ReadFile(file)!)}");
+    return 0;
+}
+
 using var process = GameProcess.Attach();
 var reader = new GameReader(process, game.Data, OffsetCache.LoadOrScan(process));
 foreach (var missing in reader.Offsets.Missing)
@@ -87,6 +95,15 @@ if (walls)
     return 0;
 }
 
+if (args.Contains("--ui-flags") || Environment.GetEnvironmentVariable("D2_UI_FLAGS") == "1")
+{
+    // The non-zero bytes of the panel flags (from 0x14 before the UI offset), to find a panel's flag: open it, run this,
+    // close it, run it again.
+    var flags = process.ReadBytes(unchecked(process.ModuleBaseAddress + reader.Offsets.UI - 0x14), 0x40);
+    Console.WriteLine(string.Join(" ", flags.Select((b, i) => (b, i)).Where(x => x.b != 0).Select(x => $"0x{x.i:X2}={x.b}")));
+    return 0;
+}
+
 if (questLog)
 {
     bot.ProofQuestLog("quest log");
@@ -132,8 +149,8 @@ try
         var ui = new GameUi(bot);
         if (bot.Player().Area != bot.Town)
             bot.TravelTo(bot.Town);
+        bot.HealInTown();
         new TownChores(bot, ui, bot.Items).Run();
-        Shop.BuyPotions(bot, ui);
     }
     else if (newGame)
     {

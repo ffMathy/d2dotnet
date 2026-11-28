@@ -315,6 +315,7 @@ public class OpenMenusTests
         Assert.False(new OpenMenus().IsAnyPanelOpen);
         Assert.False(new OpenMenus { LoadingScreen = true, MapShown = true }.IsAnyPanelOpen);
         Assert.True(new OpenMenus { Anvil = true }.IsAnyPanelOpen);
+        Assert.True(new OpenMenus { QuestLog = true }.IsAnyPanelOpen);
         Assert.True(new OpenMenus { Inventory = true, MapShown = true }.IsAnyPanelOpen);
     }
 

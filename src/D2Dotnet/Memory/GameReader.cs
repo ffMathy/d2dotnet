@@ -137,7 +137,7 @@ public sealed partial class GameReader
     {
         // The panel flags start 0x14 bytes before the UI offset since Reign of the Warlock (d2go: 0xA before, the automap
         // flag at the offset itself); the panels kept their order. Observed in a running game: the inventory, automap and
-        // waypoint panels set bytes 0x01, 0x0A and 0x13, and the loading screen 0x168 (d2go 0x16C).
+        // waypoint panels set bytes 0x01, 0x0A and 0x13, the quest log 0x0E, and the loading screen 0x168 (d2go 0x16C).
         var buffer = Process.ReadBytes(unchecked(Module(Offsets.UI) - UIFlagsBefore), 0x16D);
         return new OpenMenus
         {
@@ -154,6 +154,7 @@ public sealed partial class GameReader
             Cube = buffer[0x19] != 0,
             SkillSelect = buffer[0x03] != 0,
             Anvil = buffer[0x0D] != 0,
+            QuestLog = buffer[0x0E] != 0, // observed in Reign of the Warlock: set while the quest log is open
         };
     }
 

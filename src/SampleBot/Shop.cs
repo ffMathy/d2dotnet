@@ -88,11 +88,16 @@ internal static class Shop
     {
         var inventory = bot.Reader.ReadInventory();
         var room = inventory.Belt.Rows * 4 - inventory.Belt.Items.Count;
-        if (room <= 0 || inventory.Gold < 50 || bot.Player().Area != AreaId.RogueEncampment)
+        // Spare healing potions in the inventory, for when a fight empties the belt (a champion pack can).
+        var carried = inventory.Items.Where(i => i.Location == ItemLocation.Inventory).ToList();
+        var spare = Math.Max(0, SpareHealing - carried.Count(i => i.IsHealingPotion));
+        if (!TownChores.Fits(carried, 1, 1) || TownChores.FreeCellsOf(carried) < 8)
+            spare = 0;
+        if (room + spare <= 0 || inventory.Gold < 50 || bot.Player().Area != AreaId.RogueEncampment)
             return;
         if (!OpenTrade(bot, MonsterId.Akara))
         {
-            Bot.Log("Could not open Akara's shop.");
+            bot.Failure("Could not open Akara's shop.");
             return;
         }
 
@@ -102,7 +107,7 @@ internal static class Shop
             var healing = goods.Where(g => g.IsPotionOf(PotionType.Healing)).Select(g => g.Class).DefaultIfEmpty(ItemId.MinorHealingPotion).Max();
             var mana = goods.Where(g => g.IsPotionOf(PotionType.Mana)).Select(g => g.Class).DefaultIfEmpty(ItemId.MinorManaPotion).Max();
             var manaCount = room / 3;
-            Buy(bot, ui, healing, room - manaCount);
+            Buy(bot, ui, healing, room - manaCount + spare);
             Buy(bot, ui, mana, manaCount);
         }
         finally
@@ -110,6 +115,9 @@ internal static class Shop
             bot.CloseDialog();
         }
     }
+
+    // How many healing potions to carry in the inventory besides the belt.
+    private const int SpareHealing = 4;
 
     /// <summary>True when a vendor's goods are in memory: the shop is open.</summary>
     public static bool IsOpen(Bot bot) => bot.Reader.ReadInventory().Items.Any(i => i.Location == ItemLocation.Vendor);

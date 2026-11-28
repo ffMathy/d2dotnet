@@ -28,18 +28,22 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
 
     private static readonly (int X, int Y, int Width, int Height)[] RingRects = [(344, 770, 98, 98), (718, 770, 98, 98)];
 
-    /// <summary>Everything, in order: gold to the stash, identify, wear upgrades, sell, potions from the inventory to the belt.</summary>
+    /// <summary>Everything, in order: identify, wear upgrades, sell, buy potions, potions from the inventory to the belt, the gold left to the stash.</summary>
     public void Run()
     {
         if (bot.Player().Area != bot.Town)
             return;
         try
         {
-            StashGold();
+            // Gold is stashed last: what selling brings in pays for the potions first.
             Identify();
             WearUpgrades();
             Sell();
+            bot.CloseDialog();
+            WithdrawForPotions();
+            Shop.BuyPotions(bot, ui);
             InventoryPanel.RefillBelt(bot, ui);
+            StashGold();
         }
         finally
         {
@@ -57,6 +61,9 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
 
     /// <summary>The free cells of the 10 by 4 inventory.</summary>
     public int FreeCells() => Columns * Rows - Used(Carried()).Cast<bool>().Count(u => u);
+
+    /// <summary>The free cells of the 10 by 4 inventory with these items carried.</summary>
+    public static int FreeCellsOf(IReadOnlyList<Item> carried) => Columns * Rows - Used(carried).Cast<bool>().Count(u => u);
 
     /// <summary>True when an item of the size fits somewhere among the carried items.</summary>
     public static bool Fits(IReadOnlyList<Item> carried, int width, int height)
@@ -117,7 +124,7 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
             return;
         if (!bot.UseObject(ObjectId.Bank, until: () => bot.Reader.ReadMenus().Stash))
         {
-            Bot.Log("Could not open the stash.");
+            bot.Failure("Could not open the stash.");
             return;
         }
 
@@ -130,7 +137,38 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
         if (Wait(() => bot.Reader.ReadInventory().Gold < gold, 2))
             Bot.Log($"Stashed {gold - bot.Reader.ReadInventory().Gold} gold (stash: {bot.Reader.ReadInventory().StashGold.Sum()}).");
         else
-            Bot.Log("Could not stash the gold.");
+            bot.Failure("Could not stash the gold.");
+        ClosePanels();
+    }
+
+    // The stash panel's (bankexpansionlayouthd, a left panel) gold withdraw button.
+    private static readonly (int X, int Y) WithdrawButton = (424 + 30, 1356 + 30);
+
+    /// <summary>
+    /// Takes gold out of the stash when the belt needs potions and little is carried: the withdraw button offers all of
+    /// it (as much as can be carried), confirmed with Enter. The rest goes back with <see cref="StashGold"/>.
+    /// </summary>
+    public void WithdrawForPotions()
+    {
+        var inventory = bot.Reader.ReadInventory();
+        var room = inventory.Belt.Rows * 4 - inventory.Belt.Items.Count;
+        if (room <= 0 || inventory.Gold >= 500 || inventory.StashGold.Sum() <= 0)
+            return;
+        if (!bot.UseObject(ObjectId.Bank, until: () => bot.Reader.ReadMenus().Stash))
+        {
+            bot.Failure("Could not open the stash to take gold out.");
+            return;
+        }
+
+        Thread.Sleep(400);
+        var gold = inventory.Gold;
+        ui.ClickLeftPanel(WithdrawButton);
+        Thread.Sleep(500);
+        bot.Input.PressKey(Native.VkReturn);
+        if (Wait(() => bot.Reader.ReadInventory().Gold > gold, 2))
+            Bot.Log($"Took {bot.Reader.ReadInventory().Gold - gold} gold out of the stash for potions.");
+        else
+            bot.Failure("Could not take gold out of the stash.");
         ClosePanels();
     }
 
@@ -163,7 +201,7 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
             }
 
             // The click picked the item up instead (identifying had not started): put it back.
-            Bot.Log($"Could not identify {item.Class}.");
+            bot.Failure($"Could not identify {item.Class}.");
             if (OnCursor()?.Id == item.Id)
             {
                 ui.ClickRightPanel(CentreOf(item));
@@ -194,14 +232,14 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
             ui.ClickRightPanel(CentreOf(upgrade));
             if (!Wait(() => OnCursor()?.Id == upgrade.Id, 2))
             {
-                Bot.Log($"Could not pick up {upgrade.Class} to wear it.");
+                bot.Failure($"Could not pick up {upgrade.Class} to wear it.");
                 return;
             }
 
             ui.ClickRightPanel((rect.X + rect.Width / 2, rect.Y + rect.Height / 2));
             if (!Wait(() => Equipped().Any(e => e.Id == upgrade.Id), 2))
             {
-                Bot.Log($"Could not wear {upgrade.Class}; putting it back.");
+                bot.Failure($"Could not wear {upgrade.Class}; putting it back.");
                 ui.ClickRightPanel(CentreOf(upgrade));
                 return;
             }
@@ -253,7 +291,7 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
         };
         if (!Shop.OpenTrade(bot, vendor))
         {
-            Bot.Log($"Could not open {vendor}'s shop to sell.");
+            bot.Failure($"Could not open {vendor}'s shop to sell.");
             return;
         }
 
@@ -271,7 +309,7 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
             }
             else
             {
-                Bot.Log($"Could not sell {item.Class}; putting it back.");
+                bot.Failure($"Could not sell {item.Class}; putting it back.");
                 ui.ClickRightPanel(CentreOf(item));
                 Wait(() => OnCursor() is null, 2);
             }

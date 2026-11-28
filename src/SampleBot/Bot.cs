@@ -133,7 +133,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             }
         }
 
-        Log(reader.ReadPlayers().Any(p => p.IsCorpse) ? "Could not pick up the corpse." : "The corpse is picked up.");
+        if (reader.ReadPlayers().Any(p => p.IsCorpse))
+            Failure("Could not pick up the corpse.");
+        else
+            Log("The corpse is picked up.");
     }
 
     public IEnumerable<Monster> Enemies(Point from, int range) =>
@@ -228,7 +231,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
         if (waypoint is null || !UseObject(waypoint.Value, until: () => reader.ReadMenus().Waypoint))
         {
-            Log("Could not open the waypoint.");
+            Failure("Could not open the waypoint.");
             return false;
         }
 
@@ -335,6 +338,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             }
         }
 
+        Failure($"Could not find the entrance to {destination} near {around}.");
         throw new BotStopped($"Could not find the entrance to {destination} near {around}.");
     }
 
@@ -769,20 +773,48 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// </summary>
     public bool UseObject(ObjectId objectClass, Func<bool>? until = null)
     {
-        for (var attempt = 0; attempt < 3; attempt++)
+        for (var attempt = 0; attempt < 5; attempt++)
         {
             var player = Player();
             if (reader.ReadObjects().Where(o => o.Class == objectClass).MinBy(o => Distance(player.Position, o.Position)) is not { } target)
-                return false;
-            if (Distance(player.Position, target.Position) > 5)
-                WalkTo(GridHere(), target.Position, arriveWithin: 4, fight: true);
-
-            foreach (var height in new[] { 40, 20, 60, 5, 80 })
             {
-                var aim = Aim(Player().Position, target.Position, height);
-                if (input.Peek(aim, reader.ReadHover) is { Type: UnitType.Object } hover && hover.Id == target.Id)
+                // Not in sight yet: walk to where the level places it, then look again.
+                if (attempt == 0 && PresetPosition(objectClass) is { } preset)
                 {
+                    WalkTo(GridHere(), preset, arriveWithin: 6, fight: true,
+                        until: () => reader.ReadObjects().Any(o => o.Class == objectClass && Distance(Player().Position, o.Position) < 15));
+                    continue;
+                }
+
+                Failure($"No {objectClass} in sight.");
+                return false;
+            }
+            if (attempt > 0)
+            {
+                // Something (an NPC, a monster) stood in front of it: come at it from another side.
+                var grid = GridHere();
+                var sides = new[] { new Point(4, 0), new Point(0, 4), new Point(-4, 0), new Point(0, -4) };
+                var side = sides[(attempt - 1) % sides.Length];
+                var spot = grid.NearestWalkable(new Point(target.Position.X + side.X, target.Position.Y + side.Y)) ?? target.Position;
+                WalkTo(grid, spot, arriveWithin: 1, fight: true);
+            }
+            else if (Distance(player.Position, target.Position) > 5)
+            {
+                WalkTo(GridHere(), target.Position, arriveWithin: 4, fight: true);
+            }
+
+            // Points up and around the object, until the game says it is under the cursor.
+            var offsets = new[] { new Point(0, 0), new Point(1, 0), new Point(0, 1), new Point(-1, 0), new Point(0, -1) };
+            var clicked = false;
+            foreach (var offset in offsets)
+            {
+                foreach (var height in new[] { 40, 20, 60, 5, 80 })
+                {
+                    var aim = Aim(Player().Position, new Point(target.Position.X + offset.X, target.Position.Y + offset.Y), height);
+                    if (input.Peek(aim, reader.ReadHover) is not { Type: UnitType.Object } hover || hover.Id != target.Id)
+                        continue;
                     input.LeftClick();
+                    clicked = true;
                     var deadline = DateTime.UtcNow.AddSeconds(3);
                     while (until is not null && !until() && DateTime.UtcNow < deadline)
                         Thread.Sleep(150);
@@ -790,6 +822,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                         return true;
                     break;
                 }
+
+                if (clicked)
+                    break;
             }
         }
 
@@ -818,25 +853,63 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         {
             if (reader.ReadMonsters().FirstOrDefault(m => m.Class == npc) is not { } who)
             {
-                // Out of sight: walk towards the town's centre, where the NPCs stand.
-                WalkTo(GridHere(), level.ToWorld(new Point(level.Collision!.Width / 2, level.Collision.Height / 2)), arriveWithin: 10, fight: false,
-                    until: () => reader.ReadMonsters().Any(m => m.Class == npc));
+                // Out of sight (units are in memory only near the player): walk to where the level places the NPC, else
+                // towards the town's centre, where the NPCs stand.
+                var home = level.Presets.FirstOrDefault(p => p.Kind == PresetKind.Npc && p.ClassId == (int)npc) is { } preset && preset != default
+                    ? level.ToWorld(preset.Position)
+                    : level.ToWorld(new Point(level.Collision!.Width / 2, level.Collision.Height / 2));
+                Log($"{npc} is not in sight: walking to {home}.");
+                WalkTo(GridHere(), home, arriveWithin: 5, fight: false, until: () => reader.ReadMonsters().Any(m => m.Class == npc));
                 continue;
             }
 
-            if (Distance(Player().Position, who.Position) > 5)
-                WalkTo(GridHere(), who.Position, arriveWithin: 4, fight: false);
-            var now = reader.ReadMonsters().FirstOrDefault(m => m.Id == who.Id) ?? who;
-            Aim(Player().Position, now.Position, Window.AimHeight);
-            input.LeftClick();
-            var deadline = DateTime.UtcNow.AddSeconds(4);
-            while (DateTime.UtcNow < deadline && !reader.ReadMenus().NpcInteract)
-                Thread.Sleep(150);
-            if (reader.ReadMenus().NpcInteract)
-                return true;
+            Log($"{npc}: attempt {attempt}, at {who.Position}, {Distance(Player().Position, who.Position):F1} away, line {(GridHere().IsLineClear(Player().Position, who.Position) ? "clear" : "blocked")}.");
+            // Up to the NPC on a side with nothing between (not behind a tent wall): the nearest such spot, another
+            // one after a failed try.
+            var grid = GridHere();
+            var here = Player().Position;
+            if (Distance(here, who.Position) > 5 || !grid.IsLineClear(here, who.Position) || attempt > 0)
+            {
+                var tried = attempt;
+                var way = grid.FindPathTo(here, p =>
+                    Distance(p, who.Position) is var d && d <= 4 && d >= 2 && grid.IsLineClear(p, who.Position)
+                    && (tried == 0 || Distance(p, here) >= 3), maxLength: 250);
+                if (way is { Count: > 0 })
+                    WalkTo(grid, way[^1], arriveWithin: 1, fight: false);
+                else
+                    WalkTo(grid, who.Position, arriveWithin: 4, fight: false);
+            }
+
+            // NPCs wander: aim at where they are now, at heights up their body, and click once the game says the NPC
+            // is under the cursor (a click on the ground beside them walks instead).
+            foreach (var height in new[] { Window.AimHeight, 40, 70, 25, 90 })
+            {
+                var now = reader.ReadMonsters().FirstOrDefault(m => m.Id == who.Id) ?? who;
+                var aim = Aim(Player().Position, now.Position, height);
+                if (input.Peek(aim, reader.ReadHover) is not { Type: UnitType.Monster } hover || hover.Id != who.Id)
+                    continue;
+                input.LeftClick();
+                var deadline = DateTime.UtcNow.AddSeconds(4);
+                while (DateTime.UtcNow < deadline && !reader.ReadMenus().NpcInteract)
+                    Thread.Sleep(150);
+                if (reader.ReadMenus().NpcInteract)
+                    return true;
+                break;
+            }
         }
 
+        Failure($"Could not open {npc}'s dialog.");
         return false;
+    }
+
+    /// <summary>Logs a failure with a screenshot of it (in the trail when one runs), so it can be seen what went wrong.</summary>
+    public void Failure(string message)
+    {
+        Log(message);
+        if (TrailFolder is null)
+            Screenshot(message);
+        else
+            Proof(message);
     }
 
     /// <summary>Closes an NPC dialog and anything it opened (a speech, a shop) with Esc.</summary>
@@ -985,7 +1058,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         if (TalkTo(healer, speech: 0))
             Log($"Talked to {healer}: life {Player().LifePercent}%, mana {Player().ManaPercent}%.");
         else
-            Log($"Could not talk to {healer}; going on with life {Player().LifePercent}%.");
+            Failure($"Could not talk to {healer}; going on with life {Player().LifePercent}%.");
     }
 
     /// <summary>Runs back to the act's town without fighting (low life and nothing to drink), and heals there.</summary>
