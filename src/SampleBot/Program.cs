@@ -177,10 +177,21 @@ if (Environment.GetEnvironmentVariable("D2_SWEEP") == "1")
         for (var x = cx + 40; x < cx + cw - 40; x += 50)
         {
             if (bot.Input.Peek((x, y), reader.ReadHover) is { } hover && seen.Add($"{hover.Type} {hover.Id.Value}"))
-                Console.WriteLine($"  hover {hover.Type} {hover.Id.Value} at screen ({x - cx}, {y - cy})");
+            {
+                // The world subtile drawn nearest that spot (at ground height).
+                var sx = x; var sy = y;
+                var world = Enumerable.Range(-60, 121).SelectMany(dx => Enumerable.Range(-60, 121).Select(dy => new Point(me.Position.X + dx, me.Position.Y + dy)))
+                    .MinBy(p => bot.Window.ToScreen(me.Position, p, 0) is var q ? Math.Pow(q.X - sx, 2) + Math.Pow(q.Y - sy, 2) : 0);
+                Console.WriteLine($"  hover {hover.Type} {hover.Id.Value} at screen ({x - cx}, {y - cy}), world {world}, walkable {bot.GridHere().IsWalkable(world)}, path {bot.GridHere().FindPath(me.Position, world)?.Count}");
+            }
         }
     }
 
+    // The level's collision map: # blocked, . walkable, @ the player.
+    var grid = bot.GridHere();
+    for (var y = level.Origin.Y; y < level.Origin.Y + level.Bounds.Height * 5; y++)
+        Console.WriteLine("  " + new string(Enumerable.Range(level.Origin.X, level.Bounds.Width * 5)
+            .Select(x => new Point(x, y) == me.Position ? '@' : grid.IsWalkable(new Point(x, y)) ? '.' : '#').ToArray()));
     bot.Screenshot("sweep");
     return 0;
 }

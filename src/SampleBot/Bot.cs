@@ -414,7 +414,15 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     private void TakeWarp(RouteStep step, bool fight, Point? entry = null)
     {
         var grid = new MapGrid(step.From);
-        var warp = step.From.ToWorld(step.Exits.MinBy(e => Distance(Player().Position, step.From.ToWorld(e.Position))).Position);
+        var exit = step.Exits.MinBy(e => Distance(Player().Position, step.From.ToWorld(e.Position)));
+        var warp = step.From.ToWorld(exit.Position);
+        // Several exits at one spot: the map does not place them (the Forgotten Tower), so the screen is searched.
+        if (step.From.Exits.Count(e => e.Position == exit.Position) > 1)
+        {
+            if (SweepForWarp(step.To.Id, entry))
+                return;
+        }
+
         WalkTo(grid, warp, arriveWithin: 6, fight);
         EnterWarp(warp, step.To.Id, entry);
     }
@@ -502,8 +510,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             if (input.Peek(spot, reader.ReadHover) is not { Type: UnitType.Tile })
                 continue;
             Log($"Entering the warp at screen {spot}.");
+            input.AimAt(spot);
             input.LeftClick();
-            var deadline = DateTime.UtcNow.AddSeconds(8);
+            // The click walks the player there first.
+            var deadline = DateTime.UtcNow.AddSeconds(15);
             while (DateTime.UtcNow < deadline && Player().Area == start)
                 Thread.Sleep(200);
             WaitWhileLoading();
