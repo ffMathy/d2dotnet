@@ -302,7 +302,7 @@ if (foreground)
 }
 else
 {
-    Console.WriteLine($"Seed 0x{context.Seed:X8}, {context.Difficulty}. Starting in 3 seconds; the game can stay in the background (the mouse pointer is borrowed for a moment per click).");
+    Console.WriteLine($"Seed 0x{context.Seed:X8}, {context.Difficulty}. Starting in 3 seconds; the game can stay in the background{(hook is not null ? ", and you keep the mouse" : " (the mouse pointer is borrowed for a moment per click)")}.");
 }
 
 Thread.Sleep(3000);
