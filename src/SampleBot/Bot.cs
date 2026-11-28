@@ -647,12 +647,17 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     public bool IsImmune(MainPlayer player, Monster monster) => !Combat.CanHurt(this, player, monster);
 
     /// <summary>
-    /// True for a super unique that is lightning enchanted (Rakanishu): every hit on it sends out charged bolts,
+    /// True for a unique, champion or super unique that is lightning enchanted (Rakanishu, packs with it): every hit on it sends out charged bolts,
     /// which kill a low level character from full life within seconds.
     /// </summary>
     public bool IsDeadly(Monster monster) =>
-        monster.Type == MonsterType.SuperUnique && data.Monsters.Find(monster.Class) is { } info
-        && data.SuperUniques.Where(u => u.MonsterCode == info.Code).Any(u => u.Mods.First == 17 || u.Mods.Second == 17 || u.Mods.Third == 17);
+        monster.Mods.Contains(LightningEnchanted)
+        || (monster.Type == MonsterType.SuperUnique && data.Monsters.Find(monster.Class) is { } info
+            && data.SuperUniques.Where(u => u.MonsterCode == info.Code).Any(u => u.Mods.First == LightningEnchanted || u.Mods.Second == LightningEnchanted || u.Mods.Third == LightningEnchanted));
+
+    // monumod.txt: lightning enchanted (read on a unique Foul Crow; a unique Vile Hunter pack with it killed the
+    // sorceress as she stepped out of a portal).
+    private const int LightningEnchanted = 17;
 
     // The level below which deadly monsters are left alone.
     public const int DeadlyBelowLevel = 15;

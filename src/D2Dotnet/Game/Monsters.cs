@@ -62,8 +62,8 @@ public sealed record Monster
 
     /// <summary>
     /// The unique modifiers of a unique, super unique or champion (monumod.txt ids: 8 magic resistant, 9 fire
-    /// enchanted, 17 lightning enchanted, 18 cold enchanted...); empty for others. Read from the monster data; the
-    /// place is inferred from the classic layout, so check it against known monsters before relying on it.
+    /// enchanted, 17 lightning enchanted, 18 cold enchanted...); empty for others. Read from the monster data (+0x20);
+    /// observed in Reign of the Warlock: a unique Foul Crow [17], a unique Skeleton Archer [26] (teleport), normal monsters [].
     /// </summary>
     public IReadOnlyList<int> Mods { get; init; } = [];
 
