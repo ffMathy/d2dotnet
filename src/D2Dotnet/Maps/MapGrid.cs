@@ -179,7 +179,14 @@ public sealed class MapGrid
     /// subtile (see <see cref="NearestWalkable"/>): every subtile on the way, the two ends included. Null when either end
     /// has no walkable subtile near it or no path joins them.
     /// </summary>
-    public IReadOnlyList<Point>? FindPath(Point from, Point to)
+    public IReadOnlyList<Point>? FindPath(Point from, Point to) => FindPath(from, to, null);
+
+    /// <summary>
+    /// The cheapest path from <paramref name="from"/> to <paramref name="to"/> when entering a subtile also costs
+    /// <paramref name="extraCost"/> of it (negative counts as 0): for example more near monsters, so the path keeps away
+    /// from them where the map leaves room. Without an extra cost it is the shortest path (<see cref="FindPath(Point, Point)"/>).
+    /// </summary>
+    public IReadOnlyList<Point>? FindPath(Point from, Point to, Func<Point, float>? extraCost)
     {
         if (NearestWalkable(from) is not { } start || NearestWalkable(to) is not { } goal)
             return null;
@@ -206,7 +213,7 @@ public sealed class MapGrid
                 if (dx != 0 && dy != 0 && (!IsWalkable(new Point(current.X + dx, current.Y)) || !IsWalkable(new Point(current.X, current.Y + dy))))
                     continue;
 
-                var nextCost = currentCost + stepCost;
+                var nextCost = currentCost + stepCost + (extraCost is null ? 0 : Math.Max(0, extraCost(next)));
                 var i = Index(next);
                 if (nextCost >= cost[i])
                     continue;
@@ -225,7 +232,7 @@ public sealed class MapGrid
     /// <summary>
     /// The shortest path from <paramref name="from"/> (moved to the nearest walkable subtile) to the nearest walkable
     /// subtile <paramref name="isGoal"/> accepts, such as the first subtiles of the next level: every subtile on the way,
-    /// both ends included. Null when no goal can be reached. The same steps as <see cref="FindPath"/>; no heuristic, so
+    /// both ends included. Null when no goal can be reached. The same steps as <see cref="FindPath(Point, Point)"/>; no heuristic, so
     /// it searches outwards evenly.
     /// </summary>
     public IReadOnlyList<Point>? FindPathTo(Point from, Func<Point, bool> isGoal)

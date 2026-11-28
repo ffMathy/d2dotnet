@@ -237,3 +237,23 @@ public sealed class BlockTests
         Assert.Throws<ArgumentOutOfRangeException>(() => grid.Block(new Point(0, 0), -1));
     }
 }
+
+/// <summary>Paths with an extra cost per subtile.</summary>
+public sealed class CostlyPathTests
+{
+    [Fact]
+    public void FindPath_WithAnExtraCost_GoesRoundTheCostlySubtiles()
+    {
+        var level = new MapLevel { Id = AreaId.BloodMoor, Bounds = new Rect(0, 0, 2, 2), Collision = new CollisionMap(10, 10, new ushort[100]) };
+        var grid = new MapGrid(level);
+        Point from = new(0, 5), to = new(9, 5);
+        Assert.All(grid.FindPath(from, to)!, p => Assert.Equal(5, p.Y)); // straight along the middle
+
+        // A monster at (5, 5): subtiles within 2 of it cost 50 more, so the path goes above or below them.
+        var path = grid.FindPath(from, to, p => Math.Max(Math.Abs(p.X - 5), Math.Abs(p.Y - 5)) <= 2 ? 50 : 0)!;
+        Assert.Equal(from, path[0]);
+        Assert.Equal(to, path[^1]);
+        Assert.DoesNotContain(path, p => Math.Max(Math.Abs(p.X - 5), Math.Abs(p.Y - 5)) <= 2);
+        Assert.Equal(grid.FindPath(from, to), grid.FindPath(from, to, null));
+    }
+}

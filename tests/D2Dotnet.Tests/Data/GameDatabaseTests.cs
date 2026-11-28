@@ -218,6 +218,28 @@ public class GameDatabaseTests
     }
 
     [Fact]
+    public void IsItemType_FollowsTheEquivColumnsUp()
+    {
+        var db = new GameDatabase(new MemoryFiles().Add("data/global/excel/itemtypes.txt",
+            "ItemType\tCode\tEquiv1\tEquiv2\tThrowable\tBeltable\n" +
+            "Weapon\tweap\t\t\t0\t0\n" +
+            "Staff\tstaf\tweap\t\t0\t0\n" +
+            "Armor\tarmo\t\t\t0\t0\n" +
+            "Helm\thelm\tarmo\t\t0\t0\n" +
+            "Circlet\tcirc\thelm\t\t0\t0\n" +
+            "Javelin\tjave\tmiss\tweap\t1\t0\n" +
+            "Loop\tloop\tloop\t\t0\t0\n"));
+        Assert.True(db.IsItemType("staf", "weap"));
+        Assert.True(db.IsItemType("circ", "armo")); // two steps up
+        Assert.True(db.IsItemType("jave", "weap")); // through Equiv2
+        Assert.True(db.IsItemType("helm", "helm"));
+        Assert.False(db.IsItemType("helm", "weap"));
+        Assert.False(db.IsItemType("loop", "weap")); // a cycle ends
+        Assert.True(db.IsItemType("nope", "nope"));
+        Assert.False(db.IsItemType("nope", "weap"));
+    }
+
+    [Fact]
     public void Skills_ReadTheManaColumns_AndCostByLevel()
     {
         var db = new GameDatabase(new MemoryFiles().Add("data/global/excel/skills.txt",

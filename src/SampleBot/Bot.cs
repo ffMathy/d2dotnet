@@ -35,6 +35,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
     public ICombat Combat { get; set; } = new ClassCombat();
 
+    /// <summary>What the bot thinks of items.</summary>
+    public ItemRules Items { get; } = new(data);
+
     /// <summary>The key bindings, read once.</summary>
     public KeyBindings Keys => _keys ??= reader.ReadKeyBindings();
 
@@ -177,7 +180,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     {
         var player = Player();
         var act = Act;
-        if (act[player.Area].Waypoints.Count == 0 || act.Find(area) is null)
+        if (_retreating || act[player.Area].Waypoints.Count == 0 || act.Find(area) is null)
+            return false;
+        // Only a waypoint close by: walking across a level to one, through its monsters, is no shortcut.
+        if (PresetWaypoint() is not { } waypoint || Distance(player.Position, waypoint) > 60)
             return false;
         var walking = act.FindRoute(player.Area, area)?.Count ?? int.MaxValue;
         var best = player.AvailableWaypoints
@@ -217,10 +223,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         }
 
         Thread.Sleep(400);
-        _ui ??= new GameUi(this);
-        _ui.ClickLeftPanel((WaypointTabX + WaypointTabWidth * tab + WaypointTabWidth / 2, WaypointTabY + WaypointTabHeight / 2));
+        Ui.ClickLeftPanel((WaypointTabX + WaypointTabWidth * tab + WaypointTabWidth / 2, WaypointTabY + WaypointTabHeight / 2));
         Thread.Sleep(300);
-        _ui.ClickLeftPanel((WaypointRowX + 300, WaypointRowY + WaypointRowStep * row + WaypointRowStep / 2));
+        Ui.ClickLeftPanel((WaypointRowX + 300, WaypointRowY + WaypointRowStep * row + WaypointRowStep / 2));
         if (WaitForArea(destination, seconds: 10))
             return true;
 
@@ -236,6 +241,25 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     }
 
     private GameUi? _ui;
+
+    /// <summary>The game's panels, for the bot's own use (waypoints, the inventory).</summary>
+    public GameUi Ui => _ui ??= new GameUi(this);
+
+    private DateTime _lastRefill = DateTime.MinValue;
+
+    // Moves potions from the inventory to the belt when the belt has room and no monster is near (every 20 s at most).
+    private void RefillBeltWhenQuiet()
+    {
+        if (DateTime.UtcNow - _lastRefill < TimeSpan.FromSeconds(20))
+            return;
+        _lastRefill = DateTime.UtcNow;
+        var inventory = reader.ReadInventory();
+        if (inventory.Belt.Items.Count >= inventory.Belt.Rows * 4 || !inventory.Items.Any(i => i.Location == ItemLocation.Inventory && i.IsPotion))
+            return;
+        if (Enemies(Player().Position, 25).Any())
+            return;
+        InventoryPanel.RefillBelt(this, Ui);
+    }
 
     // Where the player's level places its waypoint, in world subtiles.
     private Point? PresetWaypoint()
@@ -325,6 +349,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// <summary>Walks along a path to <paramref name="target"/>, a few subtiles at a time, fighting on the way when asked.</summary>
     public void WalkTo(MapGrid grid, Point target, int arriveWithin, bool fight, Func<bool>? until = null)
     {
+        ClearCursor();
+        ClosePanels();
         var failures = 0;
         while (Distance(Player().Position, target) > arriveWithin && until?.Invoke() != true)
         {
@@ -332,9 +358,12 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             {
                 FightNearby(FightRange);
                 PickUpNearby();
+                RefillBeltWhenQuiet();
             }
 
-            var path = grid.FindPath(Player().Position, target)
+            // Not fighting (a retreat): keep away from the monsters where the map leaves room.
+            var dangers = fight ? [] : Enemies(Player().Position, 40).Select(m => m.Position).ToList();
+            var path = (dangers.Count > 0 ? grid.FindPath(Player().Position, target, p => Danger(p, dangers)) : grid.FindPath(Player().Position, target))
                 ?? throw new BotStopped($"No path from {Player().Position} to {target}.");
             var step = path[Math.Min(StepLength, path.Count - 1)];
             if (MoveTo(step))
@@ -361,6 +390,57 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                     MoveTo(back);
                 Log($"Blocked at {here}: going round.");
             }
+        }
+    }
+
+    // How much a subtile near monsters costs on a retreat: up to 60 for one next to a monster, nothing from 15 away.
+    private static float Danger(Point p, List<Point> monsters)
+    {
+        var cost = 0f;
+        foreach (var m in monsters)
+        {
+            var d = (float)Distance(p, m);
+            if (d < 15)
+                cost += (15 - d) * 4;
+        }
+
+        return cost;
+    }
+
+    /// <summary>
+    /// Puts an item held on the cursor back in the inventory (the first free place it fits), or drops it when none:
+    /// with an item held, every click to walk tries to put it down instead.
+    /// </summary>
+    public void ClearCursor()
+    {
+        if (reader.ReadInventory().Items.FirstOrDefault(i => i.Location == ItemLocation.Cursor) is not { } held)
+            return;
+        Log($"Holding {held.Class}: putting it back.");
+        InventoryPanel.Open(this);
+        if (InventoryPanel.FreePlace(reader.ReadInventory().Items, held.Info?.InventoryWidth ?? 1, held.Info?.InventoryHeight ?? 1) is { } place)
+        {
+            Ui.ClickRightPanel(InventoryPanel.CentreOfCells(place, held.Info?.InventoryWidth ?? 1, held.Info?.InventoryHeight ?? 1));
+            Thread.Sleep(300);
+        }
+
+        InventoryPanel.Close(this);
+        if (reader.ReadInventory().Items.Any(i => i.Location == ItemLocation.Cursor))
+        {
+            // No room: drop it at the player's feet.
+            Aim(Player().Position, Player().Position, aimHeight: 0);
+            input.LeftClick();
+            Thread.Sleep(300);
+            Log($"No room for {held.Class}: dropped it.");
+        }
+    }
+
+    /// <summary>Closes the open panels (inventory, stash, shop...) with Escape: a panel covers half the screen, where clicks to walk would land on it.</summary>
+    public void ClosePanels()
+    {
+        for (var i = 0; i < 3 && reader.ReadMenus().IsAnyPanelOpen; i++)
+        {
+            input.PressKey(Native.VkEscape);
+            Thread.Sleep(250);
         }
     }
 
@@ -650,9 +730,17 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
     private readonly HashSet<UnitId> _unreachableItems = [];
 
-    // What the bot picks up: potions for the belt, and gold.
-    private static bool IsWanted(Item item) =>
-        item.Class == ItemId.Gold || item.IsPotionOf(PotionType.Healing) || item.IsPotionOf(PotionType.Mana) || item.IsPotionOf(PotionType.Rejuvenation);
+    // What the bot picks up: supplies, items worth selling or wearing (ItemRules), quest items; what does not fit in
+    // the inventory is left (gold and potions need no room: gold is counted, potions go to the belt first).
+    private bool IsWanted(Item item, MainPlayer player, Inventory inventory)
+    {
+        var equipped = inventory.Items.Where(i => i.Location == ItemLocation.Equipped).ToList();
+        if (!Items.IsWorthPickingUp(item, player, equipped, inventory.Gold + inventory.StashGold.Sum()))
+            return false;
+        if (item.Class == ItemId.Gold || item.IsPotion)
+            return true;
+        return TownChores.Fits(inventory.Items, item.Info?.InventoryWidth ?? 1, item.Info?.InventoryHeight ?? 1);
+    }
 
     /// <summary>Quest items the bot picks up too (the Scroll of Inifuss, the Horadric Malus...).</summary>
     public HashSet<ItemId> QuestItems { get; } = [];
@@ -663,8 +751,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         for (var picked = 0; picked < 12; picked++)
         {
             var player = Player();
-            var item = reader.ReadInventory().Items
-                .Where(i => i.Location == ItemLocation.Ground && (IsWanted(i) || QuestItems.Contains(i.Class)) && !_unreachableItems.Contains(i.Id) && Distance(player.Position, i.Position) <= range)
+            var inventory = reader.ReadInventory();
+            var item = inventory.Items
+                .Where(i => i.Location == ItemLocation.Ground && !_unreachableItems.Contains(i.Id) && Distance(player.Position, i.Position) <= range)
+                .Where(i => QuestItems.Contains(i.Class) || IsWanted(i, player, inventory))
                 .MinBy(i => Distance(player.Position, i.Position));
             if (item is null)
                 return;
@@ -691,7 +781,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             if (!clicked || reader.ReadInventory().Items.Any(i => i.Id == item.Id && i.Location == ItemLocation.Ground))
                 _unreachableItems.Add(item.Id);
             else
-                Log($"Picked up {item.Class}.");
+                Log($"Picked up {(item.Quality is ItemQuality.Magic or ItemQuality.Rare or ItemQuality.Set or ItemQuality.Unique ? item.Quality + " " : "")}{item.Class}.");
         }
     }
 
@@ -722,6 +812,14 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             return;
         }
         var potion = belt.FindPotion(need.Value) ?? (need == PotionType.Rejuvenation ? belt.FindPotion(PotionType.Healing) : null);
+        // None in the belt: one from the inventory (potions picked up while the belt was full wait there).
+        if (potion is null && (InventoryPanel.Drink(this, Ui, need.Value) || (need == PotionType.Rejuvenation && InventoryPanel.Drink(this, Ui, PotionType.Healing))))
+        {
+            Log($"Life {life}%, mana {mana}%: drinking a {need} potion from the inventory.");
+            _lastPotion = DateTime.UtcNow;
+            return;
+        }
+
         if (potion is null)
         {
             // In town there is nothing to flee: the healer is the way out.

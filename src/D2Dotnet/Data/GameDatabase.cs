@@ -82,6 +82,30 @@ public sealed class GameDatabase
     /// <summary>itemtypes.txt by <see cref="ItemTypeInfo.Code"/> (see <see cref="ItemTypeCode"/>); the unused rows without a code are only in the list.</summary>
     public GameTable<string, ItemTypeInfo> ItemTypes => _itemTypes.Value;
 
+    /// <summary>
+    /// True when item type <paramref name="type"/> is <paramref name="ancestor"/> or one of its kinds: the
+    /// <c>Equiv1</c> and <c>Equiv2</c> columns of itemtypes.txt, followed up (a staff is a weapon, a circlet a helm and
+    /// armor). Codes compare exactly; an unknown type is no kind of anything but itself.
+    /// </summary>
+    public bool IsItemType(string type, string ancestor)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(ancestor);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<string>([type]);
+        while (pending.TryPop(out var code))
+        {
+            if (code == ancestor)
+                return true;
+            if (code.Length == 0 || !seen.Add(code) || ItemTypes.Find(code) is not { } info)
+                continue;
+            pending.Push(info.Equiv1);
+            pending.Push(info.Equiv2);
+        }
+
+        return false;
+    }
+
     /// <summary>skills.txt by <see cref="SkillId"/>.</summary>
     public GameTable<SkillId, SkillInfo> Skills => _skills.Value;
 
@@ -192,12 +216,25 @@ public sealed class GameDatabase
             // The tier codes come as a set: without normcode (misc.txt) the item has none.
             int norm = t.GetColumnIndex("normcode");
             int uber = norm < 0 ? -1 : t.GetColumnIndex("ubercode"), ultra = norm < 0 ? -1 : t.GetColumnIndex("ultracode");
+            int levelReq = t.GetColumnIndex("levelreq"), strReq = t.GetColumnIndex("reqstr"), dexReq = t.GetColumnIndex("reqdex");
+            int minDam = t.GetColumnIndex("mindam"), maxDam = t.GetColumnIndex("maxdam");
+            int twoMinDam = t.GetColumnIndex("2handmindam"), twoMaxDam = t.GetColumnIndex("2handmaxdam"), twoHanded = t.GetColumnIndex("2handed");
             foreach (var r in GameRows(t))
             {
                 records.Add(new ItemInfo(
                     (ItemId)records.Count, kind, t.GetString(r, name), t.GetString(r, nameKey), t.GetString(r, code),
                     t.GetString(r, norm), t.GetString(r, uber), t.GetString(r, ultra), t.GetString(r, type),
-                    t.ParseInt32(r, width), t.ParseInt32(r, height), Optional(t, r, minac), Optional(t, r, maxac)));
+                    t.ParseInt32(r, width), t.ParseInt32(r, height), Optional(t, r, minac), Optional(t, r, maxac))
+                {
+                    RequiredLevel = Optional(t, r, levelReq),
+                    RequiredStrength = Optional(t, r, strReq),
+                    RequiredDexterity = Optional(t, r, dexReq),
+                    MinDamage = Optional(t, r, minDam),
+                    MaxDamage = Optional(t, r, maxDam),
+                    TwoHandedMinDamage = Optional(t, r, twoMinDam),
+                    TwoHandedMaxDamage = Optional(t, r, twoMaxDam),
+                    IsTwoHanded = Flag(t, r, twoHanded),
+                });
             }
         }
 

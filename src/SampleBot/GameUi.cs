@@ -144,6 +144,23 @@ internal sealed class GameUi(Bot bot)
             bot.Input.LeftClick();
     }
 
+    /// <summary>Clicks a point of a right panel (the inventory, the skill tree), in reference pixels from its corner.</summary>
+    public void ClickRightPanel((int X, int Y) point, bool right = false, bool shift = false)
+    {
+        LoadCalibration();
+        var (left, top, width, height) = bot.Window.ClientArea();
+        var s = _calibration?.Scale() ?? height / ReferenceHeight;
+        var x = left + width * RightAnchor.X + (RightPanel.X + point.X) * s;
+        var y = top + height * RightAnchor.Y + (RightPanel.Y + point.Y) * s;
+        bot.Input.AimAt(((int)Math.Round(x), (int)Math.Round(y)));
+        if (shift)
+            bot.Input.ShiftLeftClick();
+        else if (right)
+            bot.Input.RightClick();
+        else
+            bot.Input.LeftClick();
+    }
+
     /// <summary>Closes the open panels with Esc.</summary>
     public void ClosePanels()
     {

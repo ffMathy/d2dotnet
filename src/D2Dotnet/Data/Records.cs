@@ -77,7 +77,33 @@ public sealed record ItemInfo(
     int InventoryWidth,
     int InventoryHeight,
     int MinDefense,
-    int MaxDefense);
+    int MaxDefense)
+{
+    /// <summary>The <c>levelreq</c> column: the character level the item needs; 0 when the table has no such column.</summary>
+    public int RequiredLevel { get; init; }
+
+    /// <summary>The <c>reqstr</c> column: the strength the item needs.</summary>
+    public int RequiredStrength { get; init; }
+
+    /// <summary>The <c>reqdex</c> column: the dexterity the item needs.</summary>
+    public int RequiredDexterity { get; init; }
+
+    /// <summary>The <c>mindam</c> column: one-handed (or kick, for boots) minimum damage.</summary>
+    public int MinDamage { get; init; }
+
+    /// <summary>The <c>maxdam</c> column: one-handed (or kick) maximum damage.</summary>
+    public int MaxDamage { get; init; }
+
+    /// <summary>The <c>2handmindam</c> column: two-handed minimum damage.</summary>
+    public int TwoHandedMinDamage { get; init; }
+
+    /// <summary>The <c>2handmaxdam</c> column: two-handed maximum damage.</summary>
+    public int TwoHandedMaxDamage { get; init; }
+
+    /// <summary>The <c>2handed</c> column is set: the weapon takes both hands.</summary>
+    public bool IsTwoHanded { get; init; }
+}
+
 
 /// <summary>An item type: a row of itemtypes.txt.</summary>
 /// <param name="Index">The game row index (the <c>Expansion</c> divider is not counted).</param>

@@ -11,6 +11,9 @@ internal interface IGameInput
 
     void RightClick();
 
+    /// <summary>A left click with shift held (moves a potion from the inventory to the belt).</summary>
+    void ShiftLeftClick();
+
     /// <summary>A right click while standing still (shift held), so a cast does not walk the player.</summary>
     void RightClickStandingStill();
 
@@ -31,6 +34,13 @@ internal sealed class ForegroundInput : IGameInput
     public void LeftClick() => Native.LeftClick();
 
     public void RightClick() => Native.RightClick();
+
+    public void ShiftLeftClick()
+    {
+        Native.KeyDown(Native.VkShift);
+        Native.LeftClick();
+        Native.KeyUpFor(Native.VkShift);
+    }
 
     public void RightClickStandingStill()
     {
@@ -71,6 +81,23 @@ internal sealed class BackgroundInput(GameWindow window) : IGameInput
     public void LeftClick() => Borrowed(_aim, () => Click(LeftDown, LeftUp, LeftButton, 0));
 
     public void RightClick() => Borrowed(_aim, () => Click(RightDown, RightUp, RightButton, 0));
+
+    // The game reads Shift from the keyboard's state, which a message does not change: Shift is held for real (like
+    // the borrowed cursor) for the click only.
+    public void ShiftLeftClick() => Borrowed(_aim, () =>
+    {
+        Native.KeyDown(Native.VkShift);
+        try
+        {
+            Key(Native.VkShift, down: true);
+            Click(LeftDown, LeftUp, LeftButton, ShiftKey);
+            Key(Native.VkShift, down: false);
+        }
+        finally
+        {
+            Native.KeyUpFor(Native.VkShift);
+        }
+    });
 
     public void RightClickStandingStill() => Borrowed(_aim, () =>
     {

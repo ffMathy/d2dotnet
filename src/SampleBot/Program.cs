@@ -4,6 +4,7 @@
 //   --check-input  checks moving, clicking and casting from the Rogue Encampment or the Blood Moor.
 //   --spend-points spends the unspent stat and skill points by the class's build, and stops.
 //   --new-game     saves and exits, and starts a new game on Normal with the same character.
+//   --town         goes to town and does the town chores: stash gold, identify, wear upgrades, sell, buy potions.
 //   --screenshot   saves a picture of the game window (also taken when the bot is stuck, gives up, dies or stops).
 //   --foreground   synthesizes input (SendInput), which needs the game in front. By default the clicks and keys are
 //                  sent to the game window, which works with the game in the background; the game aims at the real
@@ -22,7 +23,8 @@ var spendPoints = args.Contains("--spend-points");
 var probeTrade = args.Contains("--probe-trade");
 var newGame = args.Contains("--new-game");
 var screenshot = args.Contains("--screenshot");
-args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points" or "--probe-trade" or "--new-game" or "--screenshot"))];
+var town = args.Contains("--town");
+args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points" or "--probe-trade" or "--new-game" or "--screenshot" or "--town"))];
 var installPath = args.Length > 0 ? args[0] : @"C:\Program Files (x86)\Diablo II Resurrected";
 using var game = GameInstall.Open(installPath);
 
@@ -80,6 +82,14 @@ try
     if (checkInput)
     {
         InputCheck.Run(bot);
+    }
+    else if (town)
+    {
+        var ui = new GameUi(bot);
+        if (bot.Player().Area != bot.Town)
+            bot.TravelTo(bot.Town);
+        new TownChores(bot, ui, bot.Items).Run();
+        Shop.BuyPotions(bot, ui);
     }
     else if (newGame)
     {
