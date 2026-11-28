@@ -604,14 +604,17 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 .FirstOrDefault();
             if (target is null)
                 return;
+            // (A search limited to the fight distance: a full one across a big level, for a monster on the far side of
+            // a wall, takes seconds each.)
             if (!grid.IsLineClear(player.Position, target.Position, MissileHalfWidth)
-                && grid.FindPath(player.Position, target.Position) is not { Count: <= 2 * FightRange })
+                && grid.FindPathTo(player.Position, p => Distance(p, target.Position) <= 2, maxLength: 2 * FightRange) is null)
             {
                 skipped.Add(target.Id); // behind walls and far round (or no way at all): leave it
                 continue;
             }
 
             Fight(target.Id, seconds: IsSummoner(target) || target.Type is not (MonsterType.Normal or MonsterType.Minion) ? 30 : 12);
+            skipped.Add(target.Id); // one fight each per round: one that ended at once ("no way to it") is not picked again
         }
     }
 
