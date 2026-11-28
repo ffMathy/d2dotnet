@@ -259,6 +259,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     public GameUi Ui => _ui ??= new GameUi(this);
 
     private DateTime _lastRefill = DateTime.MinValue;
+    private DateTime _nextRepairTrip = DateTime.MinValue;
 
     // Moves potions from the inventory to the belt when the belt has room and no monster is near (every 20 s at most).
     private void RefillBeltWhenQuiet()
@@ -367,8 +368,17 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         ClearCursor();
         ClosePanels();
         var failures = 0;
+        var near = 0;
         while (Distance(Player().Position, target) > arriveWithin && until?.Invoke() != true)
         {
+            // A click near an NPC can open their dialog, which then takes the clicks: close it.
+            if (reader.ReadMenus().IsAnyPanelOpen)
+                ClosePanels();
+
+            // MoveTo counts 3 subtiles as there: closer than that, a few tries are enough (else this loops for ever).
+            if (Distance(Player().Position, target) <= 3 && ++near > 3)
+                return;
+
             if (fight)
             {
                 FightNearby(FightRange);
@@ -517,8 +527,13 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 Log($"{stuck.Message} Skipping the room.");
             }
 
-            if (LowestDurability() < 0.15 && !_retreating)
+            // Broken gear: to town for repairs, when there is gold for them (else the trip is for nothing), once in a while.
+            if (LowestDurability() < 0.15 && !_retreating && DateTime.UtcNow > _nextRepairTrip
+                && reader.ReadInventory() is var purse && purse.Gold + purse.StashGold.Sum() >= 200)
+            {
+                _nextRepairTrip = DateTime.UtcNow.AddMinutes(10);
                 throw new LowLife($"Equipment is nearly broken ({LowestDurability():P0} durability left): to town for repairs.");
+            }
             quietRooms = Enemies(Player().Position, 35).Any() ? 0 : quietRooms + 1;
             here = Player().Position;
             for (var i = 0; i < rooms.Count; i++)
