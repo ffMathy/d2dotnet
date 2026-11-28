@@ -109,17 +109,25 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         if (reader.ReadMainPlayer() is not { } back || (back.GetStat(StatId.Life) ?? 0) == 0)
             throw new BotStopped("Pressing Esc did not bring the character back.");
         WaitForArea(back.Area, seconds: 10);
-        HealInTown(below: 100);
 
-        Log($"Going back to {death.Area} for the corpse.");
-        TravelTo(death.Area, fight: true);
+        // In a single player game a new game brings the corpse, with all its gear, to town (only the gold dropped is
+        // lost): quicker and safer than going back through what killed the character.
+        Log("A new game, for the corpse to come to town.");
+        GameSession.NewGame(this);
+        PickUpCorpse();
+        HealInTown(below: 100);
+    }
+
+    /// <summary>Picks up the character's corpse when one lies near (in town after a new game).</summary>
+    public void PickUpCorpse()
+    {
         var grid = GridHere();
-        WalkTo(grid, death.Position, arriveWithin: 6, fight: true);
         for (var attempt = 0; attempt < 5; attempt++)
         {
             if (reader.ReadPlayers().FirstOrDefault(p => p.IsCorpse) is not { } corpse)
             {
-                Log("The corpse is picked up.");
+                if (attempt > 0)
+                    Log("The corpse is picked up.");
                 return;
             }
 
@@ -1227,6 +1235,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var life = player.LifePercent ?? 100;
         var mana = player.ManaPercent ?? 100;
         var belt = reader.ReadInventory().Belt;
+
+        // Close to dying with monsters about: out by town portal now; potions heal too slowly under a pack's blows.
+        if (life < 30 && !_retreating && !Healers.ContainsKey(player.Area) && TownPortals() > 0 && Enemies(player.Position, 15).Any())
+            throw new LowLife($"Life is at {life}% with monsters about.");
 
         PotionType? need = life < 40 ? PotionType.Rejuvenation : life < 55 ? PotionType.Healing : mana < 15 ? PotionType.Mana : null;
         if (need is null)

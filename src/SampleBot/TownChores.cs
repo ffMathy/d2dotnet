@@ -41,6 +41,7 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
             // Gold is stashed last: what selling brings in pays for the potions first.
             Identify();
             WearUpgrades();
+            FreeBeltForHealing();
             WithdrawForPotions();
             Repair();
             InventoryPanel.RefillBelt(bot, ui);
@@ -176,6 +177,27 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
         else
             bot.Failure("Could not take gold out of the stash.");
         ClosePanels();
+    }
+
+    /// <summary>
+    /// A belt with more than two columns of mana potions has too little room for healing ones: in town, the extra mana
+    /// columns are drunk empty (mana potions are cheap), so healing potions get columns.
+    /// </summary>
+    public void FreeBeltForHealing()
+    {
+        for (var round = 0; round < 8; round++)
+        {
+            var belt = bot.Reader.ReadInventory().Belt;
+            var manaColumns = belt.Items.Where(i => i.IsManaPotion).Select(i => i.Position.X % 4).Distinct().ToList();
+            if (manaColumns.Count <= 2)
+                return;
+            // The mana column with the fewest potions goes first; its bottom potion is drunk with its belt key.
+            var column = manaColumns.OrderBy(c => belt.Items.Count(i => i.Position.X % 4 == c)).First();
+            if (round == 0)
+                Bot.Log($"The belt has {manaColumns.Count} columns of mana potions: drinking one empty for healing potions.");
+            bot.Press(bot.Keys.UseBelt[column]);
+            Thread.Sleep(700);
+        }
     }
 
     // ---- Identifying ----
@@ -488,7 +510,18 @@ internal static class InventoryPanel
         var moved = 0;
         foreach (var potion in order)
         {
-            var before = bot.Reader.ReadInventory().Belt.Items.Count;
+            // A potion goes to a column of its kind with room, else to an empty column: mana may take two columns at
+            // most, so the healing potions bought later have room (a belt all mana left nothing to heal with).
+            var belt = bot.Reader.ReadInventory().Belt;
+            if (potion.IsManaPotion)
+            {
+                var manaColumns = belt.Items.Where(i => i.IsManaPotion).Select(i => i.Position.X % 4).Distinct().ToList();
+                var roomInMana = manaColumns.Any(c => belt.Items.Count(i => i.Position.X % 4 == c) < belt.Rows);
+                if (!roomInMana && manaColumns.Count >= 2)
+                    continue;
+            }
+
+            var before = belt.Items.Count;
             ui.ClickRightPanel(CentreOf(potion), shift: true);
             var deadline = DateTime.UtcNow.AddSeconds(1);
             while (bot.Reader.ReadInventory().Belt.Items.Count == before && DateTime.UtcNow < deadline)

@@ -254,6 +254,8 @@ internal sealed class QuestRunner(Bot bot)
                 // Hurt out in the field (a stopped run, or one that ran out of potions): back to town first.
                 if (bot.Player() is { LifePercent: < 40 } hurt && hurt.Area != bot.Town)
                     bot.Retreat($"Life is at {hurt.LifePercent}%.");
+                if (bot.Player().Area == bot.Town)
+                    bot.PickUpCorpse(); // a corpse a new game brought to town
                 bot.HealInTown();
                 CharacterBuild.SpendPoints(bot, ui);
                 SkillBinder.Bind(bot, ClassCombat.AttackSkillsOf(bot.Player().Class));
