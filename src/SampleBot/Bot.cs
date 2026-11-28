@@ -1102,10 +1102,31 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var equipped = inventory.Items.Where(i => i.Location == ItemLocation.Equipped).ToList();
         if (!Items.IsWorthPickingUp(item, player, equipped, inventory.Gold + inventory.StashGold.Sum()))
             return false;
-        if (item.Class == ItemId.Gold || item.IsPotion)
+        if (item.Class == ItemId.Gold)
             return true;
-        return TownChores.Fits(inventory.Items, item.Info?.InventoryWidth ?? 1, item.Info?.InventoryHeight ?? 1);
+        var fits = TownChores.Fits(inventory.Items, item.Info?.InventoryWidth ?? 1, item.Info?.InventoryHeight ?? 1);
+        if (item.IsPotion)
+        {
+            // Into the belt when it has room; else into the inventory only up to a reserve, and only where it fits.
+            var beltRoom = inventory.Belt.Rows * 4 - inventory.Belt.Items.Count;
+            var carried = inventory.Items.Count(i => i.Location == ItemLocation.Inventory && i.IsPotion);
+            return (beltRoom > 0 && inventory.Belt.Items.Any(b => b.Class == item.Class)) || (fits && carried < PotionReserve);
+        }
+
+        // A valuable item with no room for it: to town to sell (by town portal), once in a while.
+        if (!fits && item.Quality is ItemQuality.Magic or ItemQuality.Rare or ItemQuality.Set or ItemQuality.Unique
+            && !_retreating && DateTime.UtcNow > _nextSellingTrip && TownPortals() > 0)
+        {
+            _nextSellingTrip = DateTime.UtcNow.AddMinutes(5);
+            throw new LowLife($"No room for the {item.Quality} {item.Class}: to town to sell.");
+        }
+
+        return fits;
     }
+
+    // Potions carried in the inventory besides the belt, at most.
+    private const int PotionReserve = 8;
+    private DateTime _nextSellingTrip = DateTime.MinValue;
 
     /// <summary>Quest items the bot picks up too (the Scroll of Inifuss, the Horadric Malus...).</summary>
     public HashSet<ItemId> QuestItems { get; } = [];
