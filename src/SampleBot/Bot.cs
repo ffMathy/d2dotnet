@@ -1082,6 +1082,12 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     // The area the last town portal was opened in: the portal stays in town, a way back there.
     private AreaId? _portalArea;
 
+    private (AreaId Area, DateTime At)? _lastRetreat;
+    private readonly Dictionary<AreaId, DateTime> _avoided = [];
+
+    /// <summary>True while an area is avoided (the character had to leave it twice in a row).</summary>
+    public bool IsAvoided(AreaId area) => _avoided.TryGetValue(area, out var until) && DateTime.UtcNow < until;
+
     /// <summary>Forgets the way back through the town portal (it leads somewhere too dangerous).</summary>
     public void ForgetPortal() => _portalArea = null;
 
@@ -1091,7 +1097,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// </summary>
     private bool TakePortalBack(AreaId destination)
     {
-        if (_portalArea is not { } there || Player().Area != Town)
+        if (_portalArea is not { } there || Player().Area != Town || IsAvoided(there))
             return false;
         var fromThere = there == destination ? 0 : Act.FindRoute(there, destination)?.Count ?? int.MaxValue;
         var fromTown = Act.FindRoute(Town, destination)?.Count ?? int.MaxValue;
@@ -1404,6 +1410,17 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// <summary>Runs back to the act's town without fighting (low life and nothing to drink), and heals there.</summary>
     public void Retreat(string reason)
     {
+        // A second retreat from the same area within three minutes: what is there is too much for now; the area is
+        // avoided for a while, and its portal not taken back.
+        var leaving = Player().Area;
+        var twice = _lastRetreat is { } last && last.Area == leaving && DateTime.UtcNow - last.At < TimeSpan.FromMinutes(3);
+        _lastRetreat = (leaving, DateTime.UtcNow);
+        if (twice && !Healers.ContainsKey(leaving))
+        {
+            _avoided[leaving] = DateTime.UtcNow.AddMinutes(10);
+            Log($"{leaving}: retreating from it twice in a row; avoiding it for ten minutes.");
+        }
+
         _retreating = true;
         try
         {

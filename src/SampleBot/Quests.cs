@@ -215,7 +215,7 @@ internal sealed class QuestRunner(Bot bot)
             // Only the three hardest areas the character is ready for: the easier ones give it next to no experience,
             // so a new game is quicker than clearing them.
             var ready = areas.Where(a => characterLevel >= AreaLevels.GetValueOrDefault(a)).TakeLast(3).ToList();
-            var fresh = ready.Where(a => !_explored.Contains(a)).ToList();
+            var fresh = ready.Where(a => !_explored.Contains(a) && !bot.IsAvoided(a)).ToList();
             if (fresh.Count == 0)
             {
                 // The monsters of every levelling area are dead in this game: a new one brings them back.
