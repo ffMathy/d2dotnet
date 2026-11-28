@@ -164,6 +164,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             if (++hops > 40)
                 throw new BotStopped($"Travelling to {area} takes too many steps.");
             var here = Player().Area;
+            ActivateWaypointHere();
             if (TakePortalBack(area))
                 continue;
             if (TakeWaypointTowards(area))
@@ -202,6 +203,27 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// Takes a waypoint towards <paramref name="area"/> when the player's level has one, the player has the waypoint
     /// that leaves the fewest levels to walk, and it saves at least two of them. True when it took one.
     /// </summary>
+    /// <summary>
+    /// Activates the waypoint of the level the player is in when it is not activated yet and close by (40 subtiles):
+    /// a click on it opens the waypoint menu, which is closed again.
+    /// </summary>
+    private void ActivateWaypointHere()
+    {
+        var player = Player();
+        if (_retreating || Healers.ContainsKey(player.Area) || player.AvailableWaypoints.Contains(player.Area)
+            || data.Levels.Find(player.Area) is not { Waypoint: < 255 } || PresetWaypoint() is not { } spot
+            || Distance(player.Position, spot) > 40)
+            return;
+        Log($"Activating the {player.Area} waypoint.");
+        WalkTo(GridHere(), spot, arriveWithin: 6, fight: true);
+        if (reader.ReadObjects().FirstOrDefault(o => o.IsWaypoint)?.Class is { } waypoint
+            && UseObject(waypoint, until: () => reader.ReadMenus().Waypoint))
+        {
+            Thread.Sleep(400);
+            ClosePanels();
+        }
+    }
+
     private bool TakeWaypointTowards(AreaId area)
     {
         var player = Player();
@@ -209,8 +231,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         if (_retreating || act[player.Area].Waypoints.Count == 0 || act.Find(area) is null)
             return false;
         // Only a waypoint close by: walking across a level to one, through its monsters, is no shortcut.
-        if (PresetWaypoint() is not { } waypoint || Distance(player.Position, waypoint) > 60)
-            return false;
+        if (PresetWaypoint() is not { } waypoint || (Distance(player.Position, waypoint) > 60 && !Healers.ContainsKey(player.Area)))
+            return false; // (in town there is nothing to walk through)
         var walking = act.FindRoute(player.Area, area)?.Count ?? int.MaxValue;
         var best = player.AvailableWaypoints
             .Where(w => w != player.Area && act.Find(w) is not null)
