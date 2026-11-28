@@ -439,13 +439,16 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     // Moves potions from the inventory to the belt when the belt has room and no monster is near (every 20 s at most).
     private void RefillBeltWhenQuiet()
     {
-        if (DateTime.UtcNow - _lastRefill < TimeSpan.FromSeconds(20))
+        if (DateTime.UtcNow - _lastRefill < TimeSpan.FromSeconds(8))
             return;
         _lastRefill = DateTime.UtcNow;
         var inventory = reader.ReadInventory();
         if (inventory.Belt.Items.Count >= inventory.Belt.Rows * 4 || !inventory.Items.Any(i => i.Location == ItemLocation.Inventory && i.IsPotion))
             return;
-        if (Enemies(Player().Position, 25).Any())
+        // No healing potion left in the belt (and some in the inventory): with nothing within 12, not 25.
+        var noHealing = !inventory.Belt.Items.Any(i => i.IsHealingPotion || i.IsRejuvenationPotion)
+            && inventory.Items.Any(i => i.Location == ItemLocation.Inventory && (i.IsHealingPotion || i.IsRejuvenationPotion));
+        if (Enemies(Player().Position, noHealing ? 12 : 25).Any())
             return;
         InventoryPanel.RefillBelt(this, Ui);
     }
@@ -1529,6 +1532,19 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             // Into the belt when it has room; else into the inventory only up to a reserve, and only where it fits.
             var beltRoom = inventory.Belt.Rows * 4 - inventory.Belt.Items.Count;
             var carried = inventory.Items.Count(i => i.Location == ItemLocation.Inventory && i.IsPotion);
+            // A potion picked up goes into the belt by itself: into a column of its kind with room, else into an empty
+            // column. A mana potion is left lying when it would take a third column (the healing potions' room: a belt
+            // all mana left nothing to heal with at the Countess).
+            if (item.IsManaPotion)
+            {
+                var belt = inventory.Belt;
+                var manaColumns = belt.Items.Where(i => i.IsManaPotion).Select(i => i.Position.X % 4).Distinct().ToList();
+                var roomInMana = manaColumns.Any(c => belt.Items.Count(i => i.Position.X % 4 == c) < belt.Rows);
+                var emptyColumn = Enumerable.Range(0, 4).Any(c => !belt.Items.Any(i => i.Position.X % 4 == c));
+                if (!roomInMana && manaColumns.Count >= 2 && emptyColumn)
+                    return false;
+            }
+
             return (beltRoom > 0 && inventory.Belt.Items.Any(b => b.Class == item.Class)) || (fits && carried < PotionReserve);
         }
 
