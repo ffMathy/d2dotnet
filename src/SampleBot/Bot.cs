@@ -754,9 +754,16 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 break;
             }
 
-            // A wall between them: walk round it towards the monster instead of casting into the wall.
+            // A wall between them: to the nearest spot with a clear shot from a distance, not up to the monster (in
+            // cluttered ground the line only clears right next to it); with none near, round the wall towards it.
             if (!grid.IsLineClear(player.Position, monster.Position, MissileHalfWidth))
             {
+                if (WayToClearShot(grid, monster, Enemies(player.Position, 40).ToList()) is { Count: > 1 } shot)
+                {
+                    MoveTo(shot[Math.Min(8, shot.Count - 1)]);
+                    continue;
+                }
+
                 if (grid.FindPath(player.Position, monster.Position) is not { Count: > 1 } path)
                 {
                     outcome = "no way to it";
@@ -772,7 +779,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             if (Distance(player.Position, monster.Position) > CastRange
                 && grid.FindPath(player.Position, monster.Position) is { Count: > 1 } nearer)
             {
-                MoveTo(nearer[Math.Min(6, nearer.Count - 1)]);
+                // Only as far as casting range: the first point of the path within it, at most 6 steps on.
+                var stop = nearer.Select((p, i) => (p, i)).FirstOrDefault(x => Distance(x.p, monster.Position) <= CastRange - 1).i;
+                MoveTo(nearer[Math.Clamp(stop == 0 ? 6 : stop, 1, Math.Min(6, nearer.Count - 1))]);
                 continue;
             }
 
@@ -823,7 +832,12 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                     $"close {string.Join("/", Enemies(player.Position, 3).Select(m => m.Class))}, mana {player.GetStat(StatId.Mana)}, right skill {player.RightSkill}, " +
                     $"resistances fire {Resistance(monster, StatId.FireResist)} cold {Resistance(monster, StatId.ColdResist)} lightning {Resistance(monster, StatId.LightningResist)}, type {monster.Type}.");
                 castsWithoutDamage = 0;
-                MoveTo(closer[Math.Min(6, closer.Count - 2)]);
+                // Another spot with a clear shot (not this one), else a few steps closer.
+                var here = player.Position;
+                var elsewhere = grid.FindPathTo(here, p =>
+                    Distance(p, here) >= 3 && Distance(p, monster.Position) is var d && d >= 4 && d <= CastRange - 2
+                    && grid.IsLineClear(p, monster.Position, MissileHalfWidth) && InTheWay(p, monster, others) is null, maxLength: 12);
+                MoveTo(elsewhere is { Count: > 1 } ? elsewhere[^1] : closer[Math.Min(4, closer.Count - 2)]);
                 continue;
             }
 

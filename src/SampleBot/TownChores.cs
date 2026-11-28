@@ -350,9 +350,16 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
         foreach (var item in toSell)
         {
             var gold = bot.Reader.ReadInventory().Gold;
-            ui.ClickRightPanel(CentreOf(item));
+            // Where the item is now (selling moves nothing, but the list read before may be stale).
+            var now = Carried().FirstOrDefault(i => i.Id == item.Id) ?? item;
+            ui.ClickRightPanel(CentreOf(now));
             if (!Wait(() => OnCursor()?.Id == item.Id, 2))
+            {
+                bot.Failure($"Could not pick up {item.Quality} {item.Class} at {now.Position} to sell it (on the cursor: {OnCursor()?.Class.ToString() ?? "nothing"}).");
+                bot.ClearCursor();
                 continue;
+            }
+
             ui.ClickLeftPanel(ShopDropPoint);
             if (Wait(() => OnCursor() is null && bot.Reader.ReadInventory().Gold > gold, 2))
             {
