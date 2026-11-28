@@ -64,6 +64,12 @@ internal sealed class ClassCombat : ICombat
         [SkillId.ChargedBolt] = StatId.LightningResist, [SkillId.Lightning] = StatId.LightningResist, [SkillId.ChainLightning] = StatId.LightningResist,
     };
 
+    // Skills that hit everything round where they land.
+    private static readonly HashSet<SkillId> AreaSkills =
+    [
+        SkillId.FireBall, SkillId.Meteor, SkillId.Blizzard, SkillId.FrozenOrb, SkillId.ChainLightning,
+    ];
+
     public StatId? ResistanceAgainst(Bot bot, MainPlayer player) =>
         Choose(bot, player) is { } skill && Elements.TryGetValue(skill, out var element) ? element : null;
 
@@ -123,6 +129,11 @@ internal sealed class ClassCombat : ICombat
                 .ToList();
             // The strongest skill (the table's order) once it has a few points: 4, or as many as the best has.
             int Points(SkillId skill) => player.Skills.TryGetValue(skill, out var points) ? points.Level : 0;
+            // A pack round the target (three or more within 5): a skill that hits them all (Fire Ball's blast), with any
+            // points in it; one at a time is too slow against a crowd.
+            if (target is not null && bot.Enemies(target.Position, 5).Count() >= 3
+                && usable.Where(s => AreaSkills.Contains(s.Skill) && Points(s.Skill) > 0).OrderBy(s => s.Order).FirstOrDefault() is { Skill: not SkillId.None } area)
+                return area.Skill;
             var most = usable.Select(s => Points(s.Skill)).DefaultIfEmpty(0).Max();
             var ready = usable.Where(s => Points(s.Skill) >= Math.Min(4, most)).OrderBy(s => s.Order).ToList();
             if (ready.Count > 0)
