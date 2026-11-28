@@ -502,9 +502,14 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     {
         for (var attempt = 0; attempt < 3; attempt++)
         {
+            // Monsters that followed (run past while travelling) first: the search takes seconds.
+            ClearAround();
             var player = Player();
+            var looked = 0;
             foreach (var spot in Spiral(around, radius: 14, step: 2))
             {
+                if (++looked % 8 == 0)
+                    ClearAround();
                 var aim = Aim(player.Position, spot, aimHeight: 0);
                 if (input.Peek(aim, reader.ReadHover) is { Type: UnitType.Tile })
                 {
@@ -523,6 +528,18 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         throw new BotStopped($"Could not find the entrance to {destination} near {around}.");
     }
 
+    // While searching the screen for a warp (seconds of cursor moves): a potion when needed (and out of the game when it
+    // is too much), and the monsters close by fought.
+    private void ClearAround()
+    {
+        if (_retreating)
+            return;
+        var me = Player();
+        DrinkIfNeeded(me);
+        if (Enemies(me.Position, 8).Any())
+            FightNearby(10);
+    }
+
     // The screen swept for warp tiles; each one, farthest from the way back first, is clicked until one leads to the
     // destination. True when the player is there; a warp to elsewhere is left to the route (it starts again from there).
     private bool SweepForWarp(AreaId destination, Point? entry)
@@ -530,10 +547,14 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var start = Player().Area;
         var (cx, cy, cw, ch) = Window.ClientArea();
         var tiles = new Dictionary<uint, (int X, int Y)>();
+        ClearAround();
+        var looked = 0;
         for (var y = cy + 30; y < cy + ch * 88 / 100; y += 55)
         {
             for (var x = cx + 30; x < cx + cw - 30; x += 55)
             {
+                if (++looked % 8 == 0)
+                    ClearAround();
                 if (input.Peek((x, y), reader.ReadHover) is { Type: UnitType.Tile } hover)
                     tiles.TryAdd(hover.Id.Value, (x, y));
             }
