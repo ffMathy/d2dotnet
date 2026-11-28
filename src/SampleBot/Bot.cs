@@ -585,7 +585,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var mana = player.ManaPercent ?? 100;
         var belt = reader.ReadInventory().Belt;
 
-        PotionType? need = life < 30 ? PotionType.Rejuvenation : life < 50 ? PotionType.Healing : mana < 15 ? PotionType.Mana : null;
+        PotionType? need = life < 40 ? PotionType.Rejuvenation : life < 55 ? PotionType.Healing : mana < 15 ? PotionType.Mana : null;
         if (need is null)
             return;
         // Out of mana with nothing to drink for it: a caster cannot fight. With no monster near, mana comes back on its
@@ -605,7 +605,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         if (potion is null)
         {
             // In town there is nothing to flee: the healer is the way out.
-            if (life < 30 && !_retreating && !Healers.ContainsKey(player.Area))
+            if (life < 40 && !_retreating && !Healers.ContainsKey(player.Area))
                 throw new LowLife($"Life is at {life}% and the belt has no healing potion left.");
             return;
         }

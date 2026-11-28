@@ -189,7 +189,8 @@ internal sealed class QuestRunner(Bot bot)
         while (bot.Player().Level < level)
         {
             var characterLevel = bot.Player().Level;
-            var fresh = areas.Where(a => !_explored.Contains(a)).ToList();
+            // The fresh areas the character is ready for; when none, a new game brings the easier ones back.
+            var fresh = areas.Where(a => !_explored.Contains(a) && characterLevel >= AreaLevels.GetValueOrDefault(a)).ToList();
             if (fresh.Count == 0)
             {
                 // The monsters of every levelling area are dead in this game: a new one brings them back.
@@ -199,7 +200,7 @@ internal sealed class QuestRunner(Bot bot)
                 _explored.Clear();
                 continue;
             }
-            var area = fresh.Where(a => characterLevel >= AreaLevels.GetValueOrDefault(a)).DefaultIfEmpty(fresh[0]).Last();
+            var area = fresh[^1];
             bot.TravelTo(area);
             bot.ExploreLevel(until: () => bot.Player().Level >= level);
             if (bot.Player().Level < level)
@@ -220,10 +221,15 @@ internal sealed class QuestRunner(Bot bot)
         IQuest? last = null;
         while (Next() is { } quest)
         {
-            tries = quest == last ? tries + 1 : 1;
-            last = quest;
-            if (tries > 5)
-                throw new BotStopped($"{quest.Id} is still not done after five tries.");
+            var levelling = bot.Reader.ReadMainPlayer() is { } who && who.Level < quest.MinimumLevel;
+            if (!levelling)
+            {
+                // Only runs of the quest count as tries, not the levelling before it.
+                tries = quest == last ? tries + 1 : 1;
+                last = quest;
+                if (tries > 5)
+                    throw new BotStopped($"{quest.Id} is still not done after five tries.");
+            }
 
             try
             {
