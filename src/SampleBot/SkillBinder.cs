@@ -38,8 +38,9 @@ internal static class SkillBinder
                 slotOf.TryAdd(keys.Skills[i].Skill, i);
         }
 
+        // Free: a slot with a key and no wanted skill (an earlier probe leaves a stray skill such as Attack in it).
         var free = Enumerable.Range(0, keys.Skills.Count)
-            .Where(i => keys.Skills[i].Skill == SkillId.None && Bot.KeyOf(keys.Skills[i].Keys) is not null).ToList();
+            .Where(i => !had.Contains(keys.Skills[i].Skill) && Bot.KeyOf(keys.Skills[i].Keys) is not null).ToList();
         if (free.Count < 2)
             return 0;
         var probeSlot = free[^1];
