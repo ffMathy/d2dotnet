@@ -753,9 +753,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 // Travelling: only monsters worth their experience, unless a crowd hems the character in or the way is
                 // blocked (then everything close).
                 var me = Player();
-                var hemmed = failures > 0 || Enemies(me.Position, 5).Count() >= 4;
+                // (Or being hurt: what is run past still shoots from behind, the skeleton mages of the Jail.)
+                var hemmed = failures > 0 || Enemies(me.Position, 5).Count() >= 4 || me.LifePercent < 75;
                 if (!_travelling || hemmed)
-                    FightNearby(_travelling ? 8 : FightRange);
+                    FightNearby(_travelling && me.LifePercent >= 75 ? 8 : FightRange);
                 else
                     FightNearby(FightRange, m => GivesExperience(me, m));
                 Step = $"walking to {target} (picking up)";
