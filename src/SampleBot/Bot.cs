@@ -524,6 +524,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// </summary>
     public void EnterWarp(Point around, AreaId destination, Point? entry = null)
     {
+        if (EnterKnownWarp(around, destination, entry))
+            return;
         for (var attempt = 0; attempt < 3; attempt++)
         {
             // Monsters that followed (run past while travelling) first: the search takes seconds.
@@ -558,7 +560,65 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         if (SweepForWarp(destination, entry))
             return;
         Failure($"Could not find the entrance to {destination} near {around}.");
-        throw new BotStopped($"Could not find the entrance to {destination} near {around}.");
+        throw new Stuck($"Could not find the entrance to {destination} near {around}.");
+    }
+
+    // The warp as the game has it (a tile unit, where it really is: the map places some at their room's centre): the
+    // loaded one nearest the map's spot (of two, the one away from where the player came in), walked up to and clicked.
+    private bool EnterKnownWarp(Point around, AreaId destination, Point? entry)
+    {
+        var start = Player().Area;
+        var warps = reader.ReadWarps().Where(w => Distance(w.Position, around) <= 40).ToList();
+        if (warps.Count == 0)
+            return false;
+        var warp = entry is { } e && warps.Count > 1
+            ? warps.OrderByDescending(w => Distance(w.Position, e)).First()
+            : warps.MinBy(w => Distance(w.Position, around));
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            ClearAround();
+            var grid = GridHere();
+            if (Distance(Player().Position, warp.Position) > 4
+                && grid.FindPathTo(Player().Position, p => Distance(p, warp.Position) <= 3, maxLength: 300) is { Count: > 1 } way)
+            {
+                Step = $"walking to the warp to {destination} at {warp.Position}";
+                WalkTo(grid, way[^1], arriveWithin: 1, fight: true);
+                if (Player().Area != start)
+                    return Player().Area == destination || LogOther(destination);
+            }
+
+            // Points on and round the warp, at a few heights (stairs rise), until the game says that warp is under the cursor.
+            var me = Player();
+            foreach (var spot in Spiral(warp.Position, radius: 3, step: 1))
+            {
+                foreach (var height in new[] { 0, 25, 50 })
+                {
+                    var aim = Aim(me.Position, spot, height);
+                    if (input.Peek(aim, reader.ReadHover) is not { Type: UnitType.Tile } hover || hover.Id != warp.Id)
+                        continue;
+                    Log($"Entering {destination} (the warp at {warp.Position}).");
+                    input.AimAt(aim);
+                    input.LeftClick();
+                    var deadline = DateTime.UtcNow.AddSeconds(8);
+                    while (DateTime.UtcNow < deadline && Player().Area == start)
+                        Thread.Sleep(200);
+                    WaitWhileLoading();
+                    if (Player().Area != start)
+                        return Player().Area == destination || LogOther(destination);
+                    goto next;
+                }
+            }
+
+            next: ;
+        }
+
+        return false;
+    }
+
+    private bool LogOther(AreaId destination)
+    {
+        Log($"That warp led to {Player().Area}, not {destination}.");
+        return true;
     }
 
     // While searching the screen for a warp (seconds of cursor moves): a potion when needed (and out of the game when it

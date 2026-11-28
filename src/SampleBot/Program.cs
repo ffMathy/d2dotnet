@@ -235,6 +235,17 @@ if (Environment.GetEnvironmentVariable("D2_CLICKWARP") == "1")
     return 0;
 }
 
+if (Environment.GetEnvironmentVariable("D2_WARPS") == "1")
+{
+    // The warps (tile units) the game has loaded, and the level's exits as the map has them.
+    var me = reader.ReadMainPlayer()!;
+    var level = bot.Act[me.Area];
+    Console.WriteLine($"{me.Area} at {me.Position}; map exits: {string.Join("; ", level.Exits.Select(e => $"{e.Destination} at {level.ToWorld(e.Position)}"))}");
+    foreach (var warp in reader.ReadWarps())
+        Console.WriteLine($"  warp {warp.Id.Value} class {warp.Class} at {warp.Position} ({Bot.Distance(me.Position, warp.Position):F0} away)");
+    return 0;
+}
+
 if (Environment.GetEnvironmentVariable("D2_SWEEP") == "1")
 {
     // Moves the cursor over the screen in 50 pixel steps and lists what the game says is under it (finds warps and

@@ -122,6 +122,9 @@ public static class ShrineTypes
 }
 
 /// <summary>An object unit: chest, shrine, door, waypoint, portal...</summary>
+/// <summary>A level warp the game has loaded (a tile unit): its unit id, its <c>lvlwarp</c> row and where it is.</summary>
+public readonly record struct LevelWarp(UnitId Id, int Class, Point Position);
+
 public sealed record GameObject
 {
     // Chests, caskets, urns, bodies and other containers (d2go IsChest's list, by id).

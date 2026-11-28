@@ -12,6 +12,7 @@ public sealed partial class GameReader
     internal const nuint MonsterTable = 1024;
     internal const nuint ObjectTable = 2 * 1024;
     internal const nuint ItemTable = 4 * 1024;
+    internal const nuint TileTable = 5 * 1024;
 
     // A monster unit's mode (+0x0C) while it dies and once it is dead.
     internal const uint MonsterModeDeath = 0;
@@ -48,6 +49,31 @@ public sealed partial class GameReader
 
     /// <summary>The objects (unit type 2) of the object unit table, nearest to the player first.</summary>
     public IReadOnlyList<GameObject> ReadObjects() => ReadObjects(PlayerPosition(), ReadHover());
+
+    /// <summary>
+    /// The level warps near the player (stairs, ladders, cave mouths: the game's tile units), nearest first: where each
+    /// is and the <c>lvlwarp</c> row it is (its class). Only those of the rooms the game has loaded round the player.
+    /// </summary>
+    public IReadOnlyList<LevelWarp> ReadWarps()
+    {
+        var origin = PlayerPosition();
+        var warps = new List<LevelWarp>();
+        foreach (var unit in WalkUnitTable(unchecked(Offsets.UnitTable + TileTable)))
+        {
+            unchecked
+            {
+                if (Process.ReadUInt32(unit + 0x00) != (uint)UnitType.Tile)
+                    continue;
+                var path = Process.ReadPointer(unit + 0x38);
+                warps.Add(new LevelWarp(
+                    new UnitId(Process.ReadUInt32(unit + 0x08)),
+                    (int)Process.ReadUInt32(unit + 0x04),
+                    new Point(Process.ReadUInt16(path + 0x10), Process.ReadUInt16(path + 0x14))));
+            }
+        }
+
+        return NearestFirst(warps, w => w.Position, origin);
+    }
 
     private Point PlayerPosition() => ReadPlayers(null).FirstOrDefault(p => p.IsMainPlayer)?.Position ?? default;
 
