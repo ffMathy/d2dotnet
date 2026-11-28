@@ -381,7 +381,7 @@ internal sealed class QuestRunner(Bot bot)
             last = quest;
             if (tries > 300)
                 throw new BotStopped($"{quest.Id} is still not done after {tries - 1} tries.");
-            Bot.Log($"{quest.Id}: try {tries} at level {bot.Player().Level}.");
+            Bot.Log($"{quest.Id}: try {tries} at level {bot.Reader.ReadMainPlayer()?.Level}."); // (a death shows in the try below)
 
             try
             {
