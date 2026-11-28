@@ -7,8 +7,9 @@
 //   --town         goes to town and does the town chores: stash gold, identify, wear upgrades, sell, buy potions.
 //   --screenshot   saves a picture of the game window (also taken when the bot is stuck, gives up, dies or stops).
 //   --foreground   synthesizes input (SendInput), which needs the game in front. By default the clicks and keys are
-//                  sent to the game window, which works with the game in the background; the game aims at the real
-//                  cursor, so the bot borrows it for about 80 ms per click or key and puts it back.
+//                  sent to the game window, which works with the game in the background, and the game is told the aim
+//                  by a hook of GetCursorPos in it (the player keeps the mouse).
+//   --borrow-cursor  no hook: the bot borrows the real cursor for about 80 ms per click or key and puts it back.
 // Press End to stop the bot.
 using System.Runtime.Versioning;
 using D2Dotnet;
@@ -38,7 +39,8 @@ var town = args.Contains("--town");
 var walls = args.Contains("--walls");
 var trail = args.Contains("--trail");
 var questLog = args.Contains("--quest-log");
-args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points" or "--probe-trade" or "--new-game" or "--screenshot" or "--town" or "--walls" or "--trail" or "--quest-log"))];
+var borrowCursor = args.Contains("--borrow-cursor");
+args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points" or "--probe-trade" or "--new-game" or "--screenshot" or "--town" or "--walls" or "--trail" or "--quest-log" or "--borrow-cursor"))];
 var installPath = args.Length > 0 ? args[0] : @"C:\Program Files (x86)\Diablo II Resurrected";
 using var game = GameInstall.Open(installPath);
 
@@ -67,11 +69,15 @@ var reader = new GameReader(process, game.Data, OffsetCache.LoadOrScan(process))
 foreach (var missing in reader.Offsets.Missing)
     Console.Error.WriteLine($"warning: the {missing} offset was not found in this game build; what depends on it is unavailable.");
 
+// The game told the bot's aim (GetCursorPos hooked in the game), so the player keeps the real mouse; without the hook
+// (or with --borrow-cursor) the real cursor is borrowed for each click.
+using var hook = foreground || borrowCursor ? null : InputHook.Install((int)process.ProcessId);
+
 // At the character selection (a run stopped between Save and Exit and Play): into a game first.
 if (reader.ReadMapContext() is null && reader.IsInCharacterSelection() && !reader.IsOnline())
 {
     var startWindow = GameWindow.Of(process.ProcessId);
-    var starter = new Bot(reader, game.Data, game.Maps, startWindow, foreground ? new ForegroundInput() : new BackgroundInput(startWindow));
+    var starter = new Bot(reader, game.Data, game.Maps, startWindow, foreground ? new ForegroundInput() : new BackgroundInput(startWindow, hook));
     GameSession.EnterFromCharacterSelection(starter);
 }
 
@@ -100,7 +106,7 @@ if (reader.IsOnline())
 }
 
 var window = GameWindow.Of(process.ProcessId);
-IGameInput input = foreground ? new ForegroundInput() : new BackgroundInput(window);
+IGameInput input = foreground ? new ForegroundInput() : new BackgroundInput(window, hook);
 var bot = new Bot(reader, game.Data, game.Maps, window, input);
 var quests = new QuestRunner(bot);
 bot.StartWatchdog();
@@ -158,6 +164,32 @@ if (Environment.GetEnvironmentVariable("D2_PATH") is { Length: > 0 } pathTo)
     var watch = System.Diagnostics.Stopwatch.StartNew();
     var path = grid.FindPath(me.Position, to);
     Console.WriteLine($"FindPath: {(path is null ? "none" : path.Count + " steps")} in {watch.ElapsedMilliseconds} ms");
+    return 0;
+}
+
+if (Environment.GetEnvironmentVariable("D2_HOOK") == "1")
+{
+    // Whether the game calls the hooked functions, and where it then aims: the cursor told at an NPC, is it hovered?
+    var before = hook?.Calls() ?? default;
+    Thread.Sleep(1000);
+    if (hook is not null)
+        Console.WriteLine($"Calls in a second: {hook.Calls().Cursor - before.Cursor} GetCursorPos, {hook.Calls().KeyState - before.KeyState} GetKeyState, {hook.Calls().AsyncKeyState - before.AsyncKeyState} GetAsyncKeyState, {hook.Calls().CursorInfo - before.CursorInfo} GetCursorInfo, {hook.Calls().MessagePos - before.MessagePos} GetMessagePos.");
+    var me = reader.ReadMainPlayer()!;
+    Console.WriteLine($"Player at {me.Position}, client area {bot.Window.ClientArea()}.");
+    foreach (var height in new[] { 20, 40, 60 })
+    {
+        var self = bot.Window.ToScreen(me.Position, me.Position, height);
+        var hovered = bot.Input.Peek(self, reader.ReadHover);
+        Console.WriteLine($"  herself at screen {self} (height {height}): hovered {hovered?.Type} {hovered?.Id.Value} (her id {me.Id.Value})");
+    }
+
+    foreach (var npc in reader.ReadMonsters().Where(m => !m.IsEnemy).OrderBy(m => Bot.Distance(me.Position, m.Position)).Take(4))
+    {
+        var at = bot.Window.ToScreen(me.Position, npc.Position, 40);
+        var seen = bot.Input.Peek(at, reader.ReadHover);
+        Console.WriteLine($"  {npc.Class} at {npc.Position}, screen {at}: hovered {seen?.Type} {seen?.Id.Value} (its id {npc.Id.Value})");
+    }
+
     return 0;
 }
 

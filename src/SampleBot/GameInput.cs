@@ -60,19 +60,28 @@ internal sealed class ForegroundInput : IGameInput
 }
 
 /// <summary>
-/// Window messages sent to the game, which acts on them while another window is in front. The game aims at the real
-/// cursor, not at the position a message carries, so for each click or key the cursor is borrowed: moved to the aim,
-/// the messages sent (each waits until the game has handled it), and put back where it was. Measured in a running
-/// game: about 80 ms per click or key, plus a 50 ms rest so the game sees the unit under the cursor before an attack
-/// (without it, clicks on monsters walked to them); giving the cursor back after the button-down alone is too early.
+/// Window messages sent to the game, which acts on them while another window is in front. The game aims at the cursor
+/// (<c>GetCursorPos</c>), not at the position a message carries: with the <see cref="InputHook"/> the game is told the
+/// aim for the action, and the player keeps the real cursor and keyboard. Without the hook the real cursor is
+/// borrowed: moved to the aim, the messages sent (each waits until the game has handled it), and put back. Measured in
+/// a running game: about 80 ms per click or key, plus a 50 ms rest so the game sees the unit under the cursor before
+/// an attack (without it, clicks on monsters walked to them); giving the cursor back after the button-down alone is
+/// too early.
 /// </summary>
-internal sealed class BackgroundInput(GameWindow window) : IGameInput
+internal sealed class BackgroundInput(GameWindow window, InputHook? hook = null) : IGameInput
 {
     private const uint MouseMove = 0x0200, LeftDown = 0x0201, LeftUp = 0x0202, RightDown = 0x0204, RightUp = 0x0205;
     private const uint KeyDown = 0x0100, KeyUp = 0x0101;
     private const nint LeftButton = 0x1, RightButton = 0x2, ShiftKey = 0x4; // MK_*
 
     private (int X, int Y) _aim;
+
+    // The aim of the action under way: the position the messages carry (the real cursor is elsewhere with the hook).
+    private (int X, int Y) _acting;
+
+    // Where the messages say the cursor is: in the game's real pixels with the hook (as the hook tells the cursor),
+    // else where the real cursor is.
+    private nint Where() => hook is not null ? window.InClientPhysical(_acting) : window.InClient(_acting);
 
     public bool NeedsForeground => false;
 
@@ -86,7 +95,7 @@ internal sealed class BackgroundInput(GameWindow window) : IGameInput
     // the borrowed cursor) for the click only.
     public void ShiftLeftClick() => Borrowed(_aim, () =>
     {
-        Native.KeyDown(Native.VkShift);
+        HoldShift(true);
         try
         {
             Key(Native.VkShift, down: true);
@@ -95,9 +104,20 @@ internal sealed class BackgroundInput(GameWindow window) : IGameInput
         }
         finally
         {
-            Native.KeyUpFor(Native.VkShift);
+            HoldShift(false);
         }
     });
+
+    // Shift as the game reads it: the hook's, else the real key.
+    private void HoldShift(bool down)
+    {
+        if (hook is not null)
+            hook.Shift(down);
+        else if (down)
+            Native.KeyDown(Native.VkShift);
+        else
+            Native.KeyUpFor(Native.VkShift);
+    }
 
     public void RightClickStandingStill() => Borrowed(_aim, () =>
     {
@@ -108,7 +128,7 @@ internal sealed class BackgroundInput(GameWindow window) : IGameInput
 
     public void PressKey(int virtualKey) => Borrowed(_aim, () =>
     {
-        Send(MouseMove, 0, window.CursorInClient());
+        Send(MouseMove, 0, Where());
         Thread.Sleep(SettleMs);
         Key(virtualKey, down: true);
         Key(virtualKey, down: false);
@@ -119,18 +139,37 @@ internal sealed class BackgroundInput(GameWindow window) : IGameInput
         var result = default(T)!;
         Borrowed(screen, () =>
         {
-            Send(MouseMove, 0, window.CursorInClient());
+            Send(MouseMove, 0, Where());
             Thread.Sleep(120); // the game updates what is hovered on its next frames
             result = read();
         });
         return result;
     }
 
-    // Moves the real cursor to the aim for the action, and back to where the player left it.
-    private static void Borrowed((int X, int Y) aim, Action action)
+    // The game sees the cursor at the aim for the action: through the hook, else the real cursor is moved there and
+    // back to where the player left it.
+    private void Borrowed((int X, int Y) aim, Action action)
     {
         var step = Bot.Step;
         Bot.Step = $"{step} (input at {aim})";
+        _acting = aim;
+        if (hook is not null)
+        {
+            hook.Aim(window.ToPhysical(aim));
+            try
+            {
+                action();
+                Thread.Sleep(HoldMs);
+            }
+            finally
+            {
+                hook.Release();
+                Bot.Step = step;
+            }
+
+            return;
+        }
+
         Native.GetCursorPos(out var own);
         Native.SetCursorPos(aim.X, aim.Y);
         try
@@ -146,7 +185,7 @@ internal sealed class BackgroundInput(GameWindow window) : IGameInput
 
     private void Click(uint down, uint up, nint button, nint modifiers)
     {
-        var at = window.CursorInClient();
+        var at = Where();
         Send(MouseMove, modifiers, at);
         Thread.Sleep(SettleMs); // the game updates what is hovered on its next frame; a click before that misses the unit
         Send(down, button | modifiers, at);
@@ -155,6 +194,9 @@ internal sealed class BackgroundInput(GameWindow window) : IGameInput
 
     // How long the cursor rests on the aim before a click or key: about three frames at 60 frames a second.
     private const int SettleMs = 50;
+
+    // How long the hook keeps telling the aim after the action (the game acts on a click on its next frames).
+    private static readonly int HoldMs = int.TryParse(Environment.GetEnvironmentVariable("D2_HOLD"), out var hold) ? hold : 0;
 
     // lParam: repeat count 1, the scan code at bit 16, and for a release the previous-state and transition bits.
     private void Key(int virtualKey, bool down)

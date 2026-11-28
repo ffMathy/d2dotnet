@@ -86,6 +86,10 @@ internal static partial class Native
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool ScreenToClient(nint window, ref PointI point);
 
+    // The window's DPI (96 at 100% scaling, 144 at 150%).
+    [LibraryImport("user32.dll")]
+    public static partial uint GetDpiForWindow(nint window);
+
     [LibraryImport("user32.dll")]
     private static partial uint MapVirtualKeyW(uint code, uint mapType);
 

@@ -39,6 +39,35 @@ internal sealed class GameWindow
     }
 
     /// <summary>The cursor in client coordinates, packed as a mouse message's lParam (y in the high word).</summary>
+    /// <summary>
+    /// A screen point as the game sees it: the bot runs DPI unaware, in scaled pixels, and the game (DPI aware) in the
+    /// monitor's real ones (at 150% scaling a point is half as far again from the corner).
+    /// </summary>
+    public (int X, int Y) ToPhysical((int X, int Y) screen)
+    {
+        // (Windows' LogicalToPhysicalPointForPerMonitorDPI leaves the point as it is here: scaled by the window's DPI,
+        // about the primary monitor's corner.)
+        var scale = Native.GetDpiForWindow(Handle) / 96.0;
+        return scale <= 0 ? screen : ((int)Math.Round(screen.X * scale), (int)Math.Round(screen.Y * scale));
+    }
+
+    /// <summary>A screen point in the client area in the game's real pixels, packed as a mouse message's lParam.</summary>
+    public nint InClientPhysical((int X, int Y) screen)
+    {
+        var (x, y, _, _) = ClientArea();
+        var origin = ToPhysical((x, y));
+        var at = ToPhysical(screen);
+        return (nint)(((at.Y - origin.Y) << 16) | ((at.X - origin.X) & 0xFFFF));
+    }
+
+    /// <summary>A screen point in the client area, packed as a mouse message's lParam.</summary>
+    public nint InClient((int X, int Y) screen)
+    {
+        var point = new Native.PointI { X = screen.X, Y = screen.Y };
+        Native.ScreenToClient(Handle, ref point);
+        return (nint)((point.Y << 16) | (point.X & 0xFFFF));
+    }
+
     public nint CursorInClient()
     {
         Native.GetCursorPos(out var point);
