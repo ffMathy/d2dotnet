@@ -707,6 +707,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             if (Distance(path[^1], Player().Position) <= 3)
                 return;
             var step = path[Math.Min(StepLength, path.Count - 1)];
+            OpenDoorInWay(path);
             Step = $"walking to {target} (moving to {step}, {path.Count} steps left, at {Player().Position})";
             if (FollowPath(path, StepLength))
             {
@@ -787,6 +788,19 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     }
 
     /// <summary>Force-moves towards a nearby point; true when the player got close to it.</summary>
+    // A closed door on the next stretch of the path (the map counts its doorway as open: the Monastery Gate's): opened
+    // with a click first.
+    private void OpenDoorInWay(IReadOnlyList<Point> path)
+    {
+        var me = Player().Position;
+        var ahead = path.Take(StepLength + 6).ToList();
+        if (reader.ReadObjects().Where(o => o.IsDoor && o.IsSelectable && Distance(me, o.Position) <= 15
+                && ahead.Any(p => Distance(p, o.Position) <= 3)).MinBy(o => Distance(me, o.Position)) is not { } door)
+            return;
+        Log($"Opening a {door.Class} at {door.Position}.");
+        UseObject(door.Class, until: () => !reader.ReadObjects().Any(o => o.Id == door.Id && o.IsSelectable));
+    }
+
     /// <summary>Subtiles in a tile: how far ahead on the path each move aims.</summary>
     public const int TileSubtiles = 5;
 
