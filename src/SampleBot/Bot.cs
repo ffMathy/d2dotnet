@@ -485,9 +485,20 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var path = grid.FindPathTo(Player().Position, p => grid.LevelAt(p) == step.To && DistanceToOtherLevel(grid, step.To, p) >= 6)
             ?? throw new BotStopped($"No way from {Player().Position} into {step.To.Id}.");
         var inside = path[^1];
+        var from = Player().Area;
         WalkTo(grid, inside, arriveWithin: 4, fight, until: () => Player().Area == step.To.Id);
         if (Player().Area != step.To.Id && !WaitForArea(step.To.Id, seconds: 3))
-            throw new BotStopped($"Walked to {inside} but the game does not say the player is in {step.To.Id}.");
+        {
+            // Into another level on the way (back over a border close by: the Monastery Gate's to the Tamoe
+            // Highland): the route starts again from there.
+            if (Player().Area != from)
+            {
+                Log($"Crossed into {Player().Area} instead of {step.To.Id}; finding the way from there.");
+                return;
+            }
+
+            throw new Stuck($"Walked to {inside} but the game does not say the player is in {step.To.Id}.");
+        }
     }
 
     // How far a point is from the nearest subtile that is not in the level (up to 20), along the four axes.
