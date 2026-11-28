@@ -666,7 +666,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     public const int DeadlyBelowLevel = 15;
 
     /// <summary>
-    /// A monster's resistance: its class's for the difficulty (monstats.txt), with a super unique's modifiers (magic
+    /// A monster's resistance: its class's for the difficulty (monstats.txt), with its unique modifiers (magic
     /// resistant +40 to fire, cold and lightning; fire, cold and lightning enchanted +50 to theirs) and what its stats
     /// add. A random unique's modifiers are not known, so they are not counted.
     /// </summary>
@@ -674,10 +674,13 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     {
         var info = data.Monsters.Find(monster.Class);
         var value = info?.ResistancesIn(_act?.Difficulty ?? Difficulty.Normal).Of(resistance) ?? 0;
-        if (monster.Type == MonsterType.SuperUnique && info is not null
+        // The modifiers read from memory (any unique or champion), else a super unique's from superuniques.txt.
+        IEnumerable<int> mods = monster.Mods;
+        if (monster.Mods.Count == 0 && monster.Type == MonsterType.SuperUnique && info is not null
             && data.SuperUniques.FirstOrDefault(u => u.MonsterCode == info.Code) is { } unique)
+            mods = [unique.Mods.First, unique.Mods.Second, unique.Mods.Third];
         {
-            foreach (var mod in new[] { unique.Mods.First, unique.Mods.Second, unique.Mods.Third })
+            foreach (var mod in mods)
             {
                 value += (mod, resistance) switch
                 {
