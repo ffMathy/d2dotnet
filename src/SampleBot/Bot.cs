@@ -957,7 +957,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 // Not in sight yet: walk to where the level places it, then look again.
                 if (attempt == 0 && PresetPosition(objectClass) is { } preset)
                 {
-                    WalkTo(GridHere(), preset, arriveWithin: 6, fight: true,
+                    WalkTo(GridHere(), preset, arriveWithin: 6, fight: !_retreating,
                         until: () => reader.ReadObjects().Any(o => o.Class == objectClass && Distance(Player().Position, o.Position) < 15));
                     continue;
                 }
@@ -972,11 +972,11 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 var sides = new[] { new Point(4, 0), new Point(0, 4), new Point(-4, 0), new Point(0, -4) };
                 var side = sides[(attempt - 1) % sides.Length];
                 var spot = grid.NearestWalkable(new Point(target.Position.X + side.X, target.Position.Y + side.Y)) ?? target.Position;
-                WalkTo(grid, spot, arriveWithin: 1, fight: true);
+                WalkTo(grid, spot, arriveWithin: 1, fight: !_retreating);
             }
             else if (Distance(player.Position, target.Position) > 5)
             {
-                WalkTo(GridHere(), target.Position, arriveWithin: 4, fight: true);
+                WalkTo(GridHere(), target.Position, arriveWithin: 4, fight: !_retreating);
             }
 
             // Points up and around the object, until the game says it is under the cursor.
