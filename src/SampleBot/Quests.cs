@@ -12,6 +12,9 @@ internal interface IQuest
     /// <summary>True when there is nothing left for the bot to do: the quest is done, or its goal is (and only the reward is left).</summary>
     bool IsDone(Bot bot);
 
+    /// <summary>Who gives the reward once the goal is met (talked to while the log says it is pending), or null.</summary>
+    MonsterId[] RewardGivers => [];
+
     void Run(Bot bot);
 }
 
@@ -20,7 +23,7 @@ internal interface IQuest
 /// Grounds): travel there, explore the level until the goal is met, and go back to the quest giver, whose talk moves the
 /// quest log on (the game shows a kill in the log only after that, or after a new game).
 /// </summary>
-internal sealed class ClearAreaQuest(QuestId id, AreaId area, int minimumLevel, MonsterId giver, MonsterId? boss = null) : IQuest
+internal sealed class ClearAreaQuest(QuestId id, AreaId area, int minimumLevel, MonsterId giver, MonsterId? boss = null, string? superUnique = null) : IQuest
 {
     public QuestId Id => id;
 
@@ -34,16 +37,19 @@ internal sealed class ClearAreaQuest(QuestId id, AreaId area, int minimumLevel, 
 
     public void Run(Bot bot)
     {
-        Bot.Log($"{id}: to {area}{(boss is { } b ? $" for {b}" : "")}.");
+        var name = boss?.ToString() ?? superUnique;
+        Bot.Log($"{id}: to {area}{(name is not null ? $" for {name}" : "")}.");
         bot.TravelTo(area);
-        if (boss is { } target)
+        if (name is not null)
         {
-            // Explore until the boss is in sight, then fight it.
-            bot.ExploreLevel(until: () => bot.Reader.ReadMonsters().Any(m => m.Class == target && m.IsEnemy));
-            if (bot.Reader.ReadMonsters().FirstOrDefault(m => m.Class == target && m.IsEnemy) is { } found)
+            // Explore until the boss is in sight, then fight it. A super unique of a common class (the Countess, a Dark
+            // Stalker) is the level's only super unique.
+            bool IsBoss(Monster m) => m.IsEnemy && (boss is { } target ? m.Class == target : m.Type == MonsterType.SuperUnique);
+            bot.ExploreLevel(until: () => bot.Reader.ReadMonsters().Any(IsBoss));
+            if (bot.Reader.ReadMonsters().FirstOrDefault(IsBoss) is { } found)
             {
-                Bot.Log($"{target} found.");
-                bot.Proof($"{target} found");
+                Bot.Log($"{name} found.");
+                bot.Proof($"{name} found");
                 bot.Fight(found.Id, seconds: 120);
             }
         }
@@ -78,6 +84,9 @@ internal sealed class SearchForCainQuest : IQuest
     ];
 
     public QuestId Id => QuestId.Act1TheSearchForCain;
+
+    // "Visit Cain and Akara in the Rogue Encampment": Akara gives the reward.
+    public MonsterId[] RewardGivers => [MonsterId.Akara];
 
     // Rakanishu, lightning enchanted, guards the Cairn Stones: the bot leaves him alone below Bot.DeadlyBelowLevel. The
     // levelling guides send characters to Tristram from about level 5, so the quest comes as early as that allows.
@@ -185,6 +194,44 @@ internal sealed class SearchForCainQuest : IQuest
     }
 }
 
+/// <summary>
+/// Tools of the Trade: the Horadric Malus lies on its stand in the Barracks (a click on the stand drops it); Charsi takes
+/// it back.
+/// </summary>
+internal sealed class ToolsOfTheTradeQuest : IQuest
+{
+    public QuestId Id => QuestId.Act1ToolsOfTheTrade;
+
+    public int MinimumLevel => 1;
+
+    public bool IsDone(Bot bot) =>
+        bot.Reader.ReadQuests().GetValueOrDefault(Id) is var status
+        && (status.IsCompleted() || (status & (QuestStatus.RewardGranted | QuestStatus.RewardPending)) != 0);
+
+    public void Run(Bot bot)
+    {
+        bot.QuestItems.Add(ItemId.HoradricMalus);
+        if (!bot.HasItem(ItemId.HoradricMalus))
+        {
+            Bot.Log("Fetching the Horadric Malus from the Barracks.");
+            bot.TravelTo(AreaId.Barracks);
+            var stand = bot.PresetPosition(ObjectId.Malus) ?? throw new BotStopped("The Barracks have no Malus.");
+            bot.WalkTo(bot.GridHere(), stand, arriveWithin: 8, fight: true);
+            bot.FightNearby(25); // the Smith guards it
+            bot.Proof("at the Malus");
+            bot.UseObject(ObjectId.Malus, until: () => bot.Reader.ReadInventory().Items.Any(i => i.Class == ItemId.HoradricMalus));
+            Thread.Sleep(500);
+            bot.PickUpNearby();
+            if (!bot.HasItem(ItemId.HoradricMalus))
+                throw new BotStopped("The Horadric Malus is not in the inventory.");
+        }
+
+        Bot.Log("Taking the Horadric Malus to Charsi.");
+        bot.TravelTo(bot.Town);
+        bot.TalkTo(MonsterId.Charsi, speech: 5);
+    }
+}
+
 /// <summary>The quests in the order the bot does them; it runs the first one that is not done.</summary>
 internal sealed class QuestRunner(Bot bot)
 {
@@ -195,7 +242,30 @@ internal sealed class QuestRunner(Bot bot)
         new ClearAreaQuest(QuestId.Act1DenOfEvil, AreaId.DenOfEvil, minimumLevel: 3, MonsterId.Akara),
         new ClearAreaQuest(QuestId.Act1SistersBurialGrounds, AreaId.BurialGrounds, minimumLevel: 7, MonsterId.Kashya, MonsterId.BloodRaven),
         new SearchForCainQuest(),
+        new ClearAreaQuest(QuestId.Act1TheForgottenTower, AreaId.TowerCellarLevel5, minimumLevel: 10, MonsterId.Akara, superUnique: "TheCountess"),
+        new ToolsOfTheTradeQuest(),
+        new ClearAreaQuest(QuestId.Act1SistersToTheSlaughter, AreaId.CatacombsLevel4, minimumLevel: 18, MonsterId.Akara, MonsterId.Andariel),
     ];
+
+    // Rewards already asked for in this run: each is asked for once.
+    private readonly HashSet<QuestId> _rewardsAsked = [];
+
+    /// <summary>Talks to the givers of the rewards the quest log says are waiting (in town only).</summary>
+    private void CollectRewards()
+    {
+        if (bot.Player().Area != bot.Town)
+            return;
+        foreach (var quest in Quests)
+        {
+            var status = bot.Reader.ReadQuests().GetValueOrDefault(quest.Id);
+            if (quest.RewardGivers.Length == 0 || (status & QuestStatus.RewardPending) == 0 || !_rewardsAsked.Add(quest.Id))
+                continue;
+            Bot.Log($"{quest.Id}: the reward is waiting ({status}); talking to {string.Join(", ", quest.RewardGivers)}.");
+            foreach (var giver in quest.RewardGivers)
+                bot.TalkTo(giver, speech: 5);
+            bot.ProofQuestLog($"{quest.Id} reward");
+        }
+    }
 
     // The wilderness each act levels in, nearest the town first.
     /// <summary>
@@ -330,6 +400,7 @@ internal sealed class QuestRunner(Bot bot)
                 bot.HealInTown();
                 CharacterBuild.SpendPoints(bot, ui);
                 SkillBinder.Bind(bot, ClassCombat.AttackSkillsOf(bot.Player().Class));
+                CollectRewards();
                 if (bot.Player().Area == bot.Town)
                     new TownChores(bot, ui, bot.Items).Run();
                 bot.Proof($"{quest.Id} start");
@@ -401,6 +472,7 @@ internal sealed class QuestRunner(Bot bot)
             }
         }
 
+        CollectRewards();
         Bot.Log($"Every quest the bot knows is done ({string.Join(", ", Quests.Select(q => q.Id))}).");
     }
 }
