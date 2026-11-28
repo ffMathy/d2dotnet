@@ -705,6 +705,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var attacks = 0;
         var repositions = 0;
         var castsWithoutDamage = 0;
+        var movesWithoutAttack = 0;
         var lastLife = int.MaxValue;
         var startMana = Player().GetStat(StatId.Mana) ?? 0;
         int? startLife = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.LifePercent;
@@ -756,9 +757,15 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
             // A wall between them: to the nearest spot with a clear shot from a distance, not up to the monster (in
             // cluttered ground the line only clears right next to it); with none near, round the wall towards it.
-            if (!grid.IsLineClear(player.Position, monster.Position, MissileHalfWidth))
+            // After a few such moves without a cast (the wide check too strict among rocks and bushes), the thin line
+            // is enough.
+            var blocked = movesWithoutAttack < 4
+                ? !grid.IsLineClear(player.Position, monster.Position, MissileHalfWidth)
+                : !grid.IsLineClear(player.Position, monster.Position);
+            if (blocked)
             {
-                if (WayToClearShot(grid, monster, Enemies(player.Position, 40).ToList()) is { Count: > 1 } shot)
+                movesWithoutAttack++;
+                if (movesWithoutAttack <= 4 && WayToClearShot(grid, monster, Enemies(player.Position, 40).ToList()) is { Count: > 1 } shot)
                 {
                     MoveTo(shot[Math.Min(8, shot.Count - 1)]);
                     continue;
@@ -844,6 +851,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             Combat.Attack(this, player, monster);
             attacks++;
             castsWithoutDamage++;
+            movesWithoutAttack = 0;
         }
 
         var endLife = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.LifePercent ?? 0;
