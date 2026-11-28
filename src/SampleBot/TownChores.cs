@@ -38,10 +38,10 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
             // Gold is stashed last: what selling brings in pays for the potions first.
             Identify();
             WearUpgrades();
+            WithdrawForPotions();
             Repair();
             Sell();
             bot.CloseDialog();
-            WithdrawForPotions();
             Shop.BuyPotions(bot, ui);
             InventoryPanel.RefillBelt(bot, ui);
             StashGold();
@@ -146,7 +146,7 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
     private static readonly (int X, int Y) WithdrawButton = (424 + 30, 1356 + 30);
 
     /// <summary>
-    /// Takes gold out of the stash when the belt needs potions and little is carried: the withdraw button offers all of
+    /// Takes gold out of the stash when potions, tomes or a repair are needed and little is carried: the withdraw button offers all of
     /// it (as much as can be carried), confirmed with Enter. The rest goes back with <see cref="StashGold"/>.
     /// </summary>
     public void WithdrawForPotions()
@@ -154,7 +154,7 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
         var inventory = bot.Reader.ReadInventory();
         var (room, spare) = Shop.PotionsWanted(bot);
         var tomes = !bot.HasItem(ItemId.TomeOfIdentify) || !bot.HasItem(ItemId.TomeOfTownPortal);
-        if ((room + spare <= 0 && !tomes) || inventory.Gold >= 500 || inventory.StashGold.Sum() <= 0)
+        if ((room + spare <= 0 && !tomes && LowestDurability() >= 0.5) || inventory.Gold >= 500 || inventory.StashGold.Sum() <= 0)
             return;
         if (!bot.UseObject(ObjectId.Bank, until: () => bot.Reader.ReadMenus().Stash))
         {
@@ -268,8 +268,8 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
 
     // ---- Repairing ----
 
-    // The shop's (vendorpanellayouthd, a left panel) repair-all button.
-    private static readonly (int X, int Y) RepairButton = (169 + 40, 1277 + 40);
+    // The shop's (vendorpanellayouthd, a left panel) repair-all button (button_repair_all; button_repair at x 169 repairs one item at a time).
+    private static readonly (int X, int Y) RepairButton = (877 + 40, 1277 + 40);
 
     /// <summary>The worn items' lowest durability, as a share of their maximum (1 when nothing wears out).</summary>
     public double LowestDurability() => bot.LowestDurability();
@@ -295,7 +295,10 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
         }
 
         Thread.Sleep(400);
+        Bot.Log("Durability: " + string.Join(", ", Equipped().Select(i => $"{i.Class} {i.GetStat(StatId.Durability)}/{i.GetStat(StatId.MaxDurability)}")));
         ui.ClickLeftPanel(RepairButton);
+        Thread.Sleep(300);
+        bot.Proof("after the repair click");
         if (Wait(() => LowestDurability() > lowest, 2))
             Bot.Log($"Repaired at {smith} (lowest durability was {lowest:P0}).");
         else

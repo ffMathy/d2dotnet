@@ -103,15 +103,16 @@ internal static class Shop
             var healing = goods.Where(g => g.IsPotionOf(PotionType.Healing)).Select(g => g.Class).DefaultIfEmpty(ItemId.MinorHealingPotion).Max();
             var mana = goods.Where(g => g.IsPotionOf(PotionType.Mana)).Select(g => g.Class).DefaultIfEmpty(ItemId.MinorManaPotion).Max();
             var manaCount = room / 3;
-            Buy(bot, ui, healing, room - manaCount + spare);
+            // The belt first, then the tomes (a way back to town, identifying), then spares with what gold is left.
+            Buy(bot, ui, healing, room - manaCount);
             Buy(bot, ui, mana, manaCount);
-
-            // Tomes once: identifying in the field-free way (in town), and a way back to town.
-            foreach (var tome in new[] { ItemId.TomeOfIdentify, ItemId.TomeOfTownPortal })
+            foreach (var tome in new[] { ItemId.TomeOfTownPortal, ItemId.TomeOfIdentify })
             {
                 if (!bot.HasItem(tome) && TownChores.FreeCellsOf(Carried(bot)) >= 4)
                     Buy(bot, ui, tome, 1);
             }
+
+            Buy(bot, ui, healing, spare);
         }
         finally
         {

@@ -66,6 +66,18 @@ internal static partial class Native
     [LibraryImport("user32.dll", EntryPoint = "SendMessageW")]
     public static partial nint SendMessage(nint window, uint message, nint wParam, nint lParam);
 
+    [LibraryImport("user32.dll", EntryPoint = "SendMessageTimeoutW")]
+    public static partial nint SendMessageTimeout(nint window, uint message, nint wParam, nint lParam, uint flags, uint timeoutMs, out nint result);
+
+    private const uint SmtoAbortIfHung = 0x0002;
+
+    /// <summary>
+    /// Sends a message and waits for the window to handle it, at most <paramref name="timeoutMs"/> (SendMessage waits
+    /// for ever, and a game busy loading or minimised can keep it waiting); false when it was not handled in time.
+    /// </summary>
+    public static bool Send(nint window, uint message, nint wParam, nint lParam, uint timeoutMs = 1000) =>
+        SendMessageTimeout(window, message, wParam, lParam, SmtoAbortIfHung, timeoutMs, out _) != 0;
+
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool GetCursorPos(out PointI point);

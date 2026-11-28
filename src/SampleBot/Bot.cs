@@ -363,6 +363,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// <summary>Walks along a path to <paramref name="target"/>, a few subtiles at a time, fighting on the way when asked.</summary>
     public void WalkTo(MapGrid grid, Point target, int arriveWithin, bool fight, Func<bool>? until = null)
     {
+        Step = $"walking to {target}";
         ClearCursor();
         ClosePanels();
         var failures = 0;
@@ -652,6 +653,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         int? startLife = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.LifePercent;
         var first = reader.ReadMonsters().FirstOrDefault(m => m.Id == id);
         var name = first?.Class.ToString() ?? "?";
+        Step = $"fighting {name} {id.Value}";
         // Bosses, uniques, champions and summoners are pictured: the start, every 5 seconds, and the end.
         var notable = first is not null && (first.Type is not (MonsterType.Normal or MonsterType.Minion) || IsSummoner(first));
         if (notable)
@@ -870,6 +872,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var level = Act[Player().Area];
         for (var attempt = 0; attempt < 4; attempt++)
         {
+            Step = $"opening {npc}'s dialog, attempt {attempt}";
             if (reader.ReadMonsters().FirstOrDefault(m => m.Class == npc) is not { } who)
             {
                 // Out of sight (units are in memory only near the player): walk to where the level places the NPC, else
@@ -1212,7 +1215,32 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
     public static double Distance(Point a, Point b) => Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2));
 
-    public static void Log(string message) => Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {message}");
+    public static void Log(string message)
+    {
+        _lastLog = DateTime.UtcNow;
+        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {message}");
+    }
+
+    private static DateTime _lastLog = DateTime.UtcNow;
+
+    /// <summary>What the bot is doing now, for the watchdog (see <see cref="StartWatchdog"/>).</summary>
+    public static string Step { get; set; } = "starting";
+
+    /// <summary>
+    /// Logs, with a screenshot, when nothing was logged for <paramref name="seconds"/>: the step the bot is in and the
+    /// main thread's place, so a hang shows where it is.
+    /// </summary>
+    public void StartWatchdog(int seconds = 45)
+    {
+        _watchdog = new Timer(_ =>
+        {
+            if (DateTime.UtcNow - _lastLog < TimeSpan.FromSeconds(seconds))
+                return;
+            Failure($"Watchdog: nothing logged for {seconds} s; the step is: {Step}.");
+        }, null, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(seconds));
+    }
+
+    private Timer? _watchdog;
 
     /// <summary>
     /// Saves a picture of the game window to %LOCALAPPDATA%\D2Dotnet\screenshots, named after the time and

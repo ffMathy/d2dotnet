@@ -129,6 +129,8 @@ internal sealed class BackgroundInput(GameWindow window) : IGameInput
     // Moves the real cursor to the aim for the action, and back to where the player left it.
     private static void Borrowed((int X, int Y) aim, Action action)
     {
+        var step = Bot.Step;
+        Bot.Step = $"{step} (input at {aim})";
         Native.GetCursorPos(out var own);
         Native.SetCursorPos(aim.X, aim.Y);
         try
@@ -138,6 +140,7 @@ internal sealed class BackgroundInput(GameWindow window) : IGameInput
         finally
         {
             Native.SetCursorPos(own.X, own.Y);
+            Bot.Step = step;
         }
     }
 
@@ -160,5 +163,9 @@ internal sealed class BackgroundInput(GameWindow window) : IGameInput
         Send(down ? KeyDown : KeyUp, virtualKey, lParam);
     }
 
-    private void Send(uint message, nint wParam, nint lParam) => Native.SendMessage(window.Handle, message, wParam, lParam);
+    private void Send(uint message, nint wParam, nint lParam)
+    {
+        if (!Native.Send(window.Handle, message, wParam, lParam))
+            Bot.Log($"The game did not take message 0x{message:X4} within a second.");
+    }
 }

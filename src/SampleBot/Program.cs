@@ -62,6 +62,7 @@ var window = GameWindow.Of(process.ProcessId);
 IGameInput input = foreground ? new ForegroundInput() : new BackgroundInput(window);
 var bot = new Bot(reader, game.Data, game.Maps, window, input);
 var quests = new QuestRunner(bot);
+bot.StartWatchdog();
 if (trail)
     bot.StartTrail(seconds: 3);
 
