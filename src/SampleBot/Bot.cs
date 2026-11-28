@@ -697,7 +697,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 return;
             var step = path[Math.Min(StepLength, path.Count - 1)];
             Step = $"walking to {target} (moving to {step}, {path.Count} steps left, at {Player().Position})";
-            if (MoveTo(step))
+            if (FollowPath(path, StepLength))
             {
                 failures = 0;
             }
@@ -776,6 +776,44 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     }
 
     /// <summary>Force-moves towards a nearby point; true when the player got close to it.</summary>
+    /// <summary>Subtiles in a tile: how far ahead on the path each move aims.</summary>
+    public const int TileSubtiles = 5;
+
+    /// <summary>
+    /// Walks along <paramref name="path"/> (from the player) to its point <paramref name="upTo"/> steps on: every move
+    /// aims one tile ahead of where the player is on the path, so the character keeps to the path (round corners and
+    /// walls as the search found it) instead of the game's own way to a farther point. True when it got there, or at
+    /// least nearer, within 2.5 seconds.
+    /// </summary>
+    public bool FollowPath(IReadOnlyList<Point> path, int upTo)
+    {
+        var last = Math.Min(upTo, path.Count - 1);
+        var goal = path[last];
+        var start = Player().Position;
+        var deadline = DateTime.UtcNow.AddSeconds(2.5);
+        var at = 0;
+        while (DateTime.UtcNow < deadline)
+        {
+            var player = Player();
+            if (Distance(player.Position, goal) <= 2)
+                return true;
+            DrinkIfNeeded(player);
+            // Where the player is on the path (never back; a few steps on at a time, so a later stretch close through a
+            // wall at a bend does not count), and the point a tile on from there.
+            for (var i = at + 1; i <= Math.Min(last, at + 8); i++)
+            {
+                if (Distance(path[i], player.Position) <= Distance(path[at], player.Position))
+                    at = i;
+            }
+
+            Aim(player.Position, path[Math.Min(at + TileSubtiles, last)], aimHeight: 0);
+            Press(Keys.ForceMove);
+            Thread.Sleep(120);
+        }
+
+        return Distance(Player().Position, goal) < Distance(start, goal) - 2;
+    }
+
     public bool MoveTo(Point point)
     {
         var start = Player().Position;
