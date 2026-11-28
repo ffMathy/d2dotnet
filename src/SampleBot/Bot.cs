@@ -1319,8 +1319,14 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 WalkTo(GridHere(), target.Position, arriveWithin: 4, fight: !_retreating);
             }
 
-            // Points up and around the object, until the game says it is under the cursor.
-            var offsets = new[] { new Point(0, 0), new Point(1, 0), new Point(0, 1), new Point(-1, 0), new Point(0, -1) };
+            // Points up and around the object, until the game says it is under the cursor; out to its edges for a wide
+            // one (a waypoint with an NPC standing in its middle: Kashya on the camp's).
+            var offsets = new[]
+            {
+                new Point(0, 0), new Point(1, 0), new Point(0, 1), new Point(-1, 0), new Point(0, -1),
+                new Point(2, 2), new Point(-2, -2), new Point(2, -2), new Point(-2, 2),
+                new Point(3, 0), new Point(0, 3), new Point(-3, 0), new Point(0, -3),
+            };
             var clicked = false;
             foreach (var offset in offsets)
             {
