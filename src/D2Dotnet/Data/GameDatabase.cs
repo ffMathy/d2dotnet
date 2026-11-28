@@ -106,6 +106,28 @@ public sealed class GameDatabase
         return false;
     }
 
+    /// <summary>
+    /// The class that alone can use an item type: its own <see cref="ItemTypeInfo.Class"/> or one of the types it is
+    /// a kind of (a Wolf Head is a pelt, a druid item); empty when any class can.
+    /// </summary>
+    public string ClassOf(string type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<string>([type]);
+        while (pending.TryPop(out var code))
+        {
+            if (code.Length == 0 || !seen.Add(code) || ItemTypes.Find(code) is not { } info)
+                continue;
+            if (info.Class.Length > 0)
+                return info.Class;
+            pending.Push(info.Equiv1);
+            pending.Push(info.Equiv2);
+        }
+
+        return "";
+    }
+
     /// <summary>skills.txt by <see cref="SkillId"/>.</summary>
     public GameTable<SkillId, SkillInfo> Skills => _skills.Value;
 
@@ -275,9 +297,10 @@ public sealed class GameDatabase
         int name = t.GetRequiredColumnIndex("ItemType"), code = t.GetRequiredColumnIndex("Code");
         int throwable = t.GetRequiredColumnIndex("Throwable"), beltable = t.GetRequiredColumnIndex("Beltable");
         int equiv1 = t.GetColumnIndex("Equiv1"), equiv2 = t.GetColumnIndex("Equiv2");
+        var classColumn = t.GetColumnIndex("Class");
         var records = GameRows(t, name).Select((r, i) => new ItemTypeInfo(
             i, t.GetString(r, name), t.GetString(r, code), t.GetString(r, equiv1), t.GetString(r, equiv2),
-            Flag(t, r, throwable), Flag(t, r, beltable)));
+            Flag(t, r, throwable), Flag(t, r, beltable)) { Class = t.GetString(r, classColumn) });
         return new GameTable<string, ItemTypeInfo>(records, it => it.Code.Length > 0 ? it.Code : null, StringComparer.Ordinal);
     }
 

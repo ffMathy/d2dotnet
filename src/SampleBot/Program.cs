@@ -42,6 +42,12 @@ if (Environment.GetEnvironmentVariable("D2_LAYOUT") is { Length: > 0 } layoutNam
     return 0;
 }
 
+if (Environment.GetEnvironmentVariable("D2_TYPES") == "1")
+{
+    Console.WriteLine(string.Join(", ", game.Data.ItemTypes.Where(t => t.Class.Length > 0).Select(t => $"{t.Code}={t.Class}")));
+    return 0;
+}
+
 using var process = GameProcess.Attach();
 var reader = new GameReader(process, game.Data, OffsetCache.LoadOrScan(process));
 foreach (var missing in reader.Offsets.Missing)

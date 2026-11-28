@@ -338,6 +338,10 @@ public class GameDatabaseTests
             m => Assert.False(db.Monsters.Find(m)?.IsSummoner, m.ToString()));
         Assert.Equal("Bishibosh", db.SuperUniques[0].Code);
         Assert.Equal((8, 9, 0), db.SuperUniques[0].Mods); // magic resistant, fire enchanted
+        Assert.Equal("dru", db.ClassOf("pelt"));
+        Assert.Equal("sor", db.ClassOf("orb"));
+        Assert.Equal("", db.ClassOf("helm"));
+        Assert.Equal("", db.ClassOf("nope"));
         var shaman = db.Monsters.Find(MonsterId.FallenShaman)!;
         Assert.Equal(25, shaman.Resistances.Fire);
         Assert.Equal(50, shaman.ResistancesIn(Difficulty.Nightmare).Of(StatId.FireResist));

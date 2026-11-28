@@ -39,11 +39,24 @@ internal sealed class ItemRules(GameDatabase data)
     }
 
     /// <summary>True when the character meets the item's level, strength and dexterity (the base item's; magic changes to them are not counted).</summary>
-    public static bool CanWear(MainPlayer player, Item item) =>
+    public bool CanWear(MainPlayer player, Item item) =>
         item.Info is { } info
+        && IsForClass(item, player.Class)
         && player.Level >= info.RequiredLevel
         && (player.BaseStats.GetValue(StatId.Strength) ?? 0) >= info.RequiredStrength
         && (player.BaseStats.GetValue(StatId.Dexterity) ?? 0) >= info.RequiredDexterity;
+
+    // itemtypes.txt class codes.
+    private static readonly Dictionary<CharacterClass, string> ClassCodes = new()
+    {
+        [CharacterClass.Amazon] = "ama", [CharacterClass.Sorceress] = "sor", [CharacterClass.Necromancer] = "nec",
+        [CharacterClass.Paladin] = "pal", [CharacterClass.Barbarian] = "bar", [CharacterClass.Druid] = "dru",
+        [CharacterClass.Assassin] = "ass", [CharacterClass.Warlock] = "war",
+    };
+
+    /// <summary>True when the class may use the item: it has no class of its own (a Wolf Head is for druids only).</summary>
+    public bool IsForClass(Item item, CharacterClass characterClass) =>
+        item.TypeCode is not { } type || data.ClassOf(type) is var only && (only.Length == 0 || ClassCodes.GetValueOrDefault(characterClass) == only);
 
     /// <summary>
     /// How good the item is for the class, from its stats (null while it is not identified, when its magic is unknown).

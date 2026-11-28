@@ -167,7 +167,11 @@ public sealed record ItemInfo(
 /// <param name="Equiv2">The <c>Equiv2</c> column: a second parent type's code, or empty.</param>
 /// <param name="Throwable">The <c>Throwable</c> column is set.</param>
 /// <param name="Beltable">The <c>Beltable</c> column is set.</param>
-public sealed record ItemTypeInfo(int Index, string Name, string Code, string Equiv1, string Equiv2, bool Throwable, bool Beltable);
+public sealed record ItemTypeInfo(int Index, string Name, string Code, string Equiv1, string Equiv2, bool Throwable, bool Beltable)
+{
+    /// <summary>The class that alone can use the type (the <c>Class</c> column: <c>ama</c>, <c>sor</c>, <c>dru</c>...), or empty.</summary>
+    public string Class { get; init; } = "";
+}
 
 /// <summary>A skill: a row of skills.txt.</summary>
 /// <param name="Id">The <c>*Id</c> column (classic <c>Id</c>).</param>
