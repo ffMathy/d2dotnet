@@ -184,20 +184,35 @@ internal static class Shop
         return bought;
     }
 
+    /// <summary>The town's potion seller: Akara, Lysander, Ormus, Jamella, Malah.</summary>
+    public static MonsterId PotionVendor(AreaId town) => town switch
+    {
+        AreaId.LutGholein => MonsterId.Lysander,
+        AreaId.KurastDocks => MonsterId.Ormus,
+        AreaId.PandemoniumFortress => MonsterId.Jamella,
+        AreaId.Harrogath => MonsterId.Malah,
+        _ => MonsterId.Akara,
+    };
+
+    /// <summary>Who sells the tomes and scrolls in the town (in Lut Gholein Drognan, not the potion seller).</summary>
+    public static MonsterId ScrollVendor(AreaId town) => town == AreaId.LutGholein ? MonsterId.Drognan : PotionVendor(town);
+
     /// <summary>
-    /// In the Rogue Encampment, fills the belt at Akara: healing potions in the first columns, mana potions in the last,
-    /// while the gold lasts. Bought potions that the belt has no room for go to the inventory.
+    /// In town, fills the belt at the potion seller: healing potions in the first columns, mana potions in the last,
+    /// while the gold lasts; tomes and scrolls where they are sold. Bought potions that the belt has no room for go to
+    /// the inventory.
     /// </summary>
     public static void BuyPotions(Bot bot, GameUi ui)
     {
         var inventory = bot.Reader.ReadInventory();
         var (room, spare) = PotionsWanted(bot);
         var tomes = !bot.HasItem(ItemId.TomeOfIdentify) || !bot.HasItem(ItemId.TomeOfTownPortal);
-        if ((room + spare <= 0 && !tomes) || inventory.Gold < 50 || bot.Player().Area != AreaId.RogueEncampment)
+        if ((room + spare <= 0 && !tomes) || inventory.Gold < 50 || bot.Player().Area != bot.Town)
             return;
-        if (!OpenTrade(bot, MonsterId.Akara))
+        var vendor = PotionVendor(bot.Town);
+        if (!OpenTrade(bot, vendor))
         {
-            bot.Failure("Could not open Akara's shop.");
+            bot.Failure($"Could not open {vendor}'s shop.");
             return;
         }
 
@@ -227,6 +242,36 @@ internal static class Shop
             Buy(bot, ui, healing, spare);
             if (caster)
                 Buy(bot, ui, mana, Math.Max(0, SpareHealing - Carried(bot).Count(i => i.IsManaPotion)));
+        }
+        finally
+        {
+            bot.CloseDialog();
+        }
+
+        if (ScrollVendor(bot.Town) != vendor)
+            BuyScrolls(bot, ui, ScrollVendor(bot.Town));
+    }
+
+    // The tomes and their scrolls from the town's scroll seller when the potion seller has none (Drognan).
+    private static void BuyScrolls(Bot bot, GameUi ui, MonsterId vendor)
+    {
+        var idTome = Carried(bot).FirstOrDefault(i => i.Class == ItemId.TomeOfIdentify);
+        var wanted = !bot.HasItem(ItemId.TomeOfTownPortal) || !bot.HasItem(ItemId.TomeOfIdentify) || bot.TownPortals() < 8
+            || (idTome?.GetStat(StatId.Quantity) ?? 0) < 5;
+        if (!wanted || bot.Reader.ReadInventory().Gold < 50 || !OpenTrade(bot, vendor))
+            return;
+        try
+        {
+            foreach (var tome in new[] { ItemId.TomeOfTownPortal, ItemId.TomeOfIdentify })
+            {
+                if (!bot.HasItem(tome) && TownChores.FreeCellsOf(Carried(bot)) >= 4)
+                    Buy(bot, ui, tome, 1);
+            }
+
+            if (bot.HasItem(ItemId.TomeOfTownPortal) && bot.TownPortals() < 8)
+                Buy(bot, ui, ItemId.ScrollOfTownPortal, 8 - bot.TownPortals());
+            if (Carried(bot).FirstOrDefault(i => i.Class == ItemId.TomeOfIdentify) is { } tomeNow && (tomeNow.GetStat(StatId.Quantity) ?? 0) < 5)
+                Buy(bot, ui, ItemId.ScrollOfIdentify, 5 - (tomeNow.GetStat(StatId.Quantity) ?? 0));
         }
         finally
         {
