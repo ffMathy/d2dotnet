@@ -583,6 +583,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         }
     }
 
+    // How far a bolt is cast from, in subtiles: Fire Bolt and the like fade out further away, and an aim much further
+    // is off the screen.
+    private const int CastRange = 15;
+
     // Half a missile's width, in subtiles: a bolt clips a wall's end or corner the thin line between centres misses.
     private const float MissileHalfWidth = 0.75f;
 
@@ -630,7 +634,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// The way to the nearest place from which the target can be shot (no wall and no other monster in the line, no
     /// monster within 3 subtiles, within <paramref name="castRange"/> of it), at most 15 steps; null when there is none.
     /// </summary>
-    public IReadOnlyList<Point>? WayToClearShot(MapGrid grid, Monster target, IReadOnlyList<Monster> enemies, int castRange = 14)
+    public IReadOnlyList<Point>? WayToClearShot(MapGrid grid, Monster target, IReadOnlyList<Monster> enemies, int castRange = CastRange - 1)
     {
         var others = enemies.Where(e => e.Id != target.Id).ToList();
         return grid.FindPathTo(Player().Position, p =>
@@ -701,6 +705,15 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 }
 
                 MoveTo(path[Math.Min(4, path.Count - 1)]);
+                continue;
+            }
+
+            // Too far for a bolt to reach (summoners are gone for from further than the fight range, and an aim off
+            // the screen is pulled in): walk closer first.
+            if (Distance(player.Position, monster.Position) > CastRange
+                && grid.FindPath(player.Position, monster.Position) is { Count: > 1 } nearer)
+            {
+                MoveTo(nearer[Math.Min(6, nearer.Count - 1)]);
                 continue;
             }
 

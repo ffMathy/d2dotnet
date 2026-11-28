@@ -102,7 +102,9 @@ internal static class Shop
             var goods = bot.Reader.ReadInventory().Items.Where(i => i.Location == ItemLocation.Vendor).ToList();
             var healing = goods.Where(g => g.IsPotionOf(PotionType.Healing)).Select(g => g.Class).DefaultIfEmpty(ItemId.MinorHealingPotion).Max();
             var mana = goods.Where(g => g.IsPotionOf(PotionType.Mana)).Select(g => g.Class).DefaultIfEmpty(ItemId.MinorManaPotion).Max();
-            var manaCount = room / 3;
+            // Casters live on mana: half the belt for it; the others a third.
+            var caster = bot.Player().Class is CharacterClass.Sorceress or CharacterClass.Necromancer or CharacterClass.Warlock;
+            var manaCount = caster ? room / 2 : room / 3;
             // The belt first, then the tomes (a way back to town, identifying), then spares with what gold is left.
             Buy(bot, ui, healing, room - manaCount);
             Buy(bot, ui, mana, manaCount);
@@ -113,6 +115,8 @@ internal static class Shop
             }
 
             Buy(bot, ui, healing, spare);
+            if (caster)
+                Buy(bot, ui, mana, Math.Max(0, SpareHealing - Carried(bot).Count(i => i.IsManaPotion)));
         }
         finally
         {
