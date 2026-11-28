@@ -601,7 +601,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             Step = $"{outer} (looking for a fight)";
             if (!_retreating && Player() is { Level: < DeadlyBelowLevel } me
                 && Enemies(me.Position, 25).FirstOrDefault(IsDeadly) is { } deadly)
-                throw new TooDangerous($"{deadly.Class} (lightning enchanted) is {Distance(me.Position, deadly.Position):F0} away; too dangerous below level {DeadlyBelowLevel}.");
+                throw new TooDangerous($"{deadly.Class} (lightning enchanted, mods [{string.Join(", ", deadly.Mods)}]) is {Distance(me.Position, deadly.Position):F0} away; too dangerous below level {DeadlyBelowLevel}.");
             var player = Player();
             var grid = GridHere();
             var enemies = Enemies(player.Position, range + SummonerReach)
