@@ -91,9 +91,11 @@ internal sealed class SearchForCainQuest : IQuest
     public void Run(Bot bot)
     {
         bot.QuestItems.Add(ItemId.ScrollOfInifuss);
+        Bot.Log($"{Id}: status {bot.Reader.ReadQuests().GetValueOrDefault(Id)} ({(ushort)bot.Reader.ReadQuests().GetValueOrDefault(Id):X4}).");
         if (bot.Player().Area != AreaId.Tristram)
         {
-            if (!bot.HasItem(ItemId.ScrollOfInifuss) && !bot.HasItem(ItemId.KeyToTheCairnStones))
+            // Once the stones opened, the key is gone and the stones open again without it (in any later game).
+            if (!bot.HasItem(ItemId.ScrollOfInifuss) && !bot.HasItem(ItemId.KeyToTheCairnStones) && !StonesOpened(bot))
                 FetchTheScroll(bot);
             if (bot.HasItem(ItemId.ScrollOfInifuss))
             {
@@ -121,6 +123,18 @@ internal sealed class SearchForCainQuest : IQuest
         bot.PickUpNearby();
         if (!bot.HasItem(ItemId.ScrollOfInifuss))
             throw new BotStopped("The Scroll of Inifuss is not in the inventory.");
+    }
+
+    // The character opened the Cairn Stones once: a file per character, as the quest status bits for it are not known.
+    private static string StonesFile(Bot bot) =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "D2Dotnet", $"cairn-stones-{bot.Player().Name}.txt");
+
+    private static bool StonesOpened(Bot bot) => File.Exists(StonesFile(bot));
+
+    private static void MarkStonesOpened(Bot bot)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(StonesFile(bot))!);
+        File.WriteAllText(StonesFile(bot), $"{bot.Reader.ReadQuests().GetValueOrDefault(QuestId.Act1TheSearchForCain)}");
     }
 
     /// <summary>Goes to Tristram through the Cairn Stones' portal (opening it when it is not open): for Tristram runs.</summary>
@@ -152,6 +166,7 @@ internal sealed class SearchForCainQuest : IQuest
 
         if (!bot.Reader.ReadObjects().Any(o => o.IsRedPortal))
             throw new BotStopped("Touched the Cairn Stones, but no portal opened.");
+        MarkStonesOpened(bot);
         Bot.Log("Entering the portal to Tristram.");
         bot.UseObject(ObjectId.PermanentTownPortal, until: () => bot.Reader.ReadMainPlayer()?.Area == AreaId.Tristram);
         if (!bot.WaitForArea(AreaId.Tristram, seconds: 10))
