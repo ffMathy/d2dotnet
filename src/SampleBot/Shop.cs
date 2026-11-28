@@ -44,7 +44,14 @@ internal static class Shop
     }
 
     /// <summary>Opens the NPC's shop: their dialog, then Trade (found the first time for an NPC not measured yet).</summary>
-    public static bool OpenTrade(Bot bot, MonsterId npc)
+    public static bool OpenTrade(Bot bot, MonsterId npc) => ChooseOption(bot, npc, () => IsOpen(bot), settle: 1.5);
+
+    /// <summary>
+    /// Picks an option of the NPC's dialog menu (the trade, Warriv's "Go East"): the menu floats above the NPC, so its
+    /// options are clicked at heights up the NPC until <paramref name="done"/> holds; the height that worked is kept
+    /// (per NPC: only one option is wanted of each) and tried first next time.
+    /// </summary>
+    public static bool ChooseOption(Bot bot, MonsterId npc, Func<bool> done, double settle)
     {
         // The learned height and round it first (the dialog grows with its options: Akara gains "Reset Stat/Skill
         // Points" after the Den of Evil), then the whole range again.
@@ -61,10 +68,10 @@ internal static class Shop
                 return false;
             bot.Aim(bot.Player().Position, who.Position, height);
             bot.Input.LeftClick();
-            var deadline = DateTime.UtcNow.AddSeconds(1.5);
-            while (DateTime.UtcNow < deadline && !IsOpen(bot))
+            var deadline = DateTime.UtcNow.AddSeconds(settle);
+            while (DateTime.UtcNow < deadline && !done())
                 Thread.Sleep(150);
-            if (IsOpen(bot))
+            if (done())
             {
                 if (!TradeHeights.TryGetValue(npc, out var before) || before != height)
                 {

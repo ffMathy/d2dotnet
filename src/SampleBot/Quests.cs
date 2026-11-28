@@ -232,6 +232,30 @@ internal sealed class ToolsOfTheTradeQuest : IQuest
     }
 }
 
+/// <summary>
+/// To the next act once its last quest is done: Warriv's "Go East" (in Act 1), and the like further on. Done once the
+/// player stands in the next act.
+/// </summary>
+internal sealed class TravelEastQuest(QuestId after, MonsterId guide, AreaId nextTown) : IQuest
+{
+    // Logged and counted as the quest whose end it follows.
+    public QuestId Id => after;
+
+    public int MinimumLevel => 1;
+
+    public bool IsDone(Bot bot) => bot.Reader.ReadMainPlayer() is { } player && (int)player.Area >= (int)nextTown;
+
+    public void Run(Bot bot)
+    {
+        Bot.Log($"To {nextTown} with {guide}.");
+        bot.TravelTo(bot.Town);
+        if (!Shop.ChooseOption(bot, guide, () => bot.Reader.ReadMainPlayer()?.Area == nextTown || bot.Reader.ReadMenus().LoadingScreen, settle: 3))
+            throw new Stuck($"Could not pick {guide}'s way to {nextTown}.");
+        bot.WaitForArea(nextTown, seconds: 20);
+        bot.Proof($"in {nextTown}");
+    }
+}
+
 /// <summary>The quests in the order the bot does them; it runs the first one that is not done.</summary>
 internal sealed class QuestRunner(Bot bot)
 {
@@ -245,6 +269,7 @@ internal sealed class QuestRunner(Bot bot)
         new ClearAreaQuest(QuestId.Act1TheForgottenTower, AreaId.TowerCellarLevel5, minimumLevel: 10, MonsterId.Akara, superUnique: "TheCountess"),
         new ToolsOfTheTradeQuest(),
         new ClearAreaQuest(QuestId.Act1SistersToTheSlaughter, AreaId.CatacombsLevel4, minimumLevel: 18, MonsterId.Akara, MonsterId.Andariel),
+        new TravelEastQuest(QuestId.Act1SistersToTheSlaughter, MonsterId.Warriv, AreaId.LutGholein),
     ];
 
     // Rewards already asked for in this run: each is asked for once.
