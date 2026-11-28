@@ -51,8 +51,11 @@ internal static class Shop
     /// options are clicked at heights up the NPC until <paramref name="done"/> holds; the height that worked is kept
     /// (per NPC: only one option is wanted of each) and tried first next time.
     /// </summary>
-    public static bool ChooseOption(Bot bot, MonsterId npc, Func<bool> done, double settle)
+    public static bool ChooseOption(Bot bot, MonsterId npc, Func<bool> done, double settle, int option = 1)
     {
+        if (ChooseOptionByKeys(bot, npc, done, settle, option))
+            return true;
+
         // The learned height and round it first (the dialog grows with its options: Akara gains "Reset Stat/Skill
         // Points" after the Den of Evil), then the whole range again.
         var scan = Enumerable.Range(0, 20).Select(i => 130 + 12 * i);
@@ -88,6 +91,55 @@ internal static class Shop
 
         return false;
     }
+
+    /// <summary>
+    /// Picks the menu's option at <paramref name="option"/> (0 is the first) with the keys, as on a controller: Home to
+    /// the first, Down to the option, Enter. The menu (npcdialogpanelhd.json) is a list sized by its texts and placed
+    /// over the NPC, so its rows have no fixed place on screen; the keys need none. The options the bot wants are the
+    /// second of each menu: Trade (or Trade/Repair), Warriv's Go East, Meshif's Sail East.
+    /// </summary>
+    private static bool ChooseOptionByKeys(Bot bot, MonsterId npc, Func<bool> done, double settle, int option)
+    {
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            if (!bot.OpenDialog(npc))
+                return false;
+            var deadline = DateTime.UtcNow.AddSeconds(2);
+            while (DateTime.UtcNow < deadline && !bot.Reader.ReadMenus().NpcInteract)
+                Thread.Sleep(100);
+            if (!bot.Reader.ReadMenus().NpcInteract)
+            {
+                bot.CloseDialog();
+                continue;
+            }
+
+            Thread.Sleep(300);
+            // The cursor away from the menu (a hovered row would take the selection) while the keys pick.
+            var me = bot.Player();
+            bot.Aim(me.Position, me.Position, 0);
+            bot.Input.PressKey(VkHome);
+            for (var i = 0; i < option; i++)
+            {
+                Thread.Sleep(120);
+                bot.Input.PressKey(Native.VkDown);
+            }
+
+            Thread.Sleep(120);
+            bot.Input.PressKey(Native.VkReturn);
+            deadline = DateTime.UtcNow.AddSeconds(settle);
+            while (DateTime.UtcNow < deadline && !done())
+                Thread.Sleep(150);
+            if (done())
+                return true;
+            bot.CloseDialog();
+            Thread.Sleep(400);
+        }
+
+        Bot.Log($"Could not pick option {option} of {npc}'s menu with the keys; trying clicks.");
+        return false;
+    }
+
+    private const int VkHome = 0x24;
 
     /// <summary>Opens Akara's shop and lists her goods with their grid cells and pages, leaving the shop open.</summary>
     public static void ListGoods(Bot bot)

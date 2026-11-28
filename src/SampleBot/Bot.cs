@@ -149,16 +149,29 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 return;
             }
 
-            WalkTo(grid, corpse.Position, arriveWithin: 2, fight: true);
-            foreach (var height in new[] { 10, 25, 0, 40 })
+            // A few steps from it, not on it: a new game puts the character on the corpse, and the cursor then finds
+            // the character instead (another side each try).
+            var here = Player().Position;
+            if (Distance(here, corpse.Position) is < 3 or > 5
+                && grid.FindPathTo(here, p => Distance(p, corpse.Position) is >= 3 and <= 5 && (attempt == 0 || Distance(p, here) >= 2), maxLength: 200) is { Count: > 1 } way)
+                WalkTo(grid, way[^1], arriveWithin: 1, fight: true);
+            var clicked = false;
+            foreach (var offset in new[] { new Point(0, 0), new Point(1, 0), new Point(0, 1), new Point(-1, 0), new Point(0, -1) })
             {
-                var aim = Aim(Player().Position, corpse.Position, height);
-                if (input.Peek(aim, reader.ReadHover) is { Type: UnitType.Player } hover && hover.Id == corpse.Id)
+                foreach (var height in new[] { 10, 25, 0, 40 })
                 {
-                    input.LeftClick();
-                    Thread.Sleep(1000);
-                    break;
+                    var aim = Aim(Player().Position, new Point(corpse.Position.X + offset.X, corpse.Position.Y + offset.Y), height);
+                    if (input.Peek(aim, reader.ReadHover) is { Type: UnitType.Player } hover && hover.Id == corpse.Id)
+                    {
+                        input.LeftClick();
+                        Thread.Sleep(1000);
+                        clicked = true;
+                        break;
+                    }
                 }
+
+                if (clicked)
+                    break;
             }
         }
 
