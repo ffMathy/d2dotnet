@@ -770,7 +770,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 (lastLife, castsWithoutDamage) = (monster.LifePercent ?? 100, 0);
             else if (castsWithoutDamage >= 8 && grid.FindPath(player.Position, monster.Position) is { Count: > 3 } closer)
             {
-                Log($"{castsWithoutDamage} attacks did not hurt {name}: moving closer.");
+                var others = Enemies(player.Position, 40).ToList();
+                Log($"{castsWithoutDamage} attacks did not hurt {name}: moving closer. It is {Distance(player.Position, monster.Position):F1} away at {monster.Position} (me {player.Position}), " +
+                    $"line {(grid.IsLineClear(player.Position, monster.Position, MissileHalfWidth) ? "clear" : "blocked")}, in the way {InTheWay(player.Position, monster, others)?.Class.ToString() ?? "nothing"}, " +
+                    $"close {string.Join("/", Enemies(player.Position, 3).Select(m => m.Class))}, mana {player.GetStat(StatId.Mana)}, right skill {player.RightSkill}.");
                 castsWithoutDamage = 0;
                 MoveTo(closer[Math.Min(6, closer.Count - 2)]);
                 continue;
@@ -1042,6 +1045,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     // ---- Picking up ----
 
     private readonly HashSet<UnitId> _unreachableItems = [];
+    private readonly Dictionary<UnitId, int> _pickTries = [];
 
     // What the bot picks up: supplies, items worth selling or wearing (ItemRules), quest items; what does not fit in
     // the inventory is left (gold and potions need no room: gold is counted, potions go to the belt first).
@@ -1110,6 +1114,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             Step = step;
             if (!clicked || reader.ReadInventory().Items.Any(i => i.Id == item.Id && i.Location == ItemLocation.Ground))
             {
+                // Items lying on top of each other: the click can take the other one. Three tries, then leave it.
+                _pickTries[item.Id] = _pickTries.GetValueOrDefault(item.Id) + 1;
+                if (clicked && _pickTries[item.Id] < 3)
+                    continue;
                 _unreachableItems.Add(item.Id);
                 Log($"Could not pick up {item.Class} at {item.Position} ({(clicked ? "clicked, but it stayed" : "never under the cursor")}).");
             }
