@@ -16,6 +16,9 @@ using D2Dotnet.Game;
 internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
 {
     private const int GridX = 93, GridY = 897, Cell = 98, Columns = 10, Rows = 4;
+
+    // Potions kept in the inventory besides the belt; more are sold.
+    private const int PotionReserve = 8;
     private static readonly (int X, int Y) GoldButton = (429 + 30, 1347 + 30);
     private static readonly (int X, int Y) ShopDropPoint = (91 + 5 * Cell, 233 + 4 * Cell);
 
@@ -40,6 +43,7 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
             WearUpgrades();
             WithdrawForPotions();
             Repair();
+            InventoryPanel.RefillBelt(bot, ui);
             Sell();
             bot.CloseDialog();
             Shop.BuyPotions(bot, ui);
@@ -320,6 +324,9 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
         var total = inventory.Gold + inventory.StashGold.Sum();
         var equipped = Equipped();
         var toSell = Carried().Where(i => rules.IsToSell(i, player, equipped)).ToList();
+        // Potions beyond the reserve (after the belt is filled from them): the weakest go.
+        var potions = Carried().Where(i => i.IsPotion).OrderByDescending(i => i.Class).ToList();
+        toSell.AddRange(potions.Skip(PotionReserve));
         if (toSell.Count == 0 || (total >= ItemRules.SellingBelowGold && FreeCells() > 8))
             return;
 

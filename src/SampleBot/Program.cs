@@ -13,6 +13,7 @@
 using System.Runtime.Versioning;
 using D2Dotnet;
 using D2Dotnet.Files;
+using D2Dotnet.Game;
 using D2Dotnet.Maps;
 using D2Dotnet.Memory;
 
@@ -102,6 +103,18 @@ if (args.Contains("--ui-flags") || Environment.GetEnvironmentVariable("D2_UI_FLA
     // close it, run it again.
     var flags = process.ReadBytes(unchecked(process.ModuleBaseAddress + reader.Offsets.UI - 0x14), 0x40);
     Console.WriteLine(string.Join(" ", flags.Select((b, i) => (b, i)).Where(x => x.b != 0).Select(x => $"0x{x.i:X2}={x.b}")));
+    return 0;
+}
+
+if (Environment.GetEnvironmentVariable("D2_INV") == "1")
+{
+    var inv = reader.ReadInventory();
+    var carried = inv.Items.Where(i => i.Location == ItemLocation.Inventory).ToList();
+    Console.WriteLine($"Gold {inv.Gold}, stash {inv.StashGold.Sum()}, free cells {TownChores.FreeCellsOf(carried)}, belt {inv.Belt.Items.Count}/{inv.Belt.Rows * 4}.");
+    foreach (var item in carried)
+        Console.WriteLine($"  {item.Quality} {item.Class} at {item.Position} {item.Info?.InventoryWidth}x{item.Info?.InventoryHeight}");
+    foreach (var item in inv.Items.Where(i => i.Location == ItemLocation.Ground && i.Class == ItemId.SmallCharm))
+        Console.WriteLine($"  on the ground: {item.Quality} {item.Class} at {item.Position}");
     return 0;
 }
 

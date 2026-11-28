@@ -1188,7 +1188,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 if (clicked && _pickTries[item.Id] < 3)
                     continue;
                 _unreachableItems.Add(item.Id);
-                Log($"Could not pick up {item.Class} at {item.Position} ({(clicked ? "clicked, but it stayed" : "never under the cursor")}).");
+                Failure($"Could not pick up {item.Class} at {item.Position} ({(clicked ? "clicked, but it stayed" : "never under the cursor")}).");
             }
             else
                 Log($"Picked up {(item.Quality is ItemQuality.Magic or ItemQuality.Rare or ItemQuality.Set or ItemQuality.Unique ? item.Quality + " " : "")}{item.Class}.");
