@@ -187,6 +187,7 @@ if (Environment.GetEnvironmentVariable("D2_KEYS") == "1" || Environment.GetEnvir
     foreach (var binding in bot.Keys.Skills.Where(b => b.Skill != SkillId.None))
         Console.WriteLine($"  {binding.Skill} on {binding.Keys.Primary}/{binding.Keys.Secondary}");
     Console.WriteLine("Skills: " + string.Join(", ", reader.ReadMainPlayer()!.Skills.Select(s => $"{s.Key} {s.Value.Level}")));
+    Console.WriteLine("Waypoints: " + string.Join(", ", reader.ReadMainPlayer()!.AvailableWaypoints));
     return 0;
 }
 
