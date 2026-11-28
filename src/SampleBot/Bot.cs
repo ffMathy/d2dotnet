@@ -1252,9 +1252,17 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
         // Close to dying with monsters about: out by town portal now; potions heal too slowly under a pack's blows.
         // In a crowd the blows come faster than a portal opens: leave earlier.
-        if (!_retreating && !Healers.ContainsKey(player.Area) && TownPortals() > 0 && Enemies(player.Position, 15).ToList() is { Count: > 0 } about
-            && life < (about.Count(m => Distance(player.Position, m.Position) <= 10) >= 5 ? 45 : 30))
-            throw new LowLife($"Life is at {life}% with {about.Count} monsters about.");
+        // Below 60% that is when the belt has no healing potion left (drinking from the inventory is slow), a unique or
+        // champion is at arm's length (they hit hard: Spine Brow with a Might aura), or five monsters crowd in.
+        if (!_retreating && !Healers.ContainsKey(player.Area) && TownPortals() > 0 && Enemies(player.Position, 15).ToList() is { Count: > 0 } about)
+        {
+            var crowd = about.Count(m => Distance(player.Position, m.Position) <= 10) >= 5;
+            var bossClose = about.Any(m => m.Type is MonsterType.Unique or MonsterType.SuperUnique or MonsterType.Champion && Distance(player.Position, m.Position) <= 5);
+            var beltDry = belt.FindPotion(PotionType.Healing) is null && belt.FindPotion(PotionType.Rejuvenation) is null;
+            var limit = crowd || bossClose || beltDry ? 60 : 30;
+            if (life < limit)
+                throw new LowLife($"Life is at {life}% with {about.Count} monsters about{(bossClose ? ", a boss close" : "")}{(beltDry ? ", the belt dry" : "")}.");
+        }
 
         PotionType? need = life < 40 ? PotionType.Rejuvenation : life < 55 ? PotionType.Healing : mana < 15 ? PotionType.Mana : null;
         if (need is null)
