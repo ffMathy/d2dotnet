@@ -1327,7 +1327,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         {
             var crowd = about.Count(m => Distance(player.Position, m.Position) <= 10) >= 5;
             var bossClose = about.Any(m => m.Type is MonsterType.Unique or MonsterType.SuperUnique or MonsterType.Champion && Distance(player.Position, m.Position) <= 5);
-            var beltDry = belt.FindPotion(PotionType.Healing) is null && belt.FindPotion(PotionType.Rejuvenation) is null;
+            // Dry: no healing potion in the belt, and fewer than two in the inventory to drink from.
+            var beltDry = belt.FindPotion(PotionType.Healing) is null && belt.FindPotion(PotionType.Rejuvenation) is null
+                && reader.ReadInventory().Items.Count(i => i.Location == ItemLocation.Inventory && (i.IsHealingPotion || i.IsRejuvenationPotion)) < 2;
             var limit = crowd || bossClose || beltDry ? 60 : 30;
             if (life < limit)
                 throw new LowLife($"Life is at {life}% with {about.Count} monsters about{(bossClose ? ", a boss close" : "")}{(beltDry ? ", the belt dry" : "")}.");

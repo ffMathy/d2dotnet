@@ -84,6 +84,10 @@ internal sealed class ItemRules(GameDatabase data)
         score += (Stat(StatId.LifeSteal) + Stat(StatId.ManaSteal)) * (caster ? 0.2 : 2);
         score += Stat(StatId.Defense) * (caster ? 0.15 : 0.3) + Stat(StatId.EnhancedDefense) * 0.05;
 
+        // A belt's rows hold potions: worth more than its defense (a Sash 2, a Belt 3, a Plated Belt 4).
+        if (SlotOf(item) == Slot.Belt)
+            score += new Belt { Equipped = item.Class }.Rows * 10;
+
         if (item.Info is { } info)
         {
             var damage = info.IsTwoHanded ? (info.TwoHandedMinDamage + info.TwoHandedMaxDamage) / 2.0 : (info.MinDamage + info.MaxDamage) / 2.0;
