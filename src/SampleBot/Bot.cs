@@ -1239,7 +1239,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     }
 
     // Potions carried in the inventory besides the belt, at most.
-    private const int PotionReserve = 8;
+    private const int PotionReserve = 12;
     private DateTime _nextSellingTrip = DateTime.MinValue;
 
     /// <summary>Quest items the bot picks up too (the Scroll of Inifuss, the Horadric Malus...).</summary>

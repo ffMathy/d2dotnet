@@ -18,7 +18,7 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
     private const int GridX = 93, GridY = 897, Cell = 98, Columns = 10, Rows = 4;
 
     // Potions kept in the inventory besides the belt; more are sold.
-    private const int PotionReserve = 8;
+    private const int PotionReserve = 12;
     private static readonly (int X, int Y) GoldButton = (429 + 30, 1347 + 30);
     private static readonly (int X, int Y) ShopDropPoint = (91 + 5 * Cell, 233 + 4 * Cell);
 
