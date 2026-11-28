@@ -46,6 +46,12 @@ public sealed record MonsterInfo(MonsterId Id, string Code, string NameKey)
     /// </summary>
     public bool IsSummoner { get; init; }
 
+    /// <summary>
+    /// True when the monster's hits drain mana (an <c>El1Type</c>, <c>El2Type</c> or <c>El3Type</c> of <c>mana</c>):
+    /// the Ghosts and the rest of the wraiths, the will-o'-wisps.
+    /// </summary>
+    public bool DrainsMana { get; init; }
+
     /// <summary>The resistances in Normal (the <c>ResDm</c>, <c>ResMa</c>, <c>ResFi</c>, <c>ResLi</c>, <c>ResCo</c> and <c>ResPo</c> columns).</summary>
     public Resistances Resistances { get; init; }
 

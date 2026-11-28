@@ -198,6 +198,16 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     public const int LowExperienceGap = 5;
 
     /// <summary>True when the monster's level (its area's, +2 for a champion, +3 for a unique) is worth fighting for.</summary>
+    /// <summary>True when the monster's hits drain mana: a Ghost or another of its kind, a will-o'-wisp, or a unique with Mana Burn.</summary>
+    public bool DrainsMana(Monster monster) =>
+        data.Monsters.Find(monster.Class)?.DrainsMana == true || monster.Mods.Contains(ManaBurnMod);
+
+    // monumod.txt: manahit (a unique's Mana Burn).
+    private const int ManaBurnMod = 25;
+
+    /// <summary>True when the character's attack costs mana (a spell on the right button, not Attack).</summary>
+    public static bool AttackUsesMana(MainPlayer player) => player.RightSkill != SkillId.AttackSkill;
+
     public bool GivesExperience(MainPlayer player, Monster monster)
     {
         if (data.Levels.Find(player.Area)?.MonsterLevelIn(Act.Difficulty) is not { } level || level <= 0)
@@ -852,6 +862,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 .ToList();
             var target = enemies
                 .OrderBy(m => IsSummoner(m) ? 0 : 1)
+                .ThenBy(m => AttackUsesMana(player) && DrainsMana(m) ? 0 : 1)
                 .ThenBy(m => grid.IsLineClear(player.Position, m.Position, MissileHalfWidth) ? 0 : 1)
                 .ThenBy(m => Distance(player.Position, m.Position))
                 .FirstOrDefault();
@@ -993,6 +1004,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var castsWithoutDamage = 0;
         var movesWithoutAttack = 0;
         var kites = 0;
+        var drainerKites = 0;
         var lastLife = int.MaxValue;
         var startMana = Player().GetStat(StatId.Mana) ?? 0;
         int? startLife = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.LifePercent;
@@ -1086,12 +1098,18 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             // A monster at arm's length hits every second while the target is cast at (and a bolt cast past it may hit
             // it instead): it goes first.
             // A monster at arm's length: step back out of reach first (a few times a fight), then deal with it.
-            if (kites < 3 && Enemies(player.Position, 4).Any()
+            // A caster keeps monsters that drain mana away (closer than 8, not only at arm's length): their hits take
+            // the mana the spells need.
+            var drainerClose = AttackUsesMana(player) && Enemies(player.Position, 8).Any(DrainsMana);
+            if ((kites < 3 && Enemies(player.Position, 4).Any() || drainerKites < 8 && drainerClose)
                 && Enemies(player.Position, 30).ToList() is var near
-                && grid.FindPathTo(player.Position, p => near.All(m => Distance(p, m.Position) >= 8)
-                    && grid.IsLineClear(p, monster.Position, MissileHalfWidth), maxLength: 12) is { Count: > 1 } away)
+                && grid.FindPathTo(player.Position, p => near.All(m => Distance(p, m.Position) >= (DrainsMana(m) && AttackUsesMana(player) ? 11 : 8))
+                    && grid.IsLineClear(p, monster.Position, MissileHalfWidth), maxLength: 14) is { Count: > 1 } away)
             {
-                kites++;
+                if (drainerClose)
+                    drainerKites++;
+                else
+                    kites++;
                 MoveTo(away[^1]);
                 continue;
             }

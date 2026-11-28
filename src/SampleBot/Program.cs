@@ -20,13 +20,6 @@ using D2Dotnet.Memory;
 
 [assembly: SupportedOSPlatform("windows")]
 
-// Two bots at once would fight over the cursor and the keys: one at a time.
-using var single = new Mutex(true, @"Local\D2Dotnet.SampleBot", out var first);
-if (!first)
-{
-    Console.Error.WriteLine("Another SampleBot is running; stop it first.");
-    return 1;
-}
 
 var planOnly = args.Contains("--plan");
 var foreground = args.Contains("--foreground");
@@ -58,10 +51,33 @@ if (Environment.GetEnvironmentVariable("D2_COLUMNS") is { Length: > 0 } tableNam
     return 0;
 }
 
+if (Environment.GetEnvironmentVariable("D2_ROWS") is { Length: > 0 } rowsSpec)
+{
+    // "table:col1,col2,...": those columns of every row (rows whose second and later columns are all empty skipped).
+    var parts = rowsSpec.Split(':');
+    var columns = parts[1].Split(',');
+    foreach (var row in game.Data.GetRequiredTable(parts[0]).Rows)
+    {
+        var values = columns.Select(c => row[c]).ToArray();
+        if (values.Skip(1).Any(v => v.Length > 0 && v != "0"))
+            Console.WriteLine(string.Join("	", values));
+    }
+
+    return 0;
+}
+
 if (Environment.GetEnvironmentVariable("D2_TYPES") == "1")
 {
     Console.WriteLine(string.Join(", ", game.Data.ItemTypes.Where(t => t.Class.Length > 0).Select(t => $"{t.Code}={t.Class}")));
     return 0;
+}
+
+// Two bots at once would fight over the cursor and the keys: one at a time.
+using var single = new Mutex(true, @"Local\D2Dotnet.SampleBot", out var first);
+if (!first)
+{
+    Console.Error.WriteLine("Another SampleBot is running; stop it first.");
+    return 1;
 }
 
 using var process = GameProcess.Attach();
@@ -173,7 +189,7 @@ if (Environment.GetEnvironmentVariable("D2_HOOK") == "1")
     var before = hook?.Calls() ?? default;
     Thread.Sleep(1000);
     if (hook is not null)
-        Console.WriteLine($"Calls in a second: {hook.Calls().Cursor - before.Cursor} GetCursorPos, {hook.Calls().KeyState - before.KeyState} GetKeyState, {hook.Calls().AsyncKeyState - before.AsyncKeyState} GetAsyncKeyState, {hook.Calls().CursorInfo - before.CursorInfo} GetCursorInfo, {hook.Calls().MessagePos - before.MessagePos} GetMessagePos.");
+        Console.WriteLine($"Calls in a second: {hook.Calls().Cursor - before.Cursor} GetCursorPos, {hook.Calls().KeyState - before.KeyState} GetKeyState, {hook.Calls().AsyncKeyState - before.AsyncKeyState} GetAsyncKeyState, {hook.Calls().CursorInfo - before.CursorInfo} GetCursorInfo, {hook.Calls().MessagePos - before.MessagePos} GetMessagePos, {hook.Calls().KeyboardState - before.KeyboardState} GetKeyboardState, {hook.Calls().RawInput - before.RawInput} GetRawInputData.");
     var me = reader.ReadMainPlayer()!;
     Console.WriteLine($"Player at {me.Position}, client area {bot.Window.ClientArea()}.");
     foreach (var height in new[] { 20, 40, 60 })

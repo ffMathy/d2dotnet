@@ -212,6 +212,7 @@ public sealed class GameDatabase
         int code = t.GetRequiredColumnIndex("Id"), nameKey = t.GetColumnIndex("NameStr");
         int ai = t.GetColumnIndex("AI"), spawn = t.GetColumnIndex("spawn");
         var skills = Enumerable.Range(1, 8).Select(n => t.GetColumnIndex("Skill" + n)).Where(c => c >= 0).ToArray();
+        var elements = Enumerable.Range(1, 3).Select(n => t.GetColumnIndex($"El{n}Type")).Where(c => c >= 0).ToArray();
         var records = GameRows(t, code).Select((r, i) =>
         {
             var spawned = t.GetString(r, spawn);
@@ -220,6 +221,7 @@ public sealed class GameDatabase
                 Ai = t.GetString(r, ai),
                 Spawn = spawned,
                 IsSummoner = spawned.Length > 0 || skills.Any(c => SummoningSkills.Contains(t.GetString(r, c))),
+                DrainsMana = elements.Any(c => t.GetString(r, c) == "mana"),
                 Resistances = ReadResistances(t, r, ""),
                 ResistancesNightmare = ReadResistances(t, r, "(N)"),
                 ResistancesHell = ReadResistances(t, r, "(H)"),

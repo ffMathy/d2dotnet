@@ -22,13 +22,16 @@ internal sealed class InputHook : IDisposable
     // How often the game called each hooked function (for checking that the game uses them).
     private const int CursorCalls = 0x30, KeyStateCalls = 0x34, AsyncKeyStateCalls = 0x38, CursorInfoCalls = 0x3C;
     private const int CursorInfoOriginal = 0x40, MessagePosOriginal = 0x48, MessagePosCalls = 0x50;
+    private const int KeyboardStateCalls = 0x54, KeyboardStateOriginal = 0x58, RawInputOriginal = 0x60, RawInputCalls = 0x68;
     private const int CursorStub = 0x100, KeyStateStub = 0x200, AsyncKeyStateStub = 0x300, CursorInfoStub = 0x400, MessagePosStub = 0x500;
-    private static readonly byte[] MagicBytes = "D2DHOOK3"u8.ToArray();
+    private const int KeyboardStateStub = 0x600, RawInputStub = 0x700;
+    private static readonly byte[] MagicBytes = "D2DHOOK4"u8.ToArray();
 
     // Each slot stub and where its original pointer is kept.
     private static readonly Dictionary<int, int> OriginalOf = new()
     {
         [CursorStub] = CursorOriginal, [CursorInfoStub] = CursorInfoOriginal, [MessagePosStub] = MessagePosOriginal,
+        [KeyboardStateStub] = KeyboardStateOriginal, [RawInputStub] = RawInputOriginal,
     };
     private static readonly byte[] MagicPrefix = "D2DHOOK"u8.ToArray();
 
@@ -63,6 +66,8 @@ internal sealed class InputHook : IDisposable
             var keyState = GetProcAddress(user32, "GetKeyState");
             var cursorInfoSlot = SlotOf(process, GetProcAddress(user32, "GetCursorInfo"));
             var messagePosSlot = SlotOf(process, GetProcAddress(user32, "GetMessagePos"));
+            var keyboardStateSlot = SlotOf(process, GetProcAddress(user32, "GetKeyboardState"));
+            var rawInputSlot = SlotOf(process, GetProcAddress(user32, "GetRawInputData"));
             var asyncKeyState = GetProcAddress(user32, "GetAsyncKeyState");
 
             // GetCursorPos: mov edx, 1 (ba 01 00 00 00); jmp [rip + disp] (48 ff 25 disp32).
@@ -81,7 +86,7 @@ internal sealed class InputHook : IDisposable
             {
                 // An older version's hooks: put the functions back as they were, and install this version.
                 var old = pointed - CursorStub;
-                foreach (var each in new[] { slot, cursorInfoSlot, messagePosSlot })
+                foreach (var each in new[] { slot, cursorInfoSlot, messagePosSlot, keyboardStateSlot, rawInputSlot })
                     Unhook(process, each, old);
                 pointed = (nint)BitConverter.ToInt64(Read(process, slot, 8));
                 Restore(process, keyState, KeyStatePrologue);
@@ -101,6 +106,8 @@ internal sealed class InputHook : IDisposable
                 Write(process, page + Magic, MagicBytes);
                 HookSlot(process, page, cursorInfoSlot, CursorInfoStub, CursorInfoCode(page + CursorInfoStub));
                 HookSlot(process, page, messagePosSlot, MessagePosStub, MessagePosCode(page + MessagePosStub));
+                HookSlot(process, page, keyboardStateSlot, KeyboardStateStub, KeyboardStateCode(page + KeyboardStateStub));
+                HookSlot(process, page, rawInputSlot, RawInputStub, CountingCode(page + RawInputStub, RawInputCalls, RawInputOriginal));
                 // Last: the cursor slot, one aligned eight byte write.
                 WriteProtected(process, slot, BitConverter.GetBytes((long)(page + CursorStub)));
                 Bot.Log($"Input hook: installed in the game at 0x{page:X}.");
@@ -151,11 +158,41 @@ internal sealed class InputHook : IDisposable
     }
 
     /// <summary>How often the game called GetCursorPos, GetKeyState and GetAsyncKeyState through the hooks.</summary>
-    public (int Cursor, int KeyState, int AsyncKeyState, int CursorInfo, int MessagePos) Calls()
+    public (int Cursor, int KeyState, int AsyncKeyState, int CursorInfo, int MessagePos, int KeyboardState, int RawInput) Calls()
     {
-        var data = Read(_process, _page + CursorCalls, 0x24);
-        return (BitConverter.ToInt32(data, 0), BitConverter.ToInt32(data, 4), BitConverter.ToInt32(data, 8), BitConverter.ToInt32(data, 12),
-            BitConverter.ToInt32(data, MessagePosCalls - CursorCalls));
+        var data = Read(_process, _page + CursorCalls, 0x3C);
+        int At(int offset) => BitConverter.ToInt32(data, offset - CursorCalls);
+        return (At(CursorCalls), At(KeyStateCalls), At(AsyncKeyStateCalls), At(CursorInfoCalls), At(MessagePosCalls), At(KeyboardStateCalls), At(RawInputCalls));
+    }
+
+    // GetKeyboardState(BYTE* rcx): the original, then Shift and left Shift down while the flag is on.
+    private static byte[] KeyboardStateCode(nint at)
+    {
+        var a = new Assembler(at);
+        a.RipRelative([0xFF, 0x05], Data(at, KeyboardStateCalls));    // inc dword [calls]
+        a.RipRelative([0x83, 0x3D], Data(at, ShiftOn), [0x00]);       // cmp dword [shift], 0
+        a.JumpShort(0x74, "original");
+        a.Bytes(0x53);                                                // push rbx
+        a.Bytes(0x48, 0x89, 0xCB);                                    // mov rbx, rcx
+        a.Bytes(0x48, 0x83, 0xEC, 0x20);                              // sub rsp, 32
+        a.RipRelative([0xFF, 0x15], Data(at, KeyboardStateOriginal)); // call [original]
+        a.Bytes(0x48, 0x83, 0xC4, 0x20);                              // add rsp, 32
+        a.Bytes(0x80, 0x4B, 0x10, 0x80);                              // or byte [rbx+VK_SHIFT], 0x80
+        a.Bytes(0x80, 0x8B, 0xA0, 0x00, 0x00, 0x00, 0x80);            // or byte [rbx+VK_LSHIFT], 0x80
+        a.Bytes(0x5B);                                                // pop rbx
+        a.Bytes(0xC3);
+        a.Label("original");
+        a.RipRelative([0xFF, 0x25], Data(at, KeyboardStateOriginal)); // jmp [original]
+        return a.Build();
+    }
+
+    // Counts the calls and passes them on.
+    private static byte[] CountingCode(nint at, int calls, int original)
+    {
+        var a = new Assembler(at);
+        a.RipRelative([0xFF, 0x05], Data(at, calls));                 // inc dword [calls]
+        a.RipRelative([0xFF, 0x25], Data(at, original));              // jmp [original]
+        return a.Build();
     }
 
     // The pointer slot a user32 function jumps through: jmp [rip+d] (ff 25), with a rex prefix (48 ff 25), or after

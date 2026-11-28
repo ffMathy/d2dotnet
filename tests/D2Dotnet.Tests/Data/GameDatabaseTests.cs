@@ -336,6 +336,10 @@ public class GameDatabaseTests
             m => Assert.True(db.Monsters.Find(m)?.IsSummoner, m.ToString()));
         Assert.All(new[] { MonsterId.Zombie, MonsterId.Andariel, MonsterId.Skeleton, MonsterId.Fallen },
             m => Assert.False(db.Monsters.Find(m)?.IsSummoner, m.ToString()));
+        // The wraiths' hits drain mana (El1Type "mana"); a Fallen's do not.
+        Assert.True(db.Monsters.Find(MonsterId.Ghost)?.DrainsMana);
+        Assert.True(db.Monsters.Find(MonsterId.Wraith)?.DrainsMana);
+        Assert.False(db.Monsters.Find(MonsterId.Fallen)?.DrainsMana);
         Assert.Equal("Bishibosh", db.SuperUniques[0].Code);
         Assert.Equal((8, 9, 0), db.SuperUniques[0].Mods); // magic resistant, fire enchanted
         Assert.Equal("dru", db.ClassOf("pelt"));
