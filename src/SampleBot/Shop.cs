@@ -184,7 +184,9 @@ internal static class Shop
         var inventory = bot.Reader.ReadInventory();
         var room = inventory.Belt.Rows * 4 - inventory.Belt.Items.Count;
         var carried = inventory.Items.Where(i => i.Location == ItemLocation.Inventory).ToList();
-        var spare = TownChores.FreeCellsOf(carried) < 8 ? 0 : Math.Max(0, SpareHealing - carried.Count(i => i.IsHealingPotion));
+        // Rich enough (gold and stash together), twice the spares: a fight can empty the belt within minutes.
+        var target = inventory.Gold + inventory.StashGold.Sum() >= 5000 ? 2 * SpareHealing : SpareHealing;
+        var spare = TownChores.FreeCellsOf(carried) < 8 ? 0 : Math.Max(0, target - carried.Count(i => i.IsHealingPotion));
         return (Math.Max(0, room), spare);
     }
 
