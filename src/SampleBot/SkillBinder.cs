@@ -25,11 +25,31 @@ internal static class SkillBinder
     {
         var player = bot.Player();
         var keys = bot.Reader.ReadKeyBindings();
-        var wanted = skills.Where(s => player.Skills.ContainsKey(s) && keys.Skills.All(b => b.Skill != s)).Distinct().ToList();
-        // The slots that have a key and no skill, to put them in.
-        var free = keys.Skills.Select((b, i) => (Binding: b, Slot: i)).Where(b => b.Binding.Skill == SkillId.None && Bot.KeyOf(b.Binding.Keys) is not null).ToList();
-        if (wanted.Count == 0 || free.Count < 2)
+        var had = skills.Where(s => player.Skills.ContainsKey(s)).Distinct().ToList();
+        if (had.All(s => keys.Skills.Any(b => b.Skill == s)))
             return 0;
+
+        // Binding a skill to a key takes it off its old key, so probing the icons undoes earlier bindings: each skill
+        // goes back to the slot it had, the new ones to slots that have a key and no skill (the last of those probes).
+        var slotOf = new Dictionary<SkillId, int>();
+        for (var i = 0; i < keys.Skills.Count; i++)
+        {
+            if (had.Contains(keys.Skills[i].Skill))
+                slotOf.TryAdd(keys.Skills[i].Skill, i);
+        }
+
+        var free = Enumerable.Range(0, keys.Skills.Count)
+            .Where(i => keys.Skills[i].Skill == SkillId.None && Bot.KeyOf(keys.Skills[i].Keys) is not null).ToList();
+        if (free.Count < 2)
+            return 0;
+        var probeSlot = free[^1];
+        foreach (var skill in had.Where(s => !slotOf.ContainsKey(s)))
+        {
+            if (free.Count <= 1)
+                break;
+            slotOf[skill] = free[0];
+            free.RemoveAt(0);
+        }
 
         bot.ClosePanels();
         var before = GameScreen.Capture(bot.Window.Handle);
@@ -43,33 +63,31 @@ internal static class SkillBinder
         var icons = FindIcons(before, after, bot.Window.ClientArea());
         Bot.Log($"Skill selection: {icons.Count} icons found.");
 
-        // Each icon to the last free slot's key, to learn which skill it is.
-        var probe = Bot.KeyOf(free[^1].Binding.Keys)!.Value;
+        // Each icon to the probe slot's key, to learn which skill it is.
+        var probe = Bot.KeyOf(keys.Skills[probeSlot].Keys)!.Value;
         var found = new Dictionary<SkillId, (int X, int Y)>();
         foreach (var icon in icons)
         {
             bot.Input.AimAt(icon);
             bot.Input.PressKey(probe);
             Thread.Sleep(150);
-            var skill = bot.Reader.ReadKeyBindings().Skills[free[^1].Slot].Skill;
+            var skill = bot.Reader.ReadKeyBindings().Skills[probeSlot].Skill;
             if (skill != SkillId.None)
                 found.TryAdd(skill, icon);
         }
 
         var bound = 0;
-        var slot = 0;
-        foreach (var skill in wanted)
+        foreach (var (skill, slot) in slotOf)
         {
-            if (!found.TryGetValue(skill, out var icon) || slot >= free.Count)
+            if (!found.TryGetValue(skill, out var icon))
                 continue;
             bot.Input.AimAt(icon);
-            bot.Input.PressKey(Bot.KeyOf(free[slot].Binding.Keys)!.Value);
+            bot.Input.PressKey(Bot.KeyOf(keys.Skills[slot].Keys)!.Value);
             Thread.Sleep(150);
-            if (bot.Reader.ReadKeyBindings().Skills[free[slot].Slot].Skill == skill)
+            if (bot.Reader.ReadKeyBindings().Skills[slot].Skill == skill)
             {
-                Bot.Log($"Bound {skill} to slot {free[slot].Slot + 1}.");
+                Bot.Log($"Bound {skill} to slot {slot + 1}.");
                 bound++;
-                slot++;
             }
         }
 
