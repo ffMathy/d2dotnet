@@ -113,8 +113,14 @@ if (Environment.GetEnvironmentVariable("D2_INV") == "1")
     Console.WriteLine($"Gold {inv.Gold}, stash {inv.StashGold.Sum()}, free cells {TownChores.FreeCellsOf(carried)}, belt {inv.Belt.Items.Count}/{inv.Belt.Rows * 4}.");
     foreach (var item in carried)
         Console.WriteLine($"  {item.Quality} {item.Class} at {item.Position} {item.Info?.InventoryWidth}x{item.Info?.InventoryHeight}");
-    foreach (var item in inv.Items.Where(i => i.Location == ItemLocation.Ground && i.Class == ItemId.SmallCharm))
-        Console.WriteLine($"  on the ground: {item.Quality} {item.Class} at {item.Position}");
+    Console.WriteLine($"Main player id {reader.ReadMainPlayer()!.Id.Value}. Item units:");
+    foreach (var u in reader.ReadItemUnits(int.Parse(Environment.GetEnvironmentVariable("D2_TABLES") ?? "1")).Where(u => u.Where != 3))
+        Console.WriteLine($"  {u.Class} {u.Id.Value} where {u.Where} owner {u.Owner} page {u.Page} flags 0x{u.Flags:X8} at {u.Position}");
+    foreach (var group in inv.Items.GroupBy(i => i.Location))
+        Console.WriteLine($"  {group.Key}: {group.Count()}");
+    InventoryPanel.Open(bot);
+    bot.Screenshot("inventory");
+    InventoryPanel.Close(bot);
     return 0;
 }
 

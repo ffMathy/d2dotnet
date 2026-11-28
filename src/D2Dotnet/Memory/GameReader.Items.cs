@@ -26,6 +26,58 @@ public sealed partial class GameReader
         return ReadInventory(ReadPlayers(hover), hover);
     }
 
+    /// <summary>
+    /// Every item unit in the item table with its raw place fields, for finding out why an item is not listed by
+    /// <see cref="ReadInventory()"/>: its class, id, where (0 stored, 1 equipped, 2 belt, 3 ground, 4 cursor, 5
+    /// dropping, 6 socketed), owner, page, flags and position.
+    /// </summary>
+    public IReadOnlyList<(ItemId Class, UnitId Id, uint Where, uint Owner, byte Page, uint Flags, Point Position)> ReadItemUnits(int tables = 1)
+    {
+        var units = new List<(ItemId, UnitId, uint, uint, byte, uint, Point)>();
+        var all = Enumerable.Range(0, tables).SelectMany(t => WalkUnitTable(unchecked(Offsets.UnitTable + ItemTable + (nuint)(t * UnitTableSize))));
+        foreach (var unit in all)
+        {
+            unchecked
+            {
+                var data = Process.ReadBytes(unit, 144).AsSpan();
+                if (BinaryPrimitives.ReadUInt32LittleEndian(data[0x00..]) != (uint)UnitType.Item)
+                    continue;
+                var unitData = Process.ReadBytes((nuint)BinaryPrimitives.ReadUInt64LittleEndian(data[0x10..]), 144).AsSpan();
+                var path = Process.ReadBytes((nuint)BinaryPrimitives.ReadUInt64LittleEndian(data[0x38..]), 144).AsSpan();
+                units.Add((
+                    (ItemId)BinaryPrimitives.ReadUInt32LittleEndian(data[0x04..]),
+                    new UnitId(BinaryPrimitives.ReadUInt32LittleEndian(data[0x08..])),
+                    BinaryPrimitives.ReadUInt32LittleEndian(data[0x0C..]),
+                    BinaryPrimitives.ReadUInt32LittleEndian(unitData[0x0C..]),
+                    unitData[0x55],
+                    BinaryPrimitives.ReadUInt32LittleEndian(unitData[0x18..]),
+                    new Point(BinaryPrimitives.ReadUInt16LittleEndian(path[0x10..]), BinaryPrimitives.ReadUInt16LittleEndian(path[0x14..]))));
+            }
+        }
+
+        return units;
+    }
+
+    /// <summary>
+    /// The item units of a player's inventory list: the inventory at unit <c>+0x90</c> (signature <c>0x01020304</c>)
+    /// holds its first item at <c>+0x10</c>; each item's data (unit <c>+0x10</c>) links the next at <c>+0xB0</c>.
+    /// Observed in Reign of the Warlock.
+    /// </summary>
+    internal IEnumerable<nuint> WalkInventoryList(nuint player)
+    {
+        var inventory = Process.ReadPointer(unchecked(player + 0x90));
+        if (inventory == 0 || Process.ReadUInt32(inventory) != 0x01020304)
+            yield break;
+        var item = Process.ReadPointer(unchecked(inventory + 0x10));
+        for (var n = 0; item != 0 && n < MaxListLength; n++)
+        {
+            if (Process.ReadUInt32(item) != (uint)UnitType.Item)
+                yield break;
+            yield return item;
+            item = Process.ReadPointer(unchecked(Process.ReadPointer(unchecked(item + 0x10)) + 0xB0));
+        }
+    }
+
     internal Inventory ReadInventory(IReadOnlyList<PlayerUnit> players, HoveredUnit? hover)
     {
         var main = players.FirstOrDefault(p => p.IsMainPlayer);
@@ -50,7 +102,12 @@ public sealed partial class GameReader
         var items = new List<Item>();
         var belt = new List<Item>();
         ItemId? beltClass = null;
-        foreach (var unit in WalkUnitTable(unchecked(Offsets.UnitTable + ItemTable)))
+        // The item table misses some of the player's items in Reign of the Warlock (observed: a full inventory listed
+        // half full), so the main player's inventory list is walked too.
+        var units = WalkUnitTable(unchecked(Offsets.UnitTable + ItemTable)).ToList();
+        if (main is not null)
+            units.AddRange(WalkInventoryList(main.Address));
+        foreach (var unit in units.Distinct())
         {
             unchecked
             {

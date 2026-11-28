@@ -259,7 +259,7 @@ internal sealed class GameImage
 
     /// <summary>Lays out an item unit (item.go) and links it into its bucket.</summary>
     public ulong AddItem(uint txtFileNo, uint unitId, uint location, uint owner, byte invPage = 0, uint quality = 2,
-        uint flags = 0, ushort x = 0, ushort y = 0, ulong statsEx = 0, uint unitType = 4, int bucket = 0)
+        uint flags = 0, ushort x = 0, ushort y = 0, ulong statsEx = 0, uint unitType = 4, int bucket = 0, bool inTable = true)
     {
         var unit = Memory.Alloc(0x200);
         Memory.WriteU32(unit + 0x00, unitType);
@@ -274,8 +274,22 @@ internal sealed class GameImage
         Memory.WriteU64(unit + 0x10, unitData);
         Memory.WriteU64(unit + 0x38, Path(x, y, 0x10));
         Memory.WriteU64(unit + 0x88, statsEx == 0 ? ItemStats() : statsEx);
-        Link(ItemTable, bucket, unit);
+        if (inTable)
+            Link(ItemTable, bucket, unit);
         return unit;
+    }
+
+    /// <summary>
+    /// Makes the items a player's inventory list (Reign of the Warlock): the inventory's signature at +0x00, its first
+    /// item at +0x10, each item's data linking the next at +0xB0.
+    /// </summary>
+    public void SetInventoryList(ulong player, params ulong[] items)
+    {
+        var inventory = Memory.ReadU64(player + 0x90);
+        Memory.WriteU32(inventory, 0x01020304);
+        Memory.WriteU64(inventory + 0x10, items.Length > 0 ? items[0] : 0);
+        for (var i = 0; i < items.Length; i++)
+            Memory.WriteU64(Memory.ReadU64(items[i] + 0x10) + 0xB0, i + 1 < items.Length ? items[i + 1] : 0);
     }
 
     // ---- fixed structures ----

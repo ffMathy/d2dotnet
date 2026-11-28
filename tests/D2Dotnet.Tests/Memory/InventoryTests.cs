@@ -55,6 +55,19 @@ public sealed class InventoryTests
         Assert.Equal([0, 0, 0, 0], Read(new GameImage()).StashGold);
     }
 
+    [Fact]
+    public void Items_InTheInventoryListButNotTheTable_AreListedOnce()
+    {
+        var image = new GameImage();
+        var main = image.AddPlayer(new PlayerSpec { UnitId = MainId, Name = "Main", IsMain = true });
+        var both = image.AddItem(10, 1, 0, MainId, x: 1);
+        var listOnly = image.AddItem(11, 2, 0, MainId, x: 2, inTable: false);
+        image.SetInventoryList(main, both, listOnly);
+
+        var items = Read(image).Items;
+        Assert.Equal([1u, 2u], items.Select(i => i.Id.Value).Order());
+    }
+
     public static TheoryData<uint, uint, byte, uint, ItemLocation, byte> Locations => new()
     {
         // where, owner, inventory page, flags => location, page
