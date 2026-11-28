@@ -77,6 +77,9 @@ public sealed partial class GameReader
             var right = Process.ReadPointer(Process.ReadPointer(skillList + 0x10));
 
             // Probably tied to the UI: only filled while the waypoint menu is open. Nine (area, active) pairs.
+            // Reign of the Warlock: with the menu open in Act 1 it holds the act's nine waypoint areas (1, 3, 4, 5, 6, 27,
+            // 29, 32, 35) with every second word 0, even for activated ones: the activation is kept elsewhere, so only
+            // the current area counts here.
             var waypoints = new List<AreaId>();
             var list = Process.ReadBytes(Module(WaypointsAddress), 0x48).AsSpan();
             for (var i = 0; i < 0x48; i += 8)
