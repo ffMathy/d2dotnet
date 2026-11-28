@@ -534,8 +534,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     private MapGrid? _grid;
 
     /// <summary>
-    /// Fights the enemies within <paramref name="range"/> until none is left: first those a missile can reach in a
-    /// straight line, then the others the player can walk to within twice the range.
+    /// Fights the enemies within <paramref name="range"/> until none is left: summoners first (shamans, nests, Blood
+    /// Raven: what makes more monsters), from a little further; then those a missile can reach in a straight line, then
+    /// the others the player can walk to within twice the range.
     /// </summary>
     public void FightNearby(int range)
     {
@@ -544,8 +545,14 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         {
             var player = Player();
             var grid = GridHere();
-            var enemies = Enemies(player.Position, range).Where(m => !skipped.Contains(m.Id)).ToList();
-            var target = enemies.FirstOrDefault(m => grid.IsLineClear(player.Position, m.Position)) ?? enemies.FirstOrDefault();
+            var enemies = Enemies(player.Position, range + SummonerReach)
+                .Where(m => !skipped.Contains(m.Id) && (Distance(player.Position, m.Position) <= range || IsSummoner(m)))
+                .ToList();
+            var target = enemies
+                .OrderBy(m => IsSummoner(m) ? 0 : 1)
+                .ThenBy(m => grid.IsLineClear(player.Position, m.Position) ? 0 : 1)
+                .ThenBy(m => Distance(player.Position, m.Position))
+                .FirstOrDefault();
             if (target is null)
                 return;
             if (!grid.IsLineClear(player.Position, target.Position)
@@ -555,8 +562,57 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 continue;
             }
 
-            Fight(target.Id);
+            Fight(target.Id, seconds: IsSummoner(target) ? 25 : 12);
         }
+    }
+
+    // How much further than the fight range summoners are gone for.
+    private const int SummonerReach = 10;
+
+    /// <summary>True when the monster makes more monsters (raises the dead, lets them out of a nest, lays eggs): it is fought first.</summary>
+    public bool IsSummoner(Monster monster) => data.Monsters.Find(monster.Class)?.IsSummoner == true;
+
+    /// <summary>
+    /// The nearest other enemy standing in the line from <paramref name="from"/> to the target, which a bolt would hit
+    /// instead; null when the line is free of monsters.
+    /// </summary>
+    public static Monster? InTheWay(Point from, Monster target, IEnumerable<Monster> enemies)
+    {
+        double dx = target.Position.X - from.X, dy = target.Position.Y - from.Y;
+        var length = Math.Sqrt(dx * dx + dy * dy);
+        if (length < 1)
+            return null;
+        Monster? nearest = null;
+        var nearestAlong = double.MaxValue;
+        foreach (var other in enemies)
+        {
+            if (other.Id == target.Id)
+                continue;
+            double ox = other.Position.X - from.X, oy = other.Position.Y - from.Y;
+            var along = (ox * dx + oy * dy) / length; // how far along the line
+            var aside = Math.Abs(ox * dy - oy * dx) / length; // how far from it
+            if (along > 0.5 && along < length - 1 && aside < InTheWayWidth && along < nearestAlong)
+                (nearest, nearestAlong) = (other, along);
+        }
+
+        return nearest;
+    }
+
+    // Subtiles either side of a missile's line where a monster is hit instead of the target (a monster is about 2 wide).
+    private const double InTheWayWidth = 1.6;
+
+    /// <summary>
+    /// The way to the nearest place from which the target can be shot (no wall and no other monster in the line, no
+    /// monster within 3 subtiles, within <paramref name="castRange"/> of it), at most 15 steps; null when there is none.
+    /// </summary>
+    public IReadOnlyList<Point>? WayToClearShot(MapGrid grid, Monster target, IReadOnlyList<Monster> enemies, int castRange = 14)
+    {
+        var others = enemies.Where(e => e.Id != target.Id).ToList();
+        return grid.FindPathTo(Player().Position, p =>
+            Distance(p, target.Position) is var d && d <= castRange && d >= 4
+            && others.All(e => Distance(p, e.Position) >= 3)
+            && grid.IsLineClear(p, target.Position)
+            && InTheWay(p, target, others) is null, maxLength: 15);
     }
 
     /// <summary>Attacks one monster with the class's combat until it dies, leaves, or <paramref name="seconds"/> pass.</summary>
@@ -565,6 +621,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var deadline = DateTime.UtcNow.AddSeconds(seconds);
         var started = DateTime.UtcNow;
         var attacks = 0;
+        var repositions = 0;
+        var castsWithoutDamage = 0;
+        var lastLife = int.MaxValue;
         var startMana = Player().GetStat(StatId.Mana) ?? 0;
         int? startLife = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.LifePercent;
         var name = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.Class.ToString() ?? "?";
@@ -585,8 +644,16 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 break;
             }
 
-            // A wall between them: walk round it towards the monster instead of casting into the wall.
+            // A summoner come into reach goes first (FightNearby picks it next).
             var grid = GridHere();
+            if (!IsSummoner(monster)
+                && Enemies(player.Position, FightRange + SummonerReach).Any(m => IsSummoner(m) && grid.IsLineClear(player.Position, m.Position)))
+            {
+                outcome = "left for a summoner";
+                break;
+            }
+
+            // A wall between them: walk round it towards the monster instead of casting into the wall.
             if (!grid.IsLineClear(player.Position, monster.Position))
             {
                 if (grid.FindPath(player.Position, monster.Position) is not { Count: > 1 } path)
@@ -599,8 +666,41 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 continue;
             }
 
+            // Another monster in the line (Blood Raven's zombies, a shaman's Fallen): a bolt would hit it instead. Step
+            // to where the line is free; with no such place near, or after a few tries, clear the way by hitting the
+            // one in front.
+            if (Combat.StopsAtFirstHit(this, player)
+                && Enemies(player.Position, 40).ToList() is var around
+                && InTheWay(player.Position, monster, around) is { } blocker)
+            {
+                if (repositions < 4 && WayToClearShot(grid, monster, around) is { Count: > 1 } way)
+                {
+                    repositions++;
+                    Log($"{blocker.Class} is in the way of {name}: moving {way.Count - 1} steps for a clear shot.");
+                    MoveTo(way[Math.Min(8, way.Count - 1)]);
+                    continue;
+                }
+
+                Combat.Attack(this, player, blocker);
+                attacks++;
+                continue;
+            }
+
+            // Casts that do nothing: something the map does not show is in the way (a low stone wall, a fence end).
+            // Walk a few steps towards the monster and try again from there.
+            if ((monster.LifePercent ?? 100) < lastLife)
+                (lastLife, castsWithoutDamage) = (monster.LifePercent ?? 100, 0);
+            else if (castsWithoutDamage >= 8 && grid.FindPath(player.Position, monster.Position) is { Count: > 3 } closer)
+            {
+                Log($"{castsWithoutDamage} attacks did not hurt {name}: moving closer.");
+                castsWithoutDamage = 0;
+                MoveTo(closer[Math.Min(6, closer.Count - 2)]);
+                continue;
+            }
+
             Combat.Attack(this, player, monster);
             attacks++;
+            castsWithoutDamage++;
         }
 
         var endLife = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.LifePercent ?? 0;

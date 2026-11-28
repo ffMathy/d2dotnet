@@ -180,9 +180,23 @@ public sealed class GameDatabase
     {
         var t = GetRequiredTable("monstats");
         int code = t.GetRequiredColumnIndex("Id"), nameKey = t.GetColumnIndex("NameStr");
-        var records = GameRows(t, code).Select((r, i) => new MonsterInfo((MonsterId)i, t.GetString(r, code), t.GetString(r, nameKey)));
+        int ai = t.GetColumnIndex("AI"), spawn = t.GetColumnIndex("spawn");
+        var skills = Enumerable.Range(1, 8).Select(n => t.GetColumnIndex("Skill" + n)).Where(c => c >= 0).ToArray();
+        var records = GameRows(t, code).Select((r, i) =>
+        {
+            var spawned = t.GetString(r, spawn);
+            return new MonsterInfo((MonsterId)i, t.GetString(r, code), t.GetString(r, nameKey))
+            {
+                Ai = t.GetString(r, ai),
+                Spawn = spawned,
+                IsSummoner = spawned.Length > 0 || skills.Any(c => SummoningSkills.Contains(t.GetString(r, c))),
+            };
+        });
         return new GameTable<MonsterId, MonsterInfo>(records, m => m.Id);
     }
+
+    // Monster skills (skills.txt names) that make more monsters.
+    private static readonly HashSet<string> SummoningSkills = new(StringComparer.OrdinalIgnoreCase) { "Resurrect", "Resurrect2", "Nest", "MagottLay" };
 
     private GameTable<int, SuperUniqueInfo> LoadSuperUniques()
     {

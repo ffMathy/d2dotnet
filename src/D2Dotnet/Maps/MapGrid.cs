@@ -235,7 +235,10 @@ public sealed class MapGrid
     /// both ends included. Null when no goal can be reached. The same steps as <see cref="FindPath(Point, Point)"/>; no heuristic, so
     /// it searches outwards evenly.
     /// </summary>
-    public IReadOnlyList<Point>? FindPathTo(Point from, Func<Point, bool> isGoal)
+    /// <param name="from">Where the path starts.</param>
+    /// <param name="isGoal">Which subtiles end it.</param>
+    /// <param name="maxLength">How far (in steps, a diagonal counting about 1.4) to search before giving up; unlimited by default.</param>
+    public IReadOnlyList<Point>? FindPathTo(Point from, Func<Point, bool> isGoal, float maxLength = float.PositiveInfinity)
     {
         ArgumentNullException.ThrowIfNull(isGoal);
         if (NearestWalkable(from) is not { } start)
@@ -266,7 +269,7 @@ public sealed class MapGrid
 
                 var nextCost = currentCost + stepCost;
                 var i = Index(next);
-                if (nextCost >= cost[i])
+                if (nextCost >= cost[i] || nextCost > maxLength)
                     continue;
                 cost[i] = nextCost;
                 parent[i] = Index(current);

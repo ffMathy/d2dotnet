@@ -5,6 +5,12 @@ using D2Dotnet.Game;
 internal interface ICombat
 {
     void Attack(Bot bot, MainPlayer player, Monster target);
+
+    /// <summary>
+    /// True when the attack it would make now stops at the first monster it meets (a bolt, a fireball, a melee swing),
+    /// so a monster in between takes the hit; false for area and piercing skills (Blizzard, Meteor, Lightning...).
+    /// </summary>
+    bool StopsAtFirstHit(Bot bot, MainPlayer player);
 }
 
 /// <summary>
@@ -29,6 +35,14 @@ internal sealed class ClassCombat : ICombat
     };
 
     private SkillId? _selected;
+
+    // Skills that land where they are aimed, go through monsters or jump between them.
+    private static readonly HashSet<SkillId> PassOver =
+    [
+        SkillId.FrozenOrb, SkillId.Blizzard, SkillId.Meteor, SkillId.ChainLightning, SkillId.Lightning,
+    ];
+
+    public bool StopsAtFirstHit(Bot bot, MainPlayer player) => Choose(bot, player) is not { } skill || !PassOver.Contains(skill);
 
     public void Attack(Bot bot, MainPlayer player, Monster target)
     {

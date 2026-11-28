@@ -213,6 +213,10 @@ public sealed class PathToGoalTests
 
         Assert.Equal([new Point(0, 0)], grid.FindPathTo(new Point(0, 0), p => p.X == 0)); // already there
         Assert.Null(grid.FindPathTo(new Point(0, 0), p => p.X == 5)); // no such subtile
+
+        // The way round is 12 steps: a search limited to 10 gives up, one limited to 12 finds it.
+        Assert.Null(grid.FindPathTo(new Point(0, 0), p => p.X == 4, maxLength: 10));
+        Assert.NotNull(grid.FindPathTo(new Point(0, 0), p => p.X == 4, maxLength: 12));
     }
 }
 

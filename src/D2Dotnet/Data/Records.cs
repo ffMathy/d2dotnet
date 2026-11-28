@@ -15,7 +15,21 @@ public sealed record LevelInfo(AreaId Id, string Name, string NameKey, ActId Act
 /// <param name="Id">The class id: the game row index (the <c>Expansion</c> divider is not counted).</param>
 /// <param name="Code">The <c>Id</c> column (such as <c>skeleton1</c>), which other tables use to name the class.</param>
 /// <param name="NameKey">The string key of the display name (the <c>NameStr</c> column). See <see cref="Localization.GetMonsterName"/>.</param>
-public sealed record MonsterInfo(MonsterId Id, string Code, string NameKey);
+public sealed record MonsterInfo(MonsterId Id, string Code, string NameKey)
+{
+    /// <summary>The <c>AI</c> column (such as <c>FallenShaman</c>).</summary>
+    public string Ai { get; init; } = "";
+
+    /// <summary>The <c>spawn</c> column: the monster class it brings into the world (a nest's birds, an egg's maggot), or empty.</summary>
+    public string Spawn { get; init; } = "";
+
+    /// <summary>
+    /// True when the monster makes more monsters: it brings dead ones back (<c>Resurrect</c>, <c>Resurrect2</c>: the
+    /// Fallen and Fetish Shamans, Greater Mummies), lets them out (<c>Nest</c>: nests, holes, sarcophagi, Blood Raven),
+    /// lays eggs, or has a <see cref="Spawn"/>. A skeleton's <c>SkeletonRaise</c> (getting up) does not count.
+    /// </summary>
+    public bool IsSummoner { get; init; }
+}
 
 /// <summary>A super unique monster: a row of superuniques.txt.</summary>
 /// <param name="Index">The game row index (the <c>Expansion</c> divider is not counted).</param>

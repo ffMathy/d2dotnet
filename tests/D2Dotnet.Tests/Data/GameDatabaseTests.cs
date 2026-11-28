@@ -330,6 +330,12 @@ public class GameDatabaseTests
         AssertEveryAreaUpToUberTristram(db);
         Assert.Equal("zombie1", db.Monsters.Find(MonsterId.Zombie)?.Code);
         Assert.Equal("andariel", db.Monsters.Find(MonsterId.Andariel)?.Code);
+        Assert.Equal("FallenShaman", db.Monsters.Find(MonsterId.FallenShaman)?.Ai);
+        Assert.Equal("foulcrow1", db.Monsters.Find(MonsterId.FoulCrowNest)?.Spawn);
+        Assert.All(new[] { MonsterId.FallenShaman, MonsterId.BloodRaven, MonsterId.FoulCrowNest, MonsterId.Unraveler, MonsterId.FetishShaman, MonsterId.MummyGenerator },
+            m => Assert.True(db.Monsters.Find(m)?.IsSummoner, m.ToString()));
+        Assert.All(new[] { MonsterId.Zombie, MonsterId.Andariel, MonsterId.Skeleton, MonsterId.Fallen },
+            m => Assert.False(db.Monsters.Find(m)?.IsSummoner, m.ToString()));
         Assert.Equal("Bishibosh", db.SuperUniques[0].Code);
         Assert.Equal("hax", db.Items.Find(ItemId.HandAxe)?.Code);
         Assert.Equal("Waypoint", db.Objects.Find(ObjectId.WaypointPortal)?.NameKey);
