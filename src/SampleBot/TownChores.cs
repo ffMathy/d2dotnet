@@ -325,8 +325,10 @@ internal sealed class TownChores(Bot bot, GameUi ui, ItemRules rules)
         var equipped = Equipped();
         var toSell = Carried().Where(i => rules.IsToSell(i, player, equipped)).ToList();
         // Potions beyond the reserve (after the belt is filled from them): the weakest go.
-        var potions = Carried().Where(i => i.IsPotion).OrderByDescending(i => i.Class).ToList();
-        toSell.AddRange(potions.Skip(PotionReserve));
+        // Rejuvenation potions are never sold; of the others, the strongest (the highest class of each kind) are kept.
+        var potions = Carried().Where(i => i.IsPotion && !i.IsRejuvenationPotion).OrderByDescending(i => i.Class).ToList();
+        var rejuvenations = Carried().Count(i => i.IsRejuvenationPotion);
+        toSell.AddRange(potions.Skip(Math.Max(0, PotionReserve - rejuvenations)));
         if (toSell.Count == 0 || (total >= ItemRules.SellingBelowGold && FreeCells() > 8))
             return;
 

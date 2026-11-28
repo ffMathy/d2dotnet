@@ -133,5 +133,15 @@ internal sealed class ItemRules(GameDatabase data)
     public bool IsToSell(Item item, MainPlayer player, IReadOnlyList<Item> equipped) =>
         item.Location == ItemLocation.Inventory && !IsKept(item) && !IsSupply(item) && item.Class != ItemId.Gold
         && (item.IsIdentified || item.Quality is not (ItemQuality.Magic or ItemQuality.Rare or ItemQuality.Set or ItemQuality.Unique))
-        && !IsUpgrade(item, player, equipped);
+        && !IsUpgrade(item, player, equipped)
+        && !IsGoodCharm(item, player);
+
+    /// <summary>True for a charm: its bonuses count while it is carried in the inventory.</summary>
+    public bool IsCharm(Item item) => item.TypeCode is { } type && data.IsItemType(type, "char");
+
+    /// <summary>
+    /// True for an identified charm worth carrying for the class (life, resistances, skills... scoring 5 or more), kept
+    /// instead of sold.
+    /// </summary>
+    public bool IsGoodCharm(Item item, MainPlayer player) => IsCharm(item) && Score(item, player.Class) >= 5;
 }
