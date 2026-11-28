@@ -176,30 +176,26 @@ internal sealed class QuestRunner(Bot bot)
     ];
 
     // The wilderness each act levels in, nearest the town first.
-    private static readonly Dictionary<ActId, AreaId[]> LevellingAreas = new()
-    {
-        [ActId.Act1] =
-        [
-            AreaId.BloodMoor, AreaId.ColdPlains, AreaId.BurialGrounds, AreaId.StonyField, AreaId.UndergroundPassageLevel1,
-            AreaId.DarkWood, AreaId.BlackMarsh, AreaId.HoleLevel1, AreaId.TamoeHighland, AreaId.PitLevel1,
-        ],
-    };
+    // Areas left out of levelling: a portal leads to Tristram; Andariel's lair and the Den of Evil are quest places.
+    private static readonly HashSet<AreaId> NotForLevelling = [AreaId.Tristram, AreaId.CatacombsLevel4, AreaId.DenOfEvil];
 
-    // The level a character needs before it levels in each area (the Blood Moor's monsters are the weakest).
-    private static readonly Dictionary<AreaId, int> AreaLevels = new()
+    /// <summary>
+    /// The act's areas to level in, best last: reachable on foot from town, with monsters at most a level above the
+    /// character (experience falls off for monsters far below it, and much higher ones kill), the four with the
+    /// highest monster level (levels.txt MonLvlEx: the Act 1 Catacombs 11-12, the Tamoe Highland 8...).
+    /// </summary>
+    internal List<AreaId> BestLevellingAreas(int characterLevel)
     {
-        [AreaId.BloodMoor] = 1,
-        [AreaId.ColdPlains] = 6,
-        [AreaId.BurialGrounds] = 8,
-        [AreaId.StonyField] = 9,
-        [AreaId.UndergroundPassageLevel1] = 10,
-        // (A level 13 sorceress earned next to nothing in the Stony Field: the harder areas come early.)
-        [AreaId.DarkWood] = 12,
-        [AreaId.BlackMarsh] = 13,
-        [AreaId.HoleLevel1] = 13,
-        [AreaId.TamoeHighland] = 14,
-        [AreaId.PitLevel1] = 15,
-    };
+        var difficulty = bot.Act.Difficulty;
+        return bot.Act.Levels
+            .Select(l => (l.Id, Monsters: bot.Data.Levels.Find(l.Id)?.MonsterLevelIn(difficulty) ?? 0))
+            .Where(l => l.Monsters > 0 && l.Monsters <= characterLevel + 1 && !NotForLevelling.Contains(l.Id)
+                        && l.Id != bot.Town && bot.Act.FindRoute(bot.Town, l.Id) is not null)
+            .OrderBy(l => l.Monsters)
+            .TakeLast(4)
+            .Select(l => l.Id)
+            .ToList();
+    }
 
     // The areas explored in this game: their monsters stay dead until a new game. (The map seed does not tell games
     // apart: a single-player character keeps its map from game to game.)
@@ -209,15 +205,13 @@ internal sealed class QuestRunner(Bot bot)
     // this game has not been explored yet, else the next one up; points are spent as it levels.
     private void LevelUp(int level)
     {
-        var areas = LevellingAreas.GetValueOrDefault(bot.Act.Act) ?? throw new BotStopped($"No levelling areas for {bot.Act.Act}.");
-        Bot.Log($"Level {bot.Player().Level}: levelling to {level} in {string.Join(", ", areas)}.");
+        Bot.Log($"Level {bot.Player().Level}: levelling to {level} in {string.Join(", ", BestLevellingAreas(bot.Player().Level))}.");
         while (bot.Player().Level < level)
         {
             var characterLevel = bot.Player().Level;
-            // The fresh areas the character is ready for; when none, a new game brings the easier ones back.
-            // Only the three hardest areas the character is ready for: the easier ones give it next to no experience,
-            // so a new game is quicker than clearing them.
-            var ready = areas.Where(a => characterLevel >= AreaLevels.GetValueOrDefault(a)).TakeLast(3).ToList();
+            // The areas whose monsters give the most experience for the level; when they are cleared, a new game
+            // brings them back (quicker than clearing easier ones, which give next to nothing).
+            var ready = BestLevellingAreas(characterLevel);
             var fresh = ready.Where(a => !_explored.Contains(a) && !bot.IsAvoided(a)).ToList();
             if (fresh.Count == 0)
                 fresh = ready.Where(a => !_explored.Contains(a)).ToList(); // only avoided ones left: better than new games

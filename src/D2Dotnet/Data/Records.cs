@@ -9,7 +9,23 @@ namespace D2Dotnet.Data;
 /// <param name="DrlgType">The <c>DrlgType</c> column: 1 maze, 2 preset, 3 wilderness.</param>
 /// <param name="LevelType">The <c>LevelType</c> column (a lvltypes.txt <c>Id</c>).</param>
 /// <param name="Waypoint">The <c>Waypoint</c> column: the waypoint index, 255 when the level has none.</param>
-public sealed record LevelInfo(AreaId Id, string Name, string NameKey, ActId Act, int DrlgType, int LevelType, int Waypoint);
+public sealed record LevelInfo(AreaId Id, string Name, string NameKey, ActId Act, int DrlgType, int LevelType, int Waypoint)
+{
+    /// <summary>
+    /// The level of the area's monsters in Normal, Nightmare and Hell (the expansion's <c>MonLvl1Ex</c> to
+    /// <c>MonLvl3Ex</c>, else the classic <c>MonLvl1</c> to <c>MonLvl3</c>); 0 for a town or an area without monsters.
+    /// Experience falls off for monsters far below the character, so this says where a character levels well.
+    /// </summary>
+    public (int Normal, int Nightmare, int Hell) MonsterLevels { get; init; }
+
+    /// <summary>The level of the area's monsters in the difficulty (see <see cref="MonsterLevels"/>).</summary>
+    public int MonsterLevelIn(Difficulty difficulty) => difficulty switch
+    {
+        Difficulty.Nightmare => MonsterLevels.Nightmare,
+        Difficulty.Hell => MonsterLevels.Hell,
+        _ => MonsterLevels.Normal,
+    };
+}
 
 /// <summary>A monster or NPC class: a row of monstats.txt.</summary>
 /// <param name="Id">The class id: the game row index (the <c>Expansion</c> divider is not counted).</param>

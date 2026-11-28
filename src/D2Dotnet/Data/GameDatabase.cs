@@ -192,9 +192,17 @@ public sealed class GameDatabase
         var t = GetRequiredTable("levels");
         int id = t.GetRequiredColumnIndex("Id"), nameKey = t.GetRequiredColumnIndex("LevelName"), name = t.GetColumnIndex("Name");
         int act = t.GetColumnIndex("Act"), drlg = t.GetColumnIndex("DrlgType"), type = t.GetColumnIndex("LevelType"), wp = t.GetColumnIndex("Waypoint");
+        // D2R names them MonLvlEx, MonLvlEx(N), MonLvlEx(H) (and MonLvl... for classic); 1.13 MonLvl1Ex to MonLvl3Ex.
+        int Column(params string[] names) => names.Select(t.GetColumnIndex).FirstOrDefault(c => c >= 0, -1);
+        int mon1 = Column("MonLvlEx", "MonLvl1Ex", "MonLvl", "MonLvl1");
+        int mon2 = Column("MonLvlEx(N)", "MonLvl2Ex", "MonLvl(N)", "MonLvl2");
+        int mon3 = Column("MonLvlEx(H)", "MonLvl3Ex", "MonLvl(H)", "MonLvl3");
         var records = GameRows(t).Select(r => new LevelInfo(
             (AreaId)t.ParseInt32(r, id), t.GetString(r, name), t.GetString(r, nameKey), (ActId)Optional(t, r, act),
-            Optional(t, r, drlg), Optional(t, r, type), Optional(t, r, wp, 255)));
+            Optional(t, r, drlg), Optional(t, r, type), Optional(t, r, wp, 255))
+        {
+            MonsterLevels = (Optional(t, r, mon1), Optional(t, r, mon2), Optional(t, r, mon3)),
+        });
         return new GameTable<AreaId, LevelInfo>(records, l => l.Id);
     }
 

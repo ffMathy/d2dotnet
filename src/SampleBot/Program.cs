@@ -42,6 +42,12 @@ if (Environment.GetEnvironmentVariable("D2_LAYOUT") is { Length: > 0 } layoutNam
     return 0;
 }
 
+if (Environment.GetEnvironmentVariable("D2_COLUMNS") is { Length: > 0 } tableName)
+{
+    Console.WriteLine(string.Join(", ", game.Data.GetRequiredTable(tableName).Columns));
+    return 0;
+}
+
 if (Environment.GetEnvironmentVariable("D2_TYPES") == "1")
 {
     Console.WriteLine(string.Join(", ", game.Data.ItemTypes.Where(t => t.Class.Length > 0).Select(t => $"{t.Code}={t.Class}")));
@@ -210,6 +216,7 @@ if (planOnly)
         Console.WriteLine($"  {quest.Id}: {(quest.IsDone(bot) ? "done" : "to do")} ({reader.ReadQuests().GetValueOrDefault(quest.Id)})");
     Console.WriteLine("  Quest log (every quest with a status): " + string.Join(", ", reader.ReadQuests().Where(q => q.Value != 0).Select(q => $"{q.Key}={q.Value}")));
     Console.WriteLine(quests.Next() is { } next ? $"Next: {next.Id}." : "Every quest the bot knows is done.");
+    Console.WriteLine($"Levelling areas for level {player.Level}: {string.Join(", ", quests.BestLevellingAreas(player.Level).Select(a => $"{a} ({game.Data.Levels.Find(a)?.MonsterLevelIn(context.Difficulty)})"))}.");
     return 0;
 }
 

@@ -339,6 +339,9 @@ public class GameDatabaseTests
         Assert.Equal("Bishibosh", db.SuperUniques[0].Code);
         Assert.Equal((8, 9, 0), db.SuperUniques[0].Mods); // magic resistant, fire enchanted
         Assert.Equal("dru", db.ClassOf("pelt"));
+        Assert.Equal((8, 39, 69), db.Levels.Find(AreaId.TamoeHighland)!.MonsterLevels);
+        Assert.Equal(11, db.Levels.Find(AreaId.Cathedral)!.MonsterLevelIn(Difficulty.Normal));
+        Assert.Equal(0, db.Levels.Find(AreaId.RogueEncampment)!.MonsterLevelIn(Difficulty.Hell));
         Assert.Equal("sor", db.ClassOf("orb"));
         Assert.Equal("", db.ClassOf("helm"));
         Assert.Equal("", db.ClassOf("nope"));

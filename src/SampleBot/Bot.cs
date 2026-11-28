@@ -205,18 +205,70 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// </summary>
     private void ActivateWaypointHere()
     {
+        // A level with a waypoint the character lacks: that first, before going on (it saves the walk next time).
         var player = Player();
-        if (_retreating || Healers.ContainsKey(player.Area) || player.AvailableWaypoints.Contains(player.Area)
-            || data.Levels.Find(player.Area) is not { Waypoint: < 255 } || PresetWaypoint() is not { } spot
-            || Distance(player.Position, spot) > 40)
+        if (_retreating || Healers.ContainsKey(player.Area) || HasWaypoint(player, player.Area)
+            || data.Levels.Find(player.Area) is not { Waypoint: < 255 } || PresetWaypoint() is not { } spot)
             return;
         Log($"Activating the {player.Area} waypoint.");
         WalkTo(GridHere(), spot, arriveWithin: 6, fight: true);
         if (reader.ReadObjects().FirstOrDefault(o => o.IsWaypoint)?.Class is { } waypoint
             && UseObject(waypoint, until: () => reader.ReadMenus().Waypoint))
         {
+            RememberWaypoint(player.Area);
             Thread.Sleep(400);
             ClosePanels();
+        }
+        else
+        {
+            Failure($"Could not activate the {player.Area} waypoint.");
+        }
+    }
+
+    // ---- The waypoints the character has: what memory says (it can miss them), and what the bot saw ----
+
+    private HashSet<AreaId>? _knownWaypoints;
+    private readonly HashSet<AreaId> _failedWaypoints = [];
+
+    private string WaypointsFile(string character) =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "D2Dotnet", $"waypoints-{character}.txt");
+
+    private HashSet<AreaId> KnownWaypoints(MainPlayer player)
+    {
+        if (_knownWaypoints is not null)
+            return _knownWaypoints;
+        _knownWaypoints = [];
+        try
+        {
+            foreach (var line in File.Exists(WaypointsFile(player.Name)) ? File.ReadAllLines(WaypointsFile(player.Name)) : [])
+            {
+                if (Enum.TryParse<AreaId>(line, out var area))
+                    _knownWaypoints.Add(area);
+            }
+        }
+        catch (IOException)
+        {
+        }
+
+        return _knownWaypoints;
+    }
+
+    /// <summary>True when the character has the waypoint: in memory's list, or activated or used by the bot before.</summary>
+    public bool HasWaypoint(MainPlayer player, AreaId area) =>
+        Healers.ContainsKey(area) || player.AvailableWaypoints.Contains(area) || KnownWaypoints(player).Contains(area);
+
+    private void RememberWaypoint(AreaId area)
+    {
+        var player = Player();
+        if (!KnownWaypoints(player).Add(area))
+            return;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(WaypointsFile(player.Name))!);
+            File.WriteAllLines(WaypointsFile(player.Name), KnownWaypoints(player).Select(a => a.ToString()));
+        }
+        catch (IOException)
+        {
         }
     }
 
@@ -257,8 +309,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         }
 
         var walking = act.FindRoute(player.Area, area)?.Count ?? int.MaxValue;
-        var best = player.AvailableWaypoints
-            .Where(w => w != player.Area && act.Find(w) is not null)
+        var best = player.AvailableWaypoints.Concat(KnownWaypoints(player)).Distinct()
+            .Where(w => w != player.Area && act.Find(w) is not null && !_failedWaypoints.Contains(w))
             .Select(w => (Area: w, Left: act.FindRoute(w, area)?.Count ?? int.MaxValue))
             .Where(w => w.Left != int.MaxValue)
             .OrderBy(w => w.Left)
@@ -298,9 +350,15 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         Thread.Sleep(300);
         Ui.ClickLeftPanel((WaypointRowX + 300, WaypointRowY + WaypointRowStep * row + WaypointRowStep / 2));
         if (WaitForArea(destination, seconds: 10))
+        {
+            RememberWaypoint(destination);
             return true;
+        }
 
         Log($"The waypoint did not take the player to {destination}.");
+        _failedWaypoints.Add(destination); // not activated after all: not tried again
+        if (_knownWaypoints?.Remove(destination) == true)
+            Log($"Forgetting the {destination} waypoint.");
         CloseDialog();
         if (reader.ReadMenus().Waypoint)
         {
@@ -442,6 +500,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 FightNearby(FightRange);
                 Step = $"walking to {target} (picking up)";
                 PickUpNearby();
+                Step = $"walking to {target} (chests and shrines)";
+                UseNearbyObjects();
                 Step = $"walking to {target} (refilling the belt)";
                 RefillBeltWhenQuiet();
             }
@@ -678,7 +738,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
     // How far a bolt is cast from, in subtiles: Fire Bolt and the like fade out further away, and an aim much further
     // is off the screen.
-    private const int CastRange = 10;
+    private const int CastRange = 20;
 
     // Half a missile's width, in subtiles: a bolt clips a wall's end or corner the thin line between centres misses.
     private const float MissileHalfWidth = 0.75f;
@@ -782,7 +842,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     {
         var others = enemies.Where(e => e.Id != target.Id).ToList();
         return grid.FindPathTo(Player().Position, p =>
-            Distance(p, target.Position) is var d && d <= castRange && d >= 4
+            Distance(p, target.Position) is var d && d <= castRange && d >= 8
             && others.All(e => Distance(p, e.Position) >= 3)
             && grid.IsLineClear(p, target.Position, MissileHalfWidth)
             && InTheWay(p, target, others) is null, maxLength: 15);
@@ -797,6 +857,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var repositions = 0;
         var castsWithoutDamage = 0;
         var movesWithoutAttack = 0;
+        var kites = 0;
         var lastLife = int.MaxValue;
         var startMana = Player().GetStat(StatId.Mana) ?? 0;
         int? startLife = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.LifePercent;
@@ -889,6 +950,17 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
             // A monster at arm's length hits every second while the target is cast at (and a bolt cast past it may hit
             // it instead): it goes first.
+            // A monster at arm's length: step back out of reach first (a few times a fight), then deal with it.
+            if (kites < 3 && Enemies(player.Position, 4).Any()
+                && Enemies(player.Position, 30).ToList() is var near
+                && grid.FindPathTo(player.Position, p => near.All(m => Distance(p, m.Position) >= 8)
+                    && grid.IsLineClear(p, monster.Position, MissileHalfWidth), maxLength: 12) is { Count: > 1 } away)
+            {
+                kites++;
+                MoveTo(away[^1]);
+                continue;
+            }
+
             if (Enemies(player.Position, 3).FirstOrDefault(m => m.Id != monster.Id) is { } close)
             {
                 Combat.Attack(this, player, close);
@@ -1358,6 +1430,45 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             else
                 Log($"Picked up {(item.Quality is ItemQuality.Magic or ItemQuality.Rare or ItemQuality.Set or ItemQuality.Unique ? item.Quality + " " : "")}{item.Class}.");
         }
+    }
+
+    // ---- Chests and shrines ----
+
+    private readonly HashSet<UnitId> _usedObjects = [];
+
+    /// <summary>
+    /// Opens the chests within 12 subtiles and uses the shrines that help now, when no monster is within 15: experience,
+    /// skill, armor and combat always; health, mana and refill when life or mana is low; never the harmful ones (fire,
+    /// monster, exploding, poison) or the exchange and portal ones. What a chest drops is picked up after.
+    /// </summary>
+    public void UseNearbyObjects()
+    {
+        var player = Player();
+        if (_retreating || Healers.ContainsKey(player.Area) || Enemies(player.Position, 15).Any())
+            return;
+        var life = player.LifePercent ?? 100;
+        var mana = player.ManaPercent ?? 100;
+        bool Helps(ShrineType shrine) => shrine switch
+        {
+            ShrineType.ExperienceShrine or ShrineType.SkillShrine or ShrineType.ArmorShrine or ShrineType.CombatShrine
+                or ShrineType.ResistFireShrine or ShrineType.ResistColdShrine or ShrineType.ResistLightningShrine
+                or ShrineType.ResistPoisonShrine or ShrineType.GemShrine => true,
+            ShrineType.HealthShrine => life < 75,
+            ShrineType.ManaShrine or ShrineType.ManaRegenShrine => mana < 75,
+            ShrineType.RefillShrine => life < 75 || mana < 75,
+            _ => false,
+        };
+
+        var target = reader.ReadObjects()
+            .Where(o => o.IsSelectable && !_usedObjects.Contains(o.Id) && Distance(player.Position, o.Position) <= 12
+                        && (o.IsChest || o.IsSuperChest || (o.Shrine is { } shrine && Helps(shrine))))
+            .MinBy(o => Distance(player.Position, o.Position));
+        if (target is null)
+            return;
+        _usedObjects.Add(target.Id);
+        Log(target.Shrine is { } kind ? $"Using a {kind.GetName() ?? kind.ToString()}." : $"Opening a {target.Class}.");
+        if (UseObject(target.Class))
+            PickUpNearby();
     }
 
     // ---- Potions ----
