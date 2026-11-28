@@ -232,6 +232,7 @@ internal sealed class QuestRunner(Bot bot)
             {
                 // Out by portal, and the area is done for this game.
                 bot.Retreat(danger.Message);
+                bot.ForgetPortal(); // its portal leads back to the danger
                 _explored.Add(area);
                 continue;
             }
@@ -314,6 +315,7 @@ internal sealed class QuestRunner(Bot bot)
                 try
                 {
                     bot.Retreat(danger.Message);
+                    bot.ForgetPortal();
                 }
                 catch (Died retreatDeath)
                 {

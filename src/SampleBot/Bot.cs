@@ -164,6 +164,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             if (++hops > 40)
                 throw new BotStopped($"Travelling to {area} takes too many steps.");
             var here = Player().Area;
+            if (TakePortalBack(area))
+                continue;
             if (TakeWaypointTowards(area))
                 continue;
             if (Act.FindRoute(here, area) is not { } route)
@@ -1062,6 +1064,40 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         return false;
     }
 
+    // The area the last town portal was opened in: the portal stays in town, a way back there.
+    private AreaId? _portalArea;
+
+    /// <summary>Forgets the way back through the town portal (it leads somewhere too dangerous).</summary>
+    public void ForgetPortal() => _portalArea = null;
+
+    /// <summary>
+    /// From town, goes back through the town portal the character came home by, when its area is the destination or
+    /// on the way to it (fewer levels from there than from town). False when there is no such portal.
+    /// </summary>
+    private bool TakePortalBack(AreaId destination)
+    {
+        if (_portalArea is not { } there || Player().Area != Town)
+            return false;
+        var fromThere = there == destination ? 0 : Act.FindRoute(there, destination)?.Count ?? int.MaxValue;
+        var fromTown = Act.FindRoute(Town, destination)?.Count ?? int.MaxValue;
+        if (fromThere >= fromTown || !reader.ReadObjects().Any(o => o.Class == ObjectId.TownPortal))
+        {
+            _portalArea = null;
+            return false;
+        }
+
+        Log($"Back to {there} through the town portal.");
+        _portalArea = null;
+        if (!UseObject(ObjectId.TownPortal, until: () => reader.ReadMainPlayer() is { } p && p.Area == there))
+        {
+            Failure("Could not take the town portal back.");
+            return false;
+        }
+
+        WaitWhileLoading();
+        return true;
+    }
+
     /// <summary>The town portal scrolls carried: the Tome of Town Portal's charges and loose scrolls.</summary>
     public int TownPortals() =>
         reader.ReadInventory().Items.Where(i => i.Location == ItemLocation.Inventory)
@@ -1080,6 +1116,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             return false;
 
         Step = "opening a town portal";
+        var from = Player().Area;
         ClearCursor();
         InventoryPanel.Open(this);
         Ui.ClickRightPanel(InventoryPanel.CentreOf(book), right: true);
@@ -1104,6 +1141,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         }
 
         WaitWhileLoading();
+        if (Player().Area == Town)
+            _portalArea = from;
         return Player().Area == Town;
     }
 
