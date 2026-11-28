@@ -209,6 +209,32 @@ if (Environment.GetEnvironmentVariable("D2_HOOK") == "1")
     return 0;
 }
 
+if (Environment.GetEnvironmentVariable("D2_CLICKWARP") == "1")
+{
+    // Finds the warps on screen and clicks the first, then says where the player is 6 seconds later.
+    var me = reader.ReadMainPlayer()!;
+    var (cx, cy, cw, ch) = bot.Window.ClientArea();
+    for (var y = cy + 30; y < cy + ch * 88 / 100; y += 40)
+    {
+        for (var x = cx + 30; x < cx + cw - 30; x += 40)
+        {
+            if (bot.Input.Peek((x, y), reader.ReadHover) is not { Type: UnitType.Tile } hover)
+                continue;
+            Console.WriteLine($"Warp tile {hover.Id.Value} at screen ({x}, {y}); clicking it from {me.Position} in {me.Area}.");
+            bot.Input.AimAt((x, y));
+            bot.Input.LeftClick();
+            Thread.Sleep(6000);
+            var now = reader.ReadMainPlayer()!;
+            Console.WriteLine($"Now at {now.Position} in {now.Area}.");
+            bot.Screenshot("clickwarp");
+            return 0;
+        }
+    }
+
+    Console.WriteLine("No warp on screen.");
+    return 0;
+}
+
 if (Environment.GetEnvironmentVariable("D2_SWEEP") == "1")
 {
     // Moves the cursor over the screen in 50 pixel steps and lists what the game says is under it (finds warps and

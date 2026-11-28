@@ -155,15 +155,15 @@ internal sealed class BackgroundInput(GameWindow window, InputHook? hook = null)
         _acting = aim;
         if (hook is not null)
         {
+            // The aim stays told after the action: the game acts on some clicks (a warp, an object) on its next frames,
+            // reading the cursor again then. The hook gives the real cursor back when the bot stops.
             hook.Aim(window.ToPhysical(aim));
             try
             {
                 action();
-                Thread.Sleep(HoldMs);
             }
             finally
             {
-                hook.Release();
                 Bot.Step = step;
             }
 
@@ -194,9 +194,6 @@ internal sealed class BackgroundInput(GameWindow window, InputHook? hook = null)
 
     // How long the cursor rests on the aim before a click or key: about three frames at 60 frames a second.
     private const int SettleMs = 50;
-
-    // How long the hook keeps telling the aim after the action (the game acts on a click on its next frames).
-    private static readonly int HoldMs = int.TryParse(Environment.GetEnvironmentVariable("D2_HOLD"), out var hold) ? hold : 0;
 
     // lParam: repeat count 1, the scan code at bit 16, and for a release the previous-state and transition bits.
     private void Key(int virtualKey, bool down)
