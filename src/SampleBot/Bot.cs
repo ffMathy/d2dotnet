@@ -135,6 +135,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             if (++hops > 40)
                 throw new BotStopped($"Travelling to {area} takes too many steps.");
             var here = Player().Area;
+            if (TakeWaypointTowards(area))
+                continue;
             if (Act.FindRoute(here, area) is not { } route)
             {
                 // Tristram and other levels a portal leads to have no exits: take the red portal back.
@@ -156,6 +158,88 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             else
                 CrossSeam(step, fight);
         }
+    }
+
+    // ---- Waypoints ----
+
+    // The waypoint panel (waypointspaneloriginalhd.json and its expansion version, a left panel): five act tabs from
+    // (148, 201), 174 by 70 with -1 between; the act's waypoints from (152, 264), 123 apart.
+    private const int WaypointTabX = 148, WaypointTabY = 201, WaypointTabWidth = 173, WaypointTabHeight = 70;
+    private const int WaypointRowX = 152, WaypointRowY = 264, WaypointRowStep = 123;
+
+    /// <summary>
+    /// Takes a waypoint towards <paramref name="area"/> when the player's level has one, the player has the waypoint
+    /// that leaves the fewest levels to walk, and it saves at least two of them. True when it took one.
+    /// </summary>
+    private bool TakeWaypointTowards(AreaId area)
+    {
+        var player = Player();
+        var act = Act;
+        if (act[player.Area].Waypoints.Count == 0 || act.Find(area) is null)
+            return false;
+        var walking = act.FindRoute(player.Area, area)?.Count ?? int.MaxValue;
+        var best = player.AvailableWaypoints
+            .Where(w => w != player.Area && act.Find(w) is not null)
+            .Select(w => (Area: w, Left: act.FindRoute(w, area)?.Count ?? int.MaxValue))
+            .Where(w => w.Left != int.MaxValue)
+            .OrderBy(w => w.Left)
+            .FirstOrDefault();
+        if (best.Area == default || best.Left > walking - 2)
+            return false;
+
+        Log($"Taking the waypoint to {best.Area} ({best.Left} levels from {area}, instead of {walking} on foot).");
+        return UseWaypoint(best.Area);
+    }
+
+    /// <summary>Uses the level's waypoint to go to <paramref name="destination"/>, which the player must have.</summary>
+    public bool UseWaypoint(AreaId destination)
+    {
+        if (data.Levels.Find(destination) is not { Waypoint: < 255 } info)
+            return false;
+        var first = data.Levels.Where(l => l.Act == info.Act && l.Waypoint < 255).Min(l => l.Waypoint);
+        var row = info.Waypoint - first;
+        var tab = (int)info.Act;
+
+        var waypoint = reader.ReadObjects().FirstOrDefault(o => o.IsWaypoint)?.Class;
+        if (waypoint is null)
+        {
+            if (PresetWaypoint() is { } spot)
+                WalkTo(GridHere(), spot, arriveWithin: 6, fight: true);
+            waypoint = reader.ReadObjects().FirstOrDefault(o => o.IsWaypoint)?.Class;
+        }
+
+        if (waypoint is null || !UseObject(waypoint.Value, until: () => reader.ReadMenus().Waypoint))
+        {
+            Log("Could not open the waypoint.");
+            return false;
+        }
+
+        Thread.Sleep(400);
+        _ui ??= new GameUi(this);
+        _ui.ClickLeftPanel((WaypointTabX + WaypointTabWidth * tab + WaypointTabWidth / 2, WaypointTabY + WaypointTabHeight / 2));
+        Thread.Sleep(300);
+        _ui.ClickLeftPanel((WaypointRowX + 300, WaypointRowY + WaypointRowStep * row + WaypointRowStep / 2));
+        if (WaitForArea(destination, seconds: 10))
+            return true;
+
+        Log($"The waypoint did not take the player to {destination}.");
+        CloseDialog();
+        if (reader.ReadMenus().Waypoint)
+        {
+            input.PressKey(Native.VkEscape);
+            Thread.Sleep(300);
+        }
+
+        return false;
+    }
+
+    private GameUi? _ui;
+
+    // Where the player's level places its waypoint, in world subtiles.
+    private Point? PresetWaypoint()
+    {
+        var level = Act[Player().Area];
+        return level.Waypoints.Count > 0 ? level.ToWorld(level.Waypoints[0].Position) : null;
     }
 
     private void TakeWarp(RouteStep step, bool fight)
