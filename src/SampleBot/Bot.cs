@@ -581,8 +581,23 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
         var back = entry is { } e ? Aim(Player().Position, e, 0) : (cx + cw / 2, cy + ch / 2);
         Log($"Swept the screen for the entrance to {destination}: {tiles.Count} warps.");
-        foreach (var (_, spot) in tiles.OrderByDescending(t => Math.Pow(t.Value.X - back.Item1, 2) + Math.Pow(t.Value.Y - back.Item2, 2)))
+        foreach (var (_, found) in tiles.OrderByDescending(t => Math.Pow(t.Value.X - back.Item1, 2) + Math.Pow(t.Value.Y - back.Item2, 2)))
         {
+            var spot = found;
+            // The game does not always walk to a warp clicked from afar (round a wall): the bot walks next to it, finds
+            // it again there, and clicks it.
+            var me = Player();
+            var world = WorldAt(me.Position, spot);
+            if (Distance(me.Position, world) > 5 && GridHere() is var grid
+                && grid.FindPathTo(me.Position, p => Distance(p, world) <= 3, maxLength: 200) is { Count: > 1 } way)
+            {
+                Log($"Walking to the warp at {world}.");
+                WalkTo(grid, way[^1], arriveWithin: 1, fight: true);
+                me = Player();
+                spot = Spiral(world, radius: 4, step: 1).Select(p => Aim(me.Position, p, 0))
+                    .FirstOrDefault(s => input.Peek(s, reader.ReadHover) is { Type: UnitType.Tile }, spot);
+            }
+
             if (input.Peek(spot, reader.ReadHover) is not { Type: UnitType.Tile })
                 continue;
             Log($"Entering the warp at screen {spot}.");
@@ -604,6 +619,11 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
         return false;
     }
+
+    // The world subtile drawn nearest a screen point (at ground height), seen from the player.
+    private Point WorldAt(Point player, (int X, int Y) screen) =>
+        Enumerable.Range(-50, 101).SelectMany(dx => Enumerable.Range(-50, 101).Select(dy => new Point(player.X + dx, player.Y + dy)))
+            .MinBy(p => window.ToScreen(player, p, 0) is var q ? (q.X - screen.X) * (q.X - screen.X) + (q.Y - screen.Y) * (q.Y - screen.Y) : 0);
 
     public bool WaitForArea(AreaId area, int seconds)
     {
