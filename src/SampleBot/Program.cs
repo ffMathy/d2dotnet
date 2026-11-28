@@ -4,6 +4,7 @@
 //   --check-input  checks moving, clicking and casting from the Rogue Encampment or the Blood Moor.
 //   --spend-points spends the unspent stat and skill points by the class's build, and stops.
 //   --new-game     saves and exits, and starts a new game on Normal with the same character.
+//   --screenshot   saves a picture of the game window (also taken when the bot is stuck, gives up, dies or stops).
 //   --foreground   synthesizes input (SendInput), which needs the game in front. By default the clicks and keys are
 //                  sent to the game window, which works with the game in the background; the game aims at the real
 //                  cursor, so the bot borrows it for about 80 ms per click or key and puts it back.
@@ -20,7 +21,8 @@ var checkInput = args.Contains("--check-input");
 var spendPoints = args.Contains("--spend-points");
 var probeTrade = args.Contains("--probe-trade");
 var newGame = args.Contains("--new-game");
-args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points" or "--probe-trade" or "--new-game"))];
+var screenshot = args.Contains("--screenshot");
+args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points" or "--probe-trade" or "--new-game" or "--screenshot"))];
 var installPath = args.Length > 0 ? args[0] : @"C:\Program Files (x86)\Diablo II Resurrected";
 using var game = GameInstall.Open(installPath);
 
@@ -45,6 +47,11 @@ var window = GameWindow.Of(process.ProcessId);
 IGameInput input = foreground ? new ForegroundInput() : new BackgroundInput(window);
 var bot = new Bot(reader, game.Data, game.Maps, window, input);
 var quests = new QuestRunner(bot);
+
+if (screenshot)
+{
+    return bot.Screenshot("requested") is null ? 1 : 0;
+}
 
 if (planOnly)
 {
@@ -95,6 +102,7 @@ try
 }
 catch (BotStopped stopped)
 {
+    bot.Screenshot("stopped");
     Console.WriteLine($"Stopped: {stopped.Message}");
     return 2;
 }

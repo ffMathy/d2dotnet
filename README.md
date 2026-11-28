@@ -133,6 +133,18 @@ if (snapshot.Map is { } context)
 }
 ```
 
+### `D2Dotnet.Screen`: pictures of the game window
+
+```csharp
+using D2Dotnet.Screen;
+
+Screenshot shot = GameScreen.Capture(process.ProcessId);  // Windows; the game can be behind other windows
+shot.SavePng("game.png");
+var (red, green, blue) = shot[100, 200];
+```
+
+The window draws itself into the picture (`PrintWindow`), in its real pixels; a minimized window gives a blank one.
+
 Attaching needs Windows and the D2R build the memory layout targets. Everything else, including `GameReader`, runs on
 any OS over an `IProcessMemory`. See [docs/memory.md](docs/memory.md).
 
@@ -148,6 +160,7 @@ src/D2Dotnet/                the library (no third-party dependencies)
                              Maps/Formats/ (DS1, DT1)
     Game/                    the snapshot model of a running game
     Memory/                  IProcessMemory, WindowsProcessMemory, GameProcess, GameReader, MapSeed
+    Screen/                  GameScreen (pictures of the game window), Screenshot (pixels, PNG)
 src/SampleBot/               a sample program: a bot that clears the Den of Evil (Windows, offline games)
 tests/D2Dotnet.Tests/        xUnit tests of the library (files, data, maps, game, memory), oracles included
 tests/Fixtures.targets       downloads the pinned libd2 and d2go sources into .cache/ for the oracle tests

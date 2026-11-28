@@ -3,6 +3,7 @@ using D2Dotnet.Data;
 using D2Dotnet.Game;
 using D2Dotnet.Maps;
 using D2Dotnet.Memory;
+using D2Dotnet.Screen;
 
 /// <summary>
 /// What every task of the bot uses: reading the game, aiming, walking, travelling between levels, fighting with the
@@ -72,6 +73,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// </summary>
     public void Respawn(Died death)
     {
+        Screenshot($"died in {death.Area}");
         Log($"Died in {death.Area}. Pressing Esc to come back in town.");
         _respawning = true;
         try
@@ -341,6 +343,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             }
             else if (++failures >= 10)
             {
+                Screenshot("stuck");
                 throw new Stuck($"Stuck at {Player().Position} on the way to {target}.");
             }
             else if (failures % 3 == 0)
@@ -396,8 +399,16 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             .Where(p => grid.FindPath(Player().Position, p) is not null)
             .ToList();
         var visited = new HashSet<int>();
+        var quietRooms = 0;
         while (visited.Count < rooms.Count && until?.Invoke() != true)
         {
+            // While levelling, 15 rooms in a row without a monster in sight: this game's monsters here are dead.
+            if (until is not null && quietRooms >= 15)
+            {
+                Log($"{level.Id}: no monster in the last {quietRooms} rooms; it looks cleared.");
+                break;
+            }
+
             var here = Player().Position;
             var next = Enumerable.Range(0, rooms.Count).Where(i => !visited.Contains(i)).MinBy(i => Distance(here, rooms[i]));
             Log($"{level.Id}: room {visited.Count + 1} of {rooms.Count}.");
@@ -410,6 +421,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 Log($"{stuck.Message} Skipping the room.");
             }
 
+            quietRooms = Enemies(Player().Position, 35).Any() ? 0 : quietRooms + 1;
             here = Player().Position;
             for (var i = 0; i < rooms.Count; i++)
             {
@@ -471,27 +483,51 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     public void Fight(UnitId id, int seconds = 12)
     {
         var deadline = DateTime.UtcNow.AddSeconds(seconds);
-        while (DateTime.UtcNow < deadline)
+        var started = DateTime.UtcNow;
+        var attacks = 0;
+        var startMana = Player().GetStat(StatId.Mana) ?? 0;
+        int? startLife = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.LifePercent;
+        var name = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.Class.ToString() ?? "?";
+        string outcome;
+        while (true)
         {
+            if (DateTime.UtcNow >= deadline)
+            {
+                outcome = "gave up";
+                break;
+            }
+
             var player = Player();
             DrinkIfNeeded(player);
             if (reader.ReadMonsters().FirstOrDefault(m => m.Id == id) is not { IsEnemy: true } monster)
-                return;
+            {
+                outcome = reader.ReadCorpses().Any(m => m.Id == id) ? "killed" : "lost";
+                break;
+            }
 
             // A wall between them: walk round it towards the monster instead of casting into the wall.
             var grid = GridHere();
             if (!grid.IsLineClear(player.Position, monster.Position))
             {
                 if (grid.FindPath(player.Position, monster.Position) is not { Count: > 1 } path)
-                    return;
+                {
+                    outcome = "no way to it";
+                    break;
+                }
+
                 MoveTo(path[Math.Min(4, path.Count - 1)]);
                 continue;
             }
 
             Combat.Attack(this, player, monster);
+            attacks++;
         }
 
-        Log($"Gave up on monster {id.Value} after {seconds} s.");
+        var endLife = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.LifePercent ?? 0;
+        if (outcome == "gave up")
+            Screenshot($"gave up on {name}");
+        Log($"{name} {id.Value}: {outcome} after {(DateTime.UtcNow - started).TotalSeconds:F1} s, {attacks} attacks, " +
+            $"mana {startMana} -> {Player().GetStat(StatId.Mana)}, its life {startLife}% -> {(outcome == "killed" ? 0 : endLife)}%.");
     }
 
     /// <summary>
@@ -854,6 +890,30 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     public static double Distance(Point a, Point b) => Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2));
 
     public static void Log(string message) => Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {message}");
+
+    /// <summary>
+    /// Saves a picture of the game window to %LOCALAPPDATA%\D2Dotnet\screenshots, named after the time and
+    /// <paramref name="reason"/>, and logs where; for seeing afterwards what went wrong. Returns the path, or null when
+    /// the picture could not be taken.
+    /// </summary>
+    public string? Screenshot(string reason)
+    {
+        try
+        {
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "D2Dotnet", "screenshots");
+            Directory.CreateDirectory(folder);
+            var name = string.Concat(reason.Select(c => char.IsLetterOrDigit(c) ? c : '-')).Trim('-');
+            var path = Path.Combine(folder, $"{DateTime.Now:yyyyMMdd-HHmmss}-{name[..Math.Min(name.Length, 60)]}.png");
+            GameScreen.Capture(window.Handle).SavePng(path);
+            Log($"Screenshot: {path}");
+            return path;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            Log($"No screenshot: {e.Message}");
+            return null;
+        }
+    }
 }
 
 /// <summary>The bot stopped on purpose, with the reason.</summary>
