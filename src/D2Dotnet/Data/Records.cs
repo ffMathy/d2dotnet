@@ -29,6 +29,39 @@ public sealed record MonsterInfo(MonsterId Id, string Code, string NameKey)
     /// lays eggs, or has a <see cref="Spawn"/>. A skeleton's <c>SkeletonRaise</c> (getting up) does not count.
     /// </summary>
     public bool IsSummoner { get; init; }
+
+    /// <summary>The resistances in Normal (the <c>ResDm</c>, <c>ResMa</c>, <c>ResFi</c>, <c>ResLi</c>, <c>ResCo</c> and <c>ResPo</c> columns).</summary>
+    public Resistances Resistances { get; init; }
+
+    /// <summary>The resistances in Nightmare (the <c>Res*(N)</c> columns).</summary>
+    public Resistances ResistancesNightmare { get; init; }
+
+    /// <summary>The resistances in Hell (the <c>Res*(H)</c> columns).</summary>
+    public Resistances ResistancesHell { get; init; }
+
+    /// <summary>The resistances in the difficulty.</summary>
+    public Resistances ResistancesIn(Difficulty difficulty) => difficulty switch
+    {
+        Difficulty.Nightmare => ResistancesNightmare,
+        Difficulty.Hell => ResistancesHell,
+        _ => Resistances,
+    };
+}
+
+/// <summary>A monster's resistances, in percent (100 or more: immune).</summary>
+public readonly record struct Resistances(int Physical, int Magic, int Fire, int Lightning, int Cold, int Poison)
+{
+    /// <summary>The resistance a resistance stat stands for (<see cref="StatId.FireResist"/>..., <see cref="StatId.DamageReduced"/> for physical); 0 for any other stat.</summary>
+    public int Of(StatId stat) => stat switch
+    {
+        StatId.DamageReduced => Physical,
+        StatId.MagicResist => Magic,
+        StatId.FireResist => Fire,
+        StatId.LightningResist => Lightning,
+        StatId.ColdResist => Cold,
+        StatId.PoisonResist => Poison,
+        _ => 0,
+    };
 }
 
 /// <summary>A super unique monster: a row of superuniques.txt.</summary>
@@ -36,7 +69,14 @@ public sealed record MonsterInfo(MonsterId Id, string Code, string NameKey)
 /// <param name="Code">The <c>Superunique</c> column (such as <c>Bishibosh</c>), which other tables use to name it.</param>
 /// <param name="NameKey">The string key of the display name (the <c>Name</c> column). See <see cref="Localization.GetSuperUniqueName"/>.</param>
 /// <param name="MonsterCode">The monster class it is (the <c>Class</c> column, a <see cref="MonsterInfo.Code"/>).</param>
-public sealed record SuperUniqueInfo(int Index, string Code, string NameKey, string MonsterCode);
+public sealed record SuperUniqueInfo(int Index, string Code, string NameKey, string MonsterCode)
+{
+    /// <summary>
+    /// Its unique modifiers (the <c>Mod1</c> to <c>Mod3</c> columns, monumod.txt ids, 0 for none): 8 magic resistant,
+    /// 9 fire enchanted, 17 lightning enchanted, 18 cold enchanted, and so on.
+    /// </summary>
+    public (int First, int Second, int Third) Mods { get; init; }
+}
 
 /// <summary>An object class: a row of objects.txt.</summary>
 /// <param name="Id">The <c>*ID</c> column (classic <c>Id</c>); the game row index when the table has neither.</param>

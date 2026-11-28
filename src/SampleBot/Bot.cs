@@ -603,7 +603,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
     // How far a bolt is cast from, in subtiles: Fire Bolt and the like fade out further away, and an aim much further
     // is off the screen.
-    private const int CastRange = 15;
+    private const int CastRange = 10;
 
     // Half a missile's width, in subtiles: a bolt clips a wall's end or corner the thin line between centres misses.
     private const float MissileHalfWidth = 0.75f;
@@ -618,7 +618,33 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// Bishibosh against Fire Bolt: fire enchanted and magic resistant) that fighting it is a waste.
     /// </summary>
     public bool IsImmune(MainPlayer player, Monster monster) =>
-        Combat.ResistanceAgainst(this, player) is { } resistance && (monster.GetStat(resistance) ?? 0) >= 95;
+        Combat.ResistanceAgainst(this, player) is { } resistance && Resistance(monster, resistance) >= 95;
+
+    /// <summary>
+    /// A monster's resistance: its class's for the difficulty (monstats.txt), with a super unique's modifiers (magic
+    /// resistant +40 to fire, cold and lightning; fire, cold and lightning enchanted +50 to theirs) and what its stats
+    /// add. A random unique's modifiers are not known, so they are not counted.
+    /// </summary>
+    public int Resistance(Monster monster, StatId resistance)
+    {
+        var info = data.Monsters.Find(monster.Class);
+        var value = info?.ResistancesIn(_act?.Difficulty ?? Difficulty.Normal).Of(resistance) ?? 0;
+        if (monster.Type == MonsterType.SuperUnique && info is not null
+            && data.SuperUniques.FirstOrDefault(u => u.MonsterCode == info.Code) is { } unique)
+        {
+            foreach (var mod in new[] { unique.Mods.First, unique.Mods.Second, unique.Mods.Third })
+            {
+                value += (mod, resistance) switch
+                {
+                    (8, StatId.FireResist or StatId.ColdResist or StatId.LightningResist) => 40,
+                    (9, StatId.FireResist) or (17, StatId.LightningResist) or (18, StatId.ColdResist) => 50,
+                    _ => 0,
+                };
+            }
+        }
+
+        return value + (monster.GetStat(resistance) ?? 0);
+    }
 
     // How much further than the fight range summoners are gone for.
     private const int SummonerReach = 10;
@@ -713,7 +739,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
             if (IsImmune(player, monster))
             {
-                outcome = $"immune ({Combat.ResistanceAgainst(this, player)} {monster.GetStat(Combat.ResistanceAgainst(this, player)!.Value)})";
+                outcome = $"immune ({Combat.ResistanceAgainst(this, player)} {Resistance(monster, Combat.ResistanceAgainst(this, player)!.Value)})";
                 break;
             }
 
@@ -787,7 +813,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 Log($"{castsWithoutDamage} attacks did not hurt {name}: moving closer. It is {Distance(player.Position, monster.Position):F1} away at {monster.Position} (me {player.Position}), " +
                     $"line {(grid.IsLineClear(player.Position, monster.Position, MissileHalfWidth) ? "clear" : "blocked")}, in the way {InTheWay(player.Position, monster, others)?.Class.ToString() ?? "nothing"}, " +
                     $"close {string.Join("/", Enemies(player.Position, 3).Select(m => m.Class))}, mana {player.GetStat(StatId.Mana)}, right skill {player.RightSkill}, " +
-                    $"resistances fire {monster.GetStat(StatId.FireResist)} cold {monster.GetStat(StatId.ColdResist)} lightning {monster.GetStat(StatId.LightningResist)}, type {monster.Type}.");
+                    $"resistances fire {Resistance(monster, StatId.FireResist)} cold {Resistance(monster, StatId.ColdResist)} lightning {Resistance(monster, StatId.LightningResist)}, type {monster.Type}.");
                 castsWithoutDamage = 0;
                 MoveTo(closer[Math.Min(6, closer.Count - 2)]);
                 continue;

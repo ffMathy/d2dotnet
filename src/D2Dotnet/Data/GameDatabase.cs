@@ -190,9 +190,19 @@ public sealed class GameDatabase
                 Ai = t.GetString(r, ai),
                 Spawn = spawned,
                 IsSummoner = spawned.Length > 0 || skills.Any(c => SummoningSkills.Contains(t.GetString(r, c))),
+                Resistances = ReadResistances(t, r, ""),
+                ResistancesNightmare = ReadResistances(t, r, "(N)"),
+                ResistancesHell = ReadResistances(t, r, "(H)"),
             };
         });
         return new GameTable<MonsterId, MonsterInfo>(records, m => m.Id);
+    }
+
+    // A row's resistances in one difficulty: the Res* columns with the difficulty's suffix ("", "(N)", "(H)").
+    private static Resistances ReadResistances(ExcelTable t, int row, string suffix)
+    {
+        int Read(string name) => Optional(t, row, t.GetColumnIndex("Res" + name + suffix));
+        return new Resistances(Read("Dm"), Read("Ma"), Read("Fi"), Read("Li"), Read("Co"), Read("Po"));
     }
 
     // Monster skills (skills.txt names) that make more monsters.
@@ -202,7 +212,11 @@ public sealed class GameDatabase
     {
         var t = GetRequiredTable("superuniques");
         int code = t.GetRequiredColumnIndex("Superunique"), nameKey = t.GetColumnIndex("Name"), monster = t.GetColumnIndex("Class");
-        var records = GameRows(t, code).Select((r, i) => new SuperUniqueInfo(i, t.GetString(r, code), t.GetString(r, nameKey), t.GetString(r, monster)));
+        int mod1 = t.GetColumnIndex("Mod1"), mod2 = t.GetColumnIndex("Mod2"), mod3 = t.GetColumnIndex("Mod3");
+        var records = GameRows(t, code).Select((r, i) => new SuperUniqueInfo(i, t.GetString(r, code), t.GetString(r, nameKey), t.GetString(r, monster))
+        {
+            Mods = (Optional(t, r, mod1), Optional(t, r, mod2), Optional(t, r, mod3)),
+        });
         return new GameTable<int, SuperUniqueInfo>(records, s => s.Index);
     }
 

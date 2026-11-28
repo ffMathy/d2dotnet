@@ -337,6 +337,12 @@ public class GameDatabaseTests
         Assert.All(new[] { MonsterId.Zombie, MonsterId.Andariel, MonsterId.Skeleton, MonsterId.Fallen },
             m => Assert.False(db.Monsters.Find(m)?.IsSummoner, m.ToString()));
         Assert.Equal("Bishibosh", db.SuperUniques[0].Code);
+        Assert.Equal((8, 9, 0), db.SuperUniques[0].Mods); // magic resistant, fire enchanted
+        var shaman = db.Monsters.Find(MonsterId.FallenShaman)!;
+        Assert.Equal(25, shaman.Resistances.Fire);
+        Assert.Equal(50, shaman.ResistancesIn(Difficulty.Nightmare).Of(StatId.FireResist));
+        Assert.Equal(100, shaman.ResistancesIn(Difficulty.Hell).Fire);
+        Assert.Equal(50, db.Monsters.Find(MonsterId.Zombie)!.Resistances.Poison);
         Assert.Equal("hax", db.Items.Find(ItemId.HandAxe)?.Code);
         Assert.Equal("Waypoint", db.Objects.Find(ObjectId.WaypointPortal)?.NameKey);
         Assert.Equal("teleport", db.Skills.Find(SkillId.Teleport)?.Name, StringComparer.OrdinalIgnoreCase);
