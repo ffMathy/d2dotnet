@@ -383,7 +383,16 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         Log($"The waypoint did not take the player to {destination}.");
         _failedWaypoints.Add(destination); // not activated after all: not tried again
         if (_knownWaypoints?.Remove(destination) == true)
+        {
             Log($"Forgetting the {destination} waypoint.");
+            try
+            {
+                File.WriteAllLines(WaypointsFile(Player().Name), _knownWaypoints.Select(a => a.ToString()));
+            }
+            catch (IOException)
+            {
+            }
+        }
         CloseDialog();
         if (reader.ReadMenus().Waypoint)
         {
