@@ -494,9 +494,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var start = Player().Area;
         var (cx, cy, cw, ch) = Window.ClientArea();
         var tiles = new Dictionary<uint, (int X, int Y)>();
-        for (var y = cy + 30; y < cy + ch * 88 / 100; y += 40)
+        for (var y = cy + 30; y < cy + ch * 88 / 100; y += 55)
         {
-            for (var x = cx + 30; x < cx + cw - 30; x += 40)
+            for (var x = cx + 30; x < cx + cw - 30; x += 55)
             {
                 if (input.Peek((x, y), reader.ReadHover) is { Type: UnitType.Tile } hover)
                     tiles.TryAdd(hover.Id.Value, (x, y));
