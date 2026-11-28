@@ -589,6 +589,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         while (true)
         {
             Step = $"{outer} (looking for a fight)";
+            if (!_retreating && Player() is { Level: < DeadlyBelowLevel } me
+                && Enemies(me.Position, 25).FirstOrDefault(IsDeadly) is { } deadly)
+                throw new TooDangerous($"{deadly.Class} (lightning enchanted) is {Distance(me.Position, deadly.Position):F0} away; too dangerous below level {DeadlyBelowLevel}.");
             var player = Player();
             var grid = GridHere();
             var enemies = Enemies(player.Position, range + SummonerReach)
@@ -629,6 +632,17 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// Bishibosh against Fire Bolt: fire enchanted and magic resistant) that fighting it is a waste.
     /// </summary>
     public bool IsImmune(MainPlayer player, Monster monster) => !Combat.CanHurt(this, player, monster);
+
+    /// <summary>
+    /// True for a super unique that is lightning enchanted (Rakanishu): every hit on it sends out charged bolts,
+    /// which kill a low level character from full life within seconds.
+    /// </summary>
+    public bool IsDeadly(Monster monster) =>
+        monster.Type == MonsterType.SuperUnique && data.Monsters.Find(monster.Class) is { } info
+        && data.SuperUniques.Where(u => u.MonsterCode == info.Code).Any(u => u.Mods.First == 17 || u.Mods.Second == 17 || u.Mods.Third == 17);
+
+    // The level below which deadly monsters are left alone.
+    public const int DeadlyBelowLevel = 15;
 
     /// <summary>
     /// A monster's resistance: its class's for the difficulty (monstats.txt), with a super unique's modifiers (magic
@@ -1564,6 +1578,9 @@ internal class BotStopped(string reason) : Exception(reason);
 
 /// <summary>Life is low and nothing is left to drink: the bot retreats to town (see <see cref="Bot.Retreat"/>).</summary>
 internal sealed class LowLife(string reason) : Exception(reason);
+
+/// <summary>Something too dangerous for the character is near: the bot leaves the area (see <see cref="Bot.IsDeadly"/>).</summary>
+internal sealed class TooDangerous(string reason) : Exception(reason);
 
 /// <summary>The bot could not get past something on the way (see <see cref="Bot.WalkTo"/>).</summary>
 internal sealed class Stuck(string reason) : BotStopped(reason);

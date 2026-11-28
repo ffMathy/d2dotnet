@@ -79,8 +79,9 @@ internal sealed class SearchForCainQuest : IQuest
 
     public QuestId Id => QuestId.Act1TheSearchForCain;
 
-    // The Dark Wood's packs (Carvers with a unique, their shamans) need Fire Ball, which comes at 12.
-    public int MinimumLevel => 12;
+    // The Dark Wood's packs need Fire Ball (12), and Rakanishu, lightning enchanted, guards the Cairn Stones: the bot
+    // leaves him alone below Bot.DeadlyBelowLevel.
+    public int MinimumLevel => Bot.DeadlyBelowLevel;
 
     // Done once Cain is free: the quest log moves on to the reward (Cain is then in the camp).
     public bool IsDone(Bot bot) =>
@@ -177,7 +178,11 @@ internal sealed class QuestRunner(Bot bot)
     // The wilderness each act levels in, nearest the town first.
     private static readonly Dictionary<ActId, AreaId[]> LevellingAreas = new()
     {
-        [ActId.Act1] = [AreaId.BloodMoor, AreaId.ColdPlains, AreaId.StonyField],
+        [ActId.Act1] =
+        [
+            AreaId.BloodMoor, AreaId.ColdPlains, AreaId.BurialGrounds, AreaId.StonyField, AreaId.UndergroundPassageLevel1,
+            AreaId.DarkWood, AreaId.BlackMarsh, AreaId.TamoeHighland,
+        ],
     };
 
     // The level a character needs before it levels in each area (the Blood Moor's monsters are the weakest).
@@ -185,7 +190,12 @@ internal sealed class QuestRunner(Bot bot)
     {
         [AreaId.BloodMoor] = 1,
         [AreaId.ColdPlains] = 6,
+        [AreaId.BurialGrounds] = 8,
         [AreaId.StonyField] = 9,
+        [AreaId.UndergroundPassageLevel1] = 10,
+        [AreaId.DarkWood] = 13,
+        [AreaId.BlackMarsh] = 15,
+        [AreaId.TamoeHighland] = 17,
     };
 
     // The areas explored in this game: their monsters stay dead until a new game. (The map seed does not tell games
@@ -213,8 +223,19 @@ internal sealed class QuestRunner(Bot bot)
                 continue;
             }
             var area = fresh[^1];
-            bot.TravelTo(area);
-            bot.ExploreLevel(until: () => bot.Player().Level >= level);
+            try
+            {
+                bot.TravelTo(area);
+                bot.ExploreLevel(until: () => bot.Player().Level >= level);
+            }
+            catch (TooDangerous danger)
+            {
+                // Out by portal, and the area is done for this game.
+                bot.Retreat(danger.Message);
+                _explored.Add(area);
+                continue;
+            }
+
             if (bot.Player().Level < level)
                 _explored.Add(area);
             CharacterBuild.SpendPoints(bot, ui);
@@ -286,6 +307,17 @@ internal sealed class QuestRunner(Bot bot)
                 catch (Stuck stuck)
                 {
                     Bot.Log($"{stuck.Message} (retreating) Trying again.");
+                }
+            }
+            catch (TooDangerous danger)
+            {
+                try
+                {
+                    bot.Retreat(danger.Message);
+                }
+                catch (Died retreatDeath)
+                {
+                    died = retreatDeath;
                 }
             }
             catch (Died death)
