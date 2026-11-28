@@ -250,7 +250,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             {
                 Thread.Sleep(500);
                 player = Player();
-                Log($"Waypoints: {string.Join(", ", player.AvailableWaypoints)}.");
+                var raw = reader.Process.ReadBytes(unchecked(reader.Process.ModuleBaseAddress + 0x1D705F0), 0x48);
+                Log($"Waypoints: {string.Join(", ", player.AvailableWaypoints)}; raw {Convert.ToHexString(raw)}.");
                 ClosePanels();
             }
         }
