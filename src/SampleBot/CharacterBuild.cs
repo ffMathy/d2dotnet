@@ -14,15 +14,15 @@ internal sealed record CharacterBuild(
     /// <summary>The builds per class; the other classes come when they are played.</summary>
     public static IReadOnlyDictionary<CharacterClass, CharacterBuild> ByClass { get; } = new Dictionary<CharacterClass, CharacterBuild>
     {
-        // A fire Sorceress with Teleport: Fire Bolt early, Fire Ball from level 12, Meteor from 24, then Fire Mastery.
+        // A fire Sorceress with Teleport: Fire Bolt early, Fire Ball as soon as it can be had (level 12), Meteor from 24, then Fire Mastery.
         [CharacterClass.Sorceress] = new(
             Stats: [(StatId.Strength, 35)],
             RestOfTheStats: StatId.Vitality,
             Skills:
             [
                 (SkillId.FireBolt, 4), (SkillId.Warmth, 1), (SkillId.FrozenArmor, 1), (SkillId.FireBolt, 7),
-                (SkillId.Inferno, 1), (SkillId.Telekinesis, 1), (SkillId.FireBolt, 10),
-                (SkillId.FireBall, 1), (SkillId.Blaze, 1), (SkillId.FireBall, 8),
+                (SkillId.Inferno, 1), (SkillId.Telekinesis, 1),
+                (SkillId.FireBall, 1), (SkillId.Blaze, 1), (SkillId.FireBall, 8), (SkillId.FireBolt, 10),
                 (SkillId.Teleport, 1), (SkillId.FireWall, 1), (SkillId.FireBall, 16),
                 (SkillId.Meteor, 1), (SkillId.FireBall, 20), (SkillId.Meteor, 20), (SkillId.FireMastery, 20),
                 (SkillId.Warmth, 20),
