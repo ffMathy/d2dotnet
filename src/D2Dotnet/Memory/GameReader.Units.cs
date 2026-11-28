@@ -64,6 +64,11 @@ public sealed partial class GameReader
                 var id = new UnitId(BinaryPrimitives.ReadUInt32LittleEndian(data[0x08..]));
                 var unitData = (nuint)BinaryPrimitives.ReadUInt64LittleEndian(data[0x10..]);
                 var typeFlag = Process.ReadByte(unitData + 0x1A);
+                // The unique modifiers (monumod.txt ids, 0 ending the list) after the type flag, the last animation
+                // mode and a word: +0x20 with D2R's 8-byte stats pointer (classic +0x1C). To be checked against known
+                // super uniques (Bishibosh: 8 magic resistant, 9 fire enchanted).
+                var modBytes = Process.ReadBytes(unitData + 0x20, 10);
+                var mods = modBytes.TakeWhile(b => b != 0).Select(b => (int)b).ToArray();
                 // Dying (mode 0) or dead (12). d2go read a flag at +0x1A6, which Reign of the Warlock no longer sets for
                 // dead monsters (observed in a running game: every corpse in mode 12, the byte 0).
                 var isCorpse = BinaryPrimitives.ReadUInt32LittleEndian(data[0x0C..]) is MonsterModeDeath or MonsterModeDead;
@@ -83,6 +88,7 @@ public sealed partial class GameReader
                     Id = id,
                     Class = monsterClass,
                     Type = MonsterTypeOf(typeFlag),
+                    Mods = mods,
                     Position = position,
                     IsHovered = hover is { } h && h.Is(UnitType.Monster, id),
                     Stats = stats,

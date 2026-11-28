@@ -60,6 +60,13 @@ public sealed record Monster
     /// <summary>Normal or one of the elite kinds.</summary>
     public MonsterType Type { get; init; }
 
+    /// <summary>
+    /// The unique modifiers of a unique, super unique or champion (monumod.txt ids: 8 magic resistant, 9 fire
+    /// enchanted, 17 lightning enchanted, 18 cold enchanted...); empty for others. Read from the monster data; the
+    /// place is inferred from the classic layout, so check it against known monsters before relying on it.
+    /// </summary>
+    public IReadOnlyList<int> Mods { get; init; } = [];
+
     /// <summary>The position, in world subtiles.</summary>
     public Point Position { get; init; }
 

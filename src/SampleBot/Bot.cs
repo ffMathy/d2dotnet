@@ -750,7 +750,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         // Bosses, uniques, champions and summoners are pictured: the start, every 5 seconds, and the end.
         var notable = first is not null && (first.Type is not (MonsterType.Normal or MonsterType.Minion) || IsSummoner(first));
         if (notable)
+        {
             Proof($"fighting {name}");
+            Log($"{name} {id.Value} is {first!.Type}, mods [{string.Join(", ", first.Mods)}].");
+        }
         var nextPicture = DateTime.UtcNow.AddSeconds(5);
         string outcome;
         while (true)
