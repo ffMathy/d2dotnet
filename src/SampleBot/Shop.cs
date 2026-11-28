@@ -184,14 +184,15 @@ internal static class Shop
         var inventory = bot.Reader.ReadInventory();
         var room = inventory.Belt.Rows * 4 - inventory.Belt.Items.Count;
         var carried = inventory.Items.Where(i => i.Location == ItemLocation.Inventory).ToList();
-        // Rich enough (gold and stash together), twice the spares: a fight can empty the belt within minutes.
-        var target = inventory.Gold + inventory.StashGold.Sum() >= 5000 ? 2 * SpareHealing : SpareHealing;
-        var spare = TownChores.FreeCellsOf(carried) < 8 ? 0 : Math.Max(0, target - carried.Count(i => i.IsHealingPotion));
+        // With 1000 gold (gold and stash together; a potion costs tens), twice the spares: a fight in the Countess's
+        // cellars empties the belt within minutes.
+        var target = inventory.Gold + inventory.StashGold.Sum() >= 1000 ? 2 * SpareHealing : SpareHealing;
+        var spare = TownChores.FreeCellsOf(carried) < 6 ? 0 : Math.Max(0, Math.Min(target, TownChores.FreeCellsOf(carried) - 4) - carried.Count(i => i.IsHealingPotion));
         return (Math.Max(0, room), spare);
     }
 
     // How many healing potions to carry in the inventory besides the belt.
-    private const int SpareHealing = 4;
+    private const int SpareHealing = 6;
 
     private static List<Item> Carried(Bot bot) => bot.Reader.ReadInventory().Items.Where(i => i.Location == ItemLocation.Inventory).ToList();
 
