@@ -21,6 +21,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     public const int StepLength = 10; // subtiles between the points the bot moves to
 
     private DateTime _lastPotion = DateTime.MinValue;
+    // The last healing (or mana) potion and the life (mana) then: a potion heals over several seconds, so another waits.
+    private DateTime _lastHealing = DateTime.MinValue, _lastMana = DateTime.MinValue;
+    private int _lifeAtHealing;
     private bool _retreating;
     private GeneratedAct? _act;
     private KeyBindings? _keys;
@@ -1516,6 +1519,16 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         PotionType? need = life < 45 ? PotionType.Rejuvenation : life < 70 ? PotionType.Healing : mana < 30 ? PotionType.Mana : null;
         if (need is null)
             return;
+        // A healing potion heals over about 7 seconds: another only once it has done its work, or when life still drops
+        // (10 points below where it was drunk). The same for mana.
+        if (need == PotionType.Healing && DateTime.UtcNow - _lastHealing < TimeSpan.FromSeconds(5) && life > _lifeAtHealing - 10)
+            return;
+        if (need == PotionType.Mana && DateTime.UtcNow - _lastMana < TimeSpan.FromSeconds(5))
+            return;
+        if (need == PotionType.Healing)
+            (_lastHealing, _lifeAtHealing) = (DateTime.UtcNow, life);
+        else if (need == PotionType.Mana)
+            _lastMana = DateTime.UtcNow;
         // Out of mana with nothing to drink for it: a caster cannot fight. With no monster near, mana comes back on its
         // own (wait for it); with monsters within 10 subtiles, back to town (the healer restores mana).
         if (need == PotionType.Mana && belt.FindPotion(PotionType.Mana) is null && belt.FindPotion(PotionType.Rejuvenation) is null
