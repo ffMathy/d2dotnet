@@ -581,7 +581,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             var player = Player();
             var grid = GridHere();
             var enemies = Enemies(player.Position, range + SummonerReach)
-                .Where(m => !skipped.Contains(m.Id) && !GivenUp(m.Id) && (Distance(player.Position, m.Position) <= range || IsSummoner(m)))
+                .Where(m => !skipped.Contains(m.Id) && !GivenUp(m.Id) && !IsImmune(player, m) && (Distance(player.Position, m.Position) <= range || IsSummoner(m)))
                 .ToList();
             var target = enemies
                 .OrderBy(m => IsSummoner(m) ? 0 : 1)
@@ -612,6 +612,13 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     private readonly Dictionary<UnitId, DateTime> _givenUp = [];
 
     private bool GivenUp(UnitId id) => _givenUp.TryGetValue(id, out var until) && DateTime.UtcNow < until;
+
+    /// <summary>
+    /// True when the monster resists the attack the character would make now so much (95% or more, such as
+    /// Bishibosh against Fire Bolt: fire enchanted and magic resistant) that fighting it is a waste.
+    /// </summary>
+    public bool IsImmune(MainPlayer player, Monster monster) =>
+        Combat.ResistanceAgainst(this, player) is { } resistance && (monster.GetStat(resistance) ?? 0) >= 95;
 
     // How much further than the fight range summoners are gone for.
     private const int SummonerReach = 10;
@@ -704,10 +711,16 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 break;
             }
 
+            if (IsImmune(player, monster))
+            {
+                outcome = $"immune ({Combat.ResistanceAgainst(this, player)} {monster.GetStat(Combat.ResistanceAgainst(this, player)!.Value)})";
+                break;
+            }
+
             // A summoner come into reach goes first (FightNearby picks it next).
             var grid = GridHere();
             if (!IsSummoner(monster)
-                && Enemies(player.Position, FightRange + SummonerReach).Any(m => IsSummoner(m) && !GivenUp(m.Id) && grid.IsLineClear(player.Position, m.Position, MissileHalfWidth)))
+                && Enemies(player.Position, FightRange + SummonerReach).Any(m => IsSummoner(m) && !GivenUp(m.Id) && !IsImmune(player, m) && grid.IsLineClear(player.Position, m.Position, MissileHalfWidth)))
             {
                 outcome = "left for a summoner";
                 break;
@@ -773,7 +786,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 var others = Enemies(player.Position, 40).ToList();
                 Log($"{castsWithoutDamage} attacks did not hurt {name}: moving closer. It is {Distance(player.Position, monster.Position):F1} away at {monster.Position} (me {player.Position}), " +
                     $"line {(grid.IsLineClear(player.Position, monster.Position, MissileHalfWidth) ? "clear" : "blocked")}, in the way {InTheWay(player.Position, monster, others)?.Class.ToString() ?? "nothing"}, " +
-                    $"close {string.Join("/", Enemies(player.Position, 3).Select(m => m.Class))}, mana {player.GetStat(StatId.Mana)}, right skill {player.RightSkill}.");
+                    $"close {string.Join("/", Enemies(player.Position, 3).Select(m => m.Class))}, mana {player.GetStat(StatId.Mana)}, right skill {player.RightSkill}, " +
+                    $"resistances fire {monster.GetStat(StatId.FireResist)} cold {monster.GetStat(StatId.ColdResist)} lightning {monster.GetStat(StatId.LightningResist)}, type {monster.Type}.");
                 castsWithoutDamage = 0;
                 MoveTo(closer[Math.Min(6, closer.Count - 2)]);
                 continue;

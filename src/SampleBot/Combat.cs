@@ -11,6 +11,12 @@ internal interface ICombat
     /// so a monster in between takes the hit; false for area and piercing skills (Blizzard, Meteor, Lightning...).
     /// </summary>
     bool StopsAtFirstHit(Bot bot, MainPlayer player);
+
+    /// <summary>
+    /// The resistance stat against the attack it would make now (fire for Fire Bolt...), or null for a physical
+    /// attack. A monster with 100 or more there is immune to it.
+    /// </summary>
+    StatId? ResistanceAgainst(Bot bot, MainPlayer player);
 }
 
 /// <summary>
@@ -41,6 +47,18 @@ internal sealed class ClassCombat : ICombat
     [
         SkillId.FrozenOrb, SkillId.Blizzard, SkillId.Meteor, SkillId.ChainLightning, SkillId.Lightning,
     ];
+
+    // The element of each attack skill, by the resistance that stops it.
+    private static readonly Dictionary<SkillId, StatId> Elements = new()
+    {
+        [SkillId.FireBolt] = StatId.FireResist, [SkillId.FireBall] = StatId.FireResist, [SkillId.Meteor] = StatId.FireResist,
+        [SkillId.IceBolt] = StatId.ColdResist, [SkillId.IceBlast] = StatId.ColdResist, [SkillId.GlacialSpike] = StatId.ColdResist,
+        [SkillId.Blizzard] = StatId.ColdResist, [SkillId.FrozenOrb] = StatId.ColdResist,
+        [SkillId.ChargedBolt] = StatId.LightningResist, [SkillId.Lightning] = StatId.LightningResist, [SkillId.ChainLightning] = StatId.LightningResist,
+    };
+
+    public StatId? ResistanceAgainst(Bot bot, MainPlayer player) =>
+        Choose(bot, player) is { } skill && Elements.TryGetValue(skill, out var element) ? element : null;
 
     public bool StopsAtFirstHit(Bot bot, MainPlayer player) => Choose(bot, player) is not { } skill || !PassOver.Contains(skill);
 
