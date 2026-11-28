@@ -401,12 +401,15 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
                 RefillBeltWhenQuiet();
             }
 
+            // A click can take a portal or stairs on the way (a town portal left standing): the walk is over.
+            if (grid.LevelAt(Player().Position) is null)
+                return;
             Step = $"walking to {target} (finding the path)";
 
             // Not fighting (a retreat): keep away from the monsters where the map leaves room.
             var dangers = fight ? [] : Enemies(Player().Position, 40).Select(m => m.Position).ToList();
             var path = (dangers.Count > 0 ? grid.FindPath(Player().Position, target, p => Danger(p, dangers)) : grid.FindPath(Player().Position, target))
-                ?? throw new BotStopped($"No path from {Player().Position} to {target}.");
+                ?? throw new Stuck($"No path from {Player().Position} to {target}.");
             // An unwalkable target (in a wall, past the stairs) gets a path to the nearest walkable subtile: when that
             // ends where the character stands, it is as close as it gets (else this loops for ever, never "stuck").
             if (Distance(path[^1], Player().Position) <= 3)
