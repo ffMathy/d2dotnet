@@ -64,7 +64,17 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             throw new BotStopped("End pressed.");
         var player = reader.ReadMainPlayer() ?? throw new BotStopped("Not in a game any more.");
         if (!_respawning && (player.GetStat(StatId.Life) ?? 0) == 0) // a dead character has no life stat left, or 0
+        {
+            Proof("died");
             throw new Died(player.Area, player.Position);
+        }
+
+        if (player.Area != _lastArea)
+        {
+            _lastArea = player.Area;
+            Proof($"arrived in {player.Area}");
+        }
+
         return player;
     }
 
@@ -629,10 +639,22 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var lastLife = int.MaxValue;
         var startMana = Player().GetStat(StatId.Mana) ?? 0;
         int? startLife = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.LifePercent;
-        var name = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.Class.ToString() ?? "?";
+        var first = reader.ReadMonsters().FirstOrDefault(m => m.Id == id);
+        var name = first?.Class.ToString() ?? "?";
+        // Bosses, uniques, champions and summoners are pictured: the start, every 5 seconds, and the end.
+        var notable = first is not null && (first.Type is not (MonsterType.Normal or MonsterType.Minion) || IsSummoner(first));
+        if (notable)
+            Proof($"fighting {name}");
+        var nextPicture = DateTime.UtcNow.AddSeconds(5);
         string outcome;
         while (true)
         {
+            if (notable && DateTime.UtcNow >= nextPicture)
+            {
+                Proof($"fighting {name}", log: false);
+                nextPicture = DateTime.UtcNow.AddSeconds(5);
+            }
+
             if (DateTime.UtcNow >= deadline)
             {
                 outcome = "gave up";
@@ -709,6 +731,8 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var endLife = reader.ReadMonsters().FirstOrDefault(m => m.Id == id)?.LifePercent ?? 0;
         if (outcome == "gave up")
             Screenshot($"gave up on {name}");
+        if (notable)
+            Proof($"{name} {outcome}");
         Log($"{name} {id.Value}: {outcome} after {(DateTime.UtcNow - started).TotalSeconds:F1} s, {attacks} attacks, " +
             $"mana {startMana} -> {Player().GetStat(StatId.Mana)}, its life {startLife}% -> {(outcome == "killed" ? 0 : endLife)}%.");
     }
@@ -1097,16 +1121,82 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// <paramref name="reason"/>, and logs where; for seeing afterwards what went wrong. Returns the path, or null when
     /// the picture could not be taken.
     /// </summary>
-    public string? Screenshot(string reason)
+    public string? Screenshot(string reason) => Save(ScreenshotFolder, $"{DateTime.Now:yyyyMMdd-HHmmss}", reason, log: true);
+
+    private static readonly string ScreenshotFolder =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "D2Dotnet", "screenshots");
+
+    // ---- The screenshot trail ----
+
+    /// <summary>The folder of this run's screenshot trail, or null when there is none (see <see cref="StartTrail"/>).</summary>
+    public string? TrailFolder { get; private set; }
+
+    private int _trailCount;
+    private Timer? _trailTimer;
+
+    /// <summary>
+    /// Starts a trail of screenshots for this run, as proof of what happened: one every <paramref name="seconds"/>, and
+    /// one at each moment <see cref="Proof"/> is called (a boss found and killed, a quest done, a death...). They go in a
+    /// folder of their own under screenshots/trail, numbered in order; trails older than two days are deleted.
+    /// </summary>
+    public void StartTrail(int seconds)
+    {
+        var root = Path.Combine(ScreenshotFolder, "trail");
+        Directory.CreateDirectory(root);
+        foreach (var old in new DirectoryInfo(root).GetDirectories().Where(d => d.CreationTimeUtc < DateTime.UtcNow.AddDays(-2)))
+        {
+            try
+            {
+                old.Delete(recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+
+        TrailFolder = Path.Combine(root, $"{DateTime.Now:yyyyMMdd-HHmmss}");
+        Directory.CreateDirectory(TrailFolder);
+        Log($"Screenshot trail: {TrailFolder} (every {seconds} s and at each key moment).");
+        _trailTimer = new Timer(_ => Proof("", log: false), null, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(seconds));
+    }
+
+    /// <summary>A screenshot in the trail, named after the moment (nothing when no trail is running).</summary>
+    public void Proof(string moment, bool log = true)
+    {
+        if (TrailFolder is not { } folder)
+            return;
+        var number = Interlocked.Increment(ref _trailCount);
+        var area = _lastArea is { } a ? a.ToString() : "";
+        Save(folder, $"{number:D4}-{DateTime.Now:HHmmss}-{area}", moment, log);
+    }
+
+    /// <summary>Opens the quest log, pictures it in the trail (or as a plain screenshot without one), and closes it: proof of a quest's state.</summary>
+    public void ProofQuestLog(string moment)
+    {
+        ClosePanels();
+        Press(Keys.QuestLog);
+        Thread.Sleep(700);
+        if (TrailFolder is null)
+            Screenshot(moment);
+        else
+            Proof(moment);
+        ClosePanels();
+    }
+
+    private AreaId? _lastArea;
+    private readonly object _captureLock = new();
+
+    private string? Save(string folder, string prefix, string reason, bool log)
     {
         try
         {
-            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "D2Dotnet", "screenshots");
             Directory.CreateDirectory(folder);
             var name = string.Concat(reason.Select(c => char.IsLetterOrDigit(c) ? c : '-')).Trim('-');
-            var path = Path.Combine(folder, $"{DateTime.Now:yyyyMMdd-HHmmss}-{name[..Math.Min(name.Length, 60)]}.png");
-            GameScreen.Capture(window.Handle).SavePng(path);
-            Log($"Screenshot: {path}");
+            var path = Path.Combine(folder, name.Length == 0 ? $"{prefix}.png" : $"{prefix}-{name[..Math.Min(name.Length, 60)]}.png");
+            lock (_captureLock)
+                GameScreen.Capture(window.Handle).SavePng(path);
+            if (log)
+                Log($"Screenshot: {path}");
             return path;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)

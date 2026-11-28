@@ -27,7 +27,9 @@ var newGame = args.Contains("--new-game");
 var screenshot = args.Contains("--screenshot");
 var town = args.Contains("--town");
 var walls = args.Contains("--walls");
-args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points" or "--probe-trade" or "--new-game" or "--screenshot" or "--town" or "--walls"))];
+var trail = args.Contains("--trail");
+var questLog = args.Contains("--quest-log");
+args = [.. args.Where(a => a is not ("--plan" or "--foreground" or "--check-input" or "--spend-points" or "--probe-trade" or "--new-game" or "--screenshot" or "--town" or "--walls" or "--trail" or "--quest-log"))];
 var installPath = args.Length > 0 ? args[0] : @"C:\Program Files (x86)\Diablo II Resurrected";
 using var game = GameInstall.Open(installPath);
 
@@ -52,6 +54,8 @@ var window = GameWindow.Of(process.ProcessId);
 IGameInput input = foreground ? new ForegroundInput() : new BackgroundInput(window);
 var bot = new Bot(reader, game.Data, game.Maps, window, input);
 var quests = new QuestRunner(bot);
+if (trail)
+    bot.StartTrail(seconds: 3);
 
 if (walls)
 {
@@ -83,6 +87,12 @@ if (walls)
     return 0;
 }
 
+if (questLog)
+{
+    bot.ProofQuestLog("quest log");
+    return 0;
+}
+
 if (screenshot)
 {
     return bot.Screenshot("requested") is null ? 1 : 0;
@@ -94,6 +104,7 @@ if (planOnly)
     Console.WriteLine($"{player.Name} ({player.Class}, level {player.Level}) in {player.Area}; seed 0x{context.Seed:X8}, {context.Difficulty}.");
     foreach (var quest in QuestRunner.Quests)
         Console.WriteLine($"  {quest.Id}: {(quest.IsDone(bot) ? "done" : "to do")} ({reader.ReadQuests().GetValueOrDefault(quest.Id)})");
+    Console.WriteLine("  Quest log (every quest with a status): " + string.Join(", ", reader.ReadQuests().Where(q => q.Value != 0).Select(q => $"{q.Key}={q.Value}")));
     Console.WriteLine(quests.Next() is { } next ? $"Next: {next.Id}." : "Every quest the bot knows is done.");
     return 0;
 }

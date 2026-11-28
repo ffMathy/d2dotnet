@@ -17,9 +17,10 @@ internal interface IQuest
 
 /// <summary>
 /// A quest whose goal is to clear a level (the Den of Evil) or to kill one monster in it (Blood Raven in the Burial
-/// Grounds): travel there, and explore the level until the goal is met.
+/// Grounds): travel there, explore the level until the goal is met, and go back to the quest giver, whose talk moves the
+/// quest log on (the game shows a kill in the log only after that, or after a new game).
 /// </summary>
-internal sealed class ClearAreaQuest(QuestId id, AreaId area, int minimumLevel, MonsterId? boss = null) : IQuest
+internal sealed class ClearAreaQuest(QuestId id, AreaId area, int minimumLevel, MonsterId giver, MonsterId? boss = null) : IQuest
 {
     public QuestId Id => id;
 
@@ -42,6 +43,7 @@ internal sealed class ClearAreaQuest(QuestId id, AreaId area, int minimumLevel, 
             if (bot.Reader.ReadMonsters().FirstOrDefault(m => m.Class == target && m.IsEnemy) is { } found)
             {
                 Bot.Log($"{target} found.");
+                bot.Proof($"{target} found");
                 bot.Fight(found.Id, seconds: 120);
             }
         }
@@ -50,7 +52,16 @@ internal sealed class ClearAreaQuest(QuestId id, AreaId area, int minimumLevel, 
             bot.ExploreLevel();
         }
 
-        Bot.Log(IsDone(bot) ? $"{id}: the goal is met." : $"{id}: explored {area}, but the quest log has not moved on.");
+        if (!IsDone(bot))
+        {
+            Bot.Log($"{id}: explored {area}; back to {giver} for the quest log.");
+            bot.TravelTo(bot.Town, fight: true);
+            bot.TalkTo(giver, speech: 6);
+            bot.Proof($"talked to {giver}");
+        }
+
+        Bot.Log(IsDone(bot) ? $"{id}: the goal is met." : $"{id}: the quest log has not moved on.");
+        bot.Proof(IsDone(bot) ? $"{id} goal met" : $"{id} not done");
     }
 }
 
@@ -157,8 +168,8 @@ internal sealed class QuestRunner(Bot bot)
 
     public static IReadOnlyList<IQuest> Quests { get; } =
     [
-        new ClearAreaQuest(QuestId.Act1DenOfEvil, AreaId.DenOfEvil, minimumLevel: 3),
-        new ClearAreaQuest(QuestId.Act1SistersBurialGrounds, AreaId.BurialGrounds, minimumLevel: 7, MonsterId.BloodRaven),
+        new ClearAreaQuest(QuestId.Act1DenOfEvil, AreaId.DenOfEvil, minimumLevel: 3, MonsterId.Akara),
+        new ClearAreaQuest(QuestId.Act1SistersBurialGrounds, AreaId.BurialGrounds, minimumLevel: 7, MonsterId.Kashya, MonsterId.BloodRaven),
         new SearchForCainQuest(),
     ];
 
@@ -251,7 +262,12 @@ internal sealed class QuestRunner(Bot bot)
                 if (bot.Player().Level < quest.MinimumLevel)
                     LevelUp(quest.MinimumLevel);
                 else
+                {
+                    bot.Proof($"{quest.Id} start");
                     quest.Run(bot);
+                    if (quest.IsDone(bot))
+                        bot.ProofQuestLog($"{quest.Id} done");
+                }
             }
             catch (LowLife low)
             {
