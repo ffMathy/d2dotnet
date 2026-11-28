@@ -256,6 +256,7 @@ internal sealed class QuestRunner(Bot bot)
                     bot.Retreat($"Life is at {hurt.LifePercent}%.");
                 bot.HealInTown();
                 CharacterBuild.SpendPoints(bot, ui);
+                SkillBinder.Bind(bot, ClassCombat.AttackSkillsOf(bot.Player().Class));
                 if (bot.Player().Area == bot.Town)
                     new TownChores(bot, ui, bot.Items).Run();
                 if (bot.Player().Level < quest.MinimumLevel)

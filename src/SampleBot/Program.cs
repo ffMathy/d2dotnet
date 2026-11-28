@@ -105,6 +105,20 @@ if (args.Contains("--ui-flags") || Environment.GetEnvironmentVariable("D2_UI_FLA
     return 0;
 }
 
+if (Environment.GetEnvironmentVariable("D2_BIND") == "1")
+{
+    SkillBinder.Bind(bot, ClassCombat.AttackSkillsOf(reader.ReadMainPlayer()!.Class));
+}
+
+if (Environment.GetEnvironmentVariable("D2_KEYS") == "1" || Environment.GetEnvironmentVariable("D2_BIND") == "1")
+{
+    // The skills bound to keys, and the skills the character has.
+    foreach (var binding in bot.Keys.Skills.Where(b => b.Skill != SkillId.None))
+        Console.WriteLine($"  {binding.Skill} on {binding.Keys.Primary}/{binding.Keys.Secondary}");
+    Console.WriteLine("Skills: " + string.Join(", ", reader.ReadMainPlayer()!.Skills.Select(s => $"{s.Key} {s.Value.Level}")));
+    return 0;
+}
+
 if (questLog)
 {
     bot.ProofQuestLog("quest log");

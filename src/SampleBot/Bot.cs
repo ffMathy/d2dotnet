@@ -41,6 +41,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// <summary>The key bindings, read once.</summary>
     public KeyBindings Keys => _keys ??= reader.ReadKeyBindings();
 
+    /// <summary>Reads the key bindings again (after binding skills).</summary>
+    public void RefreshKeys() => _keys = null;
+
     /// <summary>The generated map of the act the player is in, generated again when the act or the game changes.</summary>
     public GeneratedAct Act
     {
@@ -617,8 +620,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     /// True when the monster resists the attack the character would make now so much (95% or more, such as
     /// Bishibosh against Fire Bolt: fire enchanted and magic resistant) that fighting it is a waste.
     /// </summary>
-    public bool IsImmune(MainPlayer player, Monster monster) =>
-        Combat.ResistanceAgainst(this, player) is { } resistance && Resistance(monster, resistance) >= 95;
+    public bool IsImmune(MainPlayer player, Monster monster) => !Combat.CanHurt(this, player, monster);
 
     /// <summary>
     /// A monster's resistance: its class's for the difficulty (monstats.txt), with a super unique's modifiers (magic
@@ -739,7 +741,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
             if (IsImmune(player, monster))
             {
-                outcome = $"immune ({Combat.ResistanceAgainst(this, player)} {Resistance(monster, Combat.ResistanceAgainst(this, player)!.Value)})";
+                outcome = "immune to every attack";
                 break;
             }
 
@@ -806,7 +808,13 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
             // Casts that do nothing: something the map does not show is in the way (a low stone wall, a fence end).
             // Walk a few steps towards the monster and try again from there.
             if ((monster.LifePercent ?? 100) < lastLife)
+            {
                 (lastLife, castsWithoutDamage) = (monster.LifePercent ?? 100, 0);
+                // Hurting it: keep at it a while longer (up to a minute and a half in all), not give up at 5%.
+                var later = DateTime.UtcNow.AddSeconds(6);
+                if (later > deadline && later < started.AddSeconds(90))
+                    deadline = later;
+            }
             else if (castsWithoutDamage >= 8 && grid.FindPath(player.Position, monster.Position) is { Count: > 3 } closer)
             {
                 var others = Enemies(player.Position, 40).ToList();

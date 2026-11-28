@@ -17,6 +17,9 @@ internal interface ICombat
     /// attack. A monster with 100 or more there is immune to it.
     /// </summary>
     StatId? ResistanceAgainst(Bot bot, MainPlayer player);
+
+    /// <summary>True when one of the character's attacks can hurt the monster.</summary>
+    bool CanHurt(Bot bot, MainPlayer player, Monster target);
 }
 
 /// <summary>
@@ -42,6 +45,10 @@ internal sealed class ClassCombat : ICombat
 
     private SkillId? _selected;
 
+    /// <summary>The attack skills of the class, strongest first (none for a class without a table yet).</summary>
+    public static IReadOnlyList<SkillId> AttackSkillsOf(CharacterClass characterClass) =>
+        AttackSkills.TryGetValue(characterClass, out var table) ? table : [];
+
     // Skills that land where they are aimed, go through monsters or jump between them.
     private static readonly HashSet<SkillId> PassOver =
     [
@@ -64,7 +71,7 @@ internal sealed class ClassCombat : ICombat
 
     public void Attack(Bot bot, MainPlayer player, Monster target)
     {
-        var skill = Choose(bot, player);
+        var skill = Choose(bot, player, target);
         bot.Aim(player.Position, target.Position, bot.Window.AimHeight);
         if (skill is { } chosen)
         {
@@ -85,16 +92,24 @@ internal sealed class ClassCombat : ICombat
         Thread.Sleep(250);
     }
 
-    // The best attack skill that can be cast now, or null for the left skill.
-    private SkillId? Choose(Bot bot, MainPlayer player)
+    // The attack skill to use now: of the class's skills that can be cast and selected (the right skill already, or
+    // on a key), those the target does not resist almost fully; the one with the most points (then the table's
+    // order, strongest first). Null for the left skill.
+    private SkillId? Choose(Bot bot, MainPlayer player, Monster? target = null)
     {
         if (AttackSkills.TryGetValue(player.Class, out var table))
         {
-            foreach (var skill in table)
-            {
-                if (bot.CanCast(player, skill) && (player.RightSkill == skill || KeyFor(bot, skill) is not null))
-                    return skill;
-            }
+            var usable = table
+                .Select((skill, order) => (Skill: skill, Order: order))
+                .Where(s => bot.CanCast(player, s.Skill) && (player.RightSkill == s.Skill || KeyFor(bot, s.Skill) is not null))
+                .Where(s => target is null || !Elements.TryGetValue(s.Skill, out var element) || bot.Resistance(target, element) < 95)
+                .OrderByDescending(s => player.Skills.TryGetValue(s.Skill, out var points) ? points.Level : 0)
+                .ThenBy(s => s.Order)
+                .ToList();
+            if (usable.Count > 0)
+                return usable[0].Skill;
+            if (target is not null && table.Any(s => player.Skills.ContainsKey(s)))
+                return null; // every attack skill the character has is resisted: the left skill
         }
 
         // No table for the class, or nothing of it usable: the right skill when it is an attack that can be paid for.
@@ -102,6 +117,11 @@ internal sealed class ClassCombat : ICombat
             ? player.RightSkill
             : null;
     }
+
+    /// <summary>True when one of the class's attack skills can hurt the monster (it does not resist it almost fully).</summary>
+    public bool CanHurt(Bot bot, MainPlayer player, Monster target) =>
+        !AttackSkills.TryGetValue(player.Class, out var table)
+        || table.Where(s => player.Skills.ContainsKey(s)).Any(s => !Elements.TryGetValue(s, out var element) || bot.Resistance(target, element) < 95);
 
     private static int? KeyFor(Bot bot, SkillId skill) =>
         bot.Keys.Skills.FirstOrDefault(b => b.Skill == skill) is { Skill: not SkillId.None } binding ? Bot.KeyOf(binding.Keys) : null;
