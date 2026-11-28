@@ -181,7 +181,7 @@ internal sealed class QuestRunner(Bot bot)
         [ActId.Act1] =
         [
             AreaId.BloodMoor, AreaId.ColdPlains, AreaId.BurialGrounds, AreaId.StonyField, AreaId.UndergroundPassageLevel1,
-            AreaId.DarkWood, AreaId.BlackMarsh, AreaId.TamoeHighland,
+            AreaId.DarkWood, AreaId.BlackMarsh, AreaId.HoleLevel1, AreaId.TamoeHighland, AreaId.PitLevel1,
         ],
     };
 
@@ -193,9 +193,12 @@ internal sealed class QuestRunner(Bot bot)
         [AreaId.BurialGrounds] = 8,
         [AreaId.StonyField] = 9,
         [AreaId.UndergroundPassageLevel1] = 10,
-        [AreaId.DarkWood] = 13,
-        [AreaId.BlackMarsh] = 15,
-        [AreaId.TamoeHighland] = 17,
+        // (A level 13 sorceress earned next to nothing in the Stony Field: the harder areas come early.)
+        [AreaId.DarkWood] = 12,
+        [AreaId.BlackMarsh] = 13,
+        [AreaId.HoleLevel1] = 13,
+        [AreaId.TamoeHighland] = 14,
+        [AreaId.PitLevel1] = 15,
     };
 
     // The areas explored in this game: their monsters stay dead until a new game. (The map seed does not tell games
