@@ -393,7 +393,7 @@ internal sealed class QuestRunner(Bot bot)
                 }
 
                 // Hurt out in the field (a stopped run): a new game.
-                if (bot.Player() is { LifePercent: < 40 } hurt && hurt.Area != bot.Town)
+                if (bot.Player() is { LifePercent: < Bot.LeaveBelowLife } hurt && hurt.Area != bot.Town)
                     throw new LowLife($"Life is at {hurt.LifePercent}%.");
                 if (bot.Player().Area == bot.Town)
                     bot.PickUpCorpse(); // a corpse a new game brought to town

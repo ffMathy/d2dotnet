@@ -1608,6 +1608,9 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
 
     // ---- Potions ----
 
+    /// <summary>The life (percent) below which the bot leaves the game when monsters are about.</summary>
+    public const int LeaveBelowLife = 25;
+
     public void DrinkIfNeeded(MainPlayer player)
     {
         if (DateTime.UtcNow - _lastPotion < TimeSpan.FromSeconds(1))
@@ -1616,19 +1619,16 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         var mana = player.ManaPercent ?? 100;
         var belt = reader.ReadInventory().Belt;
 
-        // Close to dying with monsters about: out by town portal now; potions heal too slowly under a pack's blows.
-        // In a crowd the blows come faster than a portal opens: leave earlier.
-        // Below 60% that is when the belt has no healing potion left (drinking from the inventory is slow), a unique or
-        // champion is at arm's length (they hit hard: Spine Brow with a Might aura), or five monsters crowd in.
-        if (!_retreating && !Healers.ContainsKey(player.Area) && TownPortals() > 0 && Enemies(player.Position, 15).ToList() is { Count: > 0 } about)
+        // Close to dying with monsters about: out of the game (see Bot.ExitAndRetry), which is at once, so only at a
+        // quarter of the life.
+        if (!_retreating && !Healers.ContainsKey(player.Area) && Enemies(player.Position, 15).ToList() is { Count: > 0 } about)
         {
             var crowd = about.Count(m => Distance(player.Position, m.Position) <= 10) >= 5;
             var bossClose = about.Any(m => m.Type is MonsterType.Unique or MonsterType.SuperUnique or MonsterType.Champion && Distance(player.Position, m.Position) <= 5);
             // Dry: no healing potion in the belt, and fewer than two in the inventory to drink from.
             var beltDry = belt.FindPotion(PotionType.Healing) is null && belt.FindPotion(PotionType.Rejuvenation) is null
                 && reader.ReadInventory().Items.Count(i => i.Location == ItemLocation.Inventory && (i.IsHealingPotion || i.IsRejuvenationPotion)) < 2;
-            var limit = crowd || bossClose || beltDry ? 60 : 30;
-            if (life < limit)
+            if (life < LeaveBelowLife)
                 throw new LowLife($"Life is at {life}% with {about.Count} monsters about{(bossClose ? ", a boss close" : "")}{(beltDry ? ", the belt dry" : "")}.");
         }
 
@@ -1671,7 +1671,7 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         if (potion is null)
         {
             // In town there is nothing to flee: the healer is the way out.
-            if (life < 40 && !_retreating && !Healers.ContainsKey(player.Area))
+            if (life < LeaveBelowLife && !_retreating && !Healers.ContainsKey(player.Area))
                 throw new LowLife($"Life is at {life}% and the belt has no healing potion left.");
             return;
         }
