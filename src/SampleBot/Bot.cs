@@ -200,10 +200,6 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
     private const int WaypointRowX = 152, WaypointRowY = 264, WaypointRowStep = 123;
 
     /// <summary>
-    /// Takes a waypoint towards <paramref name="area"/> when the player's level has one, the player has the waypoint
-    /// that leaves the fewest levels to walk, and it saves at least two of them. True when it took one.
-    /// </summary>
-    /// <summary>
     /// Activates the waypoint of the level the player is in when it is not activated yet and close by (40 subtiles):
     /// a click on it opens the waypoint menu, which is closed again.
     /// </summary>
@@ -224,6 +220,10 @@ internal sealed class Bot(GameReader reader, GameDatabase data, MapGenerator map
         }
     }
 
+    /// <summary>
+    /// Takes a waypoint towards <paramref name="area"/> when the player's level has one, the player has the waypoint
+    /// that leaves the fewest levels to walk, and it saves at least two of them. True when it took one.
+    /// </summary>
     private bool TakeWaypointTowards(AreaId area)
     {
         var player = Player();
