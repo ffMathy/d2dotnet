@@ -217,6 +217,8 @@ internal sealed class QuestRunner(Bot bot)
             var ready = areas.Where(a => characterLevel >= AreaLevels.GetValueOrDefault(a)).TakeLast(3).ToList();
             var fresh = ready.Where(a => !_explored.Contains(a) && !bot.IsAvoided(a)).ToList();
             if (fresh.Count == 0)
+                fresh = ready.Where(a => !_explored.Contains(a)).ToList(); // only avoided ones left: better than new games
+            if (fresh.Count == 0)
             {
                 // The monsters of every levelling area are dead in this game: a new one brings them back.
                 if (bot.Player().Area != bot.Town)
