@@ -53,8 +53,28 @@ var reader = new GameReader(process, game.Data, OffsetCache.LoadOrScan(process))
 foreach (var missing in reader.Offsets.Missing)
     Console.Error.WriteLine($"warning: the {missing} offset was not found in this game build; what depends on it is unavailable.");
 
+// At the character selection (a run stopped between Save and Exit and Play): into a game first.
+if (reader.ReadMapContext() is null && reader.IsInCharacterSelection() && !reader.IsOnline())
+{
+    var startWindow = GameWindow.Of(process.ProcessId);
+    var starter = new Bot(reader, game.Data, game.Maps, startWindow, foreground ? new ForegroundInput() : new BackgroundInput(startWindow));
+    GameSession.EnterFromCharacterSelection(starter);
+}
+
 if (reader.ReadMapContext() is not { } context)
 {
+    // A picture of what the game shows instead (a menu, an error), for seeing why.
+    var outside = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "D2Dotnet", "screenshots",
+        $"{DateTime.Now:yyyyMMdd-HHmmss}-not-in-a-game.png");
+    try
+    {
+        D2Dotnet.Screen.GameScreen.Capture(process.ProcessId).SavePng(outside);
+        Console.WriteLine($"Screenshot: {outside}");
+    }
+    catch (Exception e) when (e is IOException or InvalidOperationException or System.ComponentModel.Win32Exception)
+    {
+    }
+
     Console.WriteLine("Not in a game: start one with the character first.");
     return 1;
 }

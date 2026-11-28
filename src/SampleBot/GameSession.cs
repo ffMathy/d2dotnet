@@ -37,6 +37,24 @@ internal static class GameSession
         Bot.Log($"In a new game: seed 0x{bot.Reader.ReadMapContext()!.Value.Seed:X8}.");
     }
 
+    /// <summary>
+    /// From the character selection (a run stopped between Save and Exit and Play): Play, and waits until in the game.
+    /// False when not at the character selection, or online.
+    /// </summary>
+    public static bool EnterFromCharacterSelection(Bot bot)
+    {
+        if (!bot.Reader.IsInCharacterSelection() || bot.Reader.IsOnline())
+            return false;
+        Bot.Log("At the character selection: starting a game.");
+        Play(bot);
+        if (!WaitUntil(() => bot.Reader.IsInGame() && bot.Reader.ReadMapContext() is not null, seconds: 30))
+            return false;
+        WaitUntil(() => !bot.Reader.ReadMenus().LoadingScreen && bot.Reader.ReadMainPlayer() is { Area: not AreaId.None }, seconds: 30);
+        Thread.Sleep(1500);
+        WaitUntil(() => !bot.Reader.ReadMenus().LoadingScreen, seconds: 15);
+        return true;
+    }
+
     private static void SaveAndExit(Bot bot)
     {
         bot.CloseDialog();
